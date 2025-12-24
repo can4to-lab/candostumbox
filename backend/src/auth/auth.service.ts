@@ -1,0 +1,162 @@
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
+import { User } from '../users/entities/user.entity';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private jwtService: JwtService,
+  ) {}
+
+  // 1. MÜŞTERİ KAYDI
+  async signup(data: any) {
+    const { 
+        email, password, name, 
+        firstName: incomingFirstName, 
+        lastName: incomingLastName,
+        phone, gender, userBirthDate, tcKimlikNo,
+        petName, petType, petBirthDate, petWeight, petBreed, petNeutered, petAllergies,
+        addrTitle, addrCity, addrDistrict, addrNeighborhood, addrStreet, addrBuilding, addrFloor, addrApartment
+    } = data;
+
+    // Email kontrolü
+    const existingUser = await this.userRepository.findOne({ where: { email } });
+    if (existingUser) throw new BadRequestException('Bu email kullanımda.');
+
+    // Şifre hashleme
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 👇 DEĞİŞİKLİK 2: İsim Belirleme Mantığı (Hibrit Yapı)
+    // Önce direkt gelen firstName var mı diye bak, yoksa boş string ata
+    let firstName = incomingFirstName || "";
+    let lastName = incomingLastName || "";
+
+    // Eğer firstName gelmediyse AMA 'name' geldiyse (yani tek satır geldiyse), parçala
+    if (!firstName && name) {
+      const parts = name.trim().split(' ');
+      if (parts.length > 1) {
+        lastName = parts.pop();         // Son kelimeyi soyisim yap
+        firstName = parts.join(' ');    // Kalanları isim yap
+      } else {
+        firstName = parts[0];
+      }
+    }
+
+    // Kullanıcı oluşturma (TypeORM)
+    const newUser = this.userRepository.create({
+        email,
+        password: hashedPassword,
+        // Artık firstName doğru geleceği için "İsimsiz" yazmayacak
+        firstName: firstName || "İsimsiz", 
+        lastName: lastName || "",
+        phone,
+        gender,
+        userBirthDate: userBirthDate ? new Date(userBirthDate) : undefined,
+        tcKimlikNo: tcKimlikNo,
+        
+        // İlişkili veriler (User Entity'de cascade: true olmalı)
+        pets: [{
+            name: petName,
+            type: petType,
+            birthDate: petBirthDate ? new Date(petBirthDate) : new Date(),
+            weight: petWeight ? String(petWeight) : "0",
+            breed: petBreed,
+            isNeutered: petNeutered === 'true' || petNeutered === true,
+            allergies: petAllergies ? (typeof petAllergies === 'string' ? petAllergies.split(',') : petAllergies) : [],
+        }],
+        addresses: [{
+            title: addrTitle || "Ev",
+            city: addrCity,
+            district: addrDistrict,
+            neighborhood: addrNeighborhood,
+            street: addrStreet,
+            buildingNo: addrBuilding,
+            floor: addrFloor,
+            apartmentNo: addrApartment,
+            fullAddress: `${addrNeighborhood} Mah. ${addrStreet} Sok. No:${addrBuilding} D:${addrApartment} ${addrDistrict}/${addrCity}`
+        }]
+    });
+
+    try {
+        const savedUser = await this.userRepository.save(newUser);
+
+        // Token oluşturma
+        const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
+        
+        return {
+            message: 'Kayıt başarılı',
+            access_token: this.jwtService.sign(payload),
+            user: {
+                id: savedUser.id,
+                name: `${savedUser.firstName} ${savedUser.lastName}`.trim(),
+                email: savedUser.email
+            }
+        };
+    } catch (error) {
+        console.error("Kayıt Hatası:", error);
+        throw new BadRequestException('Kayıt oluşturulurken bir hata oluştu.');
+    }
+  }
+
+  // 2. MÜŞTERİ GİRİŞİ
+  async login(data: { email: string; password: string }) {
+    const { email, password } = data;
+    const user = await this.userRepository.findOne({ where: { email } });
+    
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedException('Email veya şifre hatalı.');
+    }
+
+    const payload = { sub: user.id, email: user.email, type: 'customer' };
+    return {
+      message: 'Giriş başarılı',
+      access_token: this.jwtService.sign(payload),
+    };
+  }
+
+  // 3. ADMİN GİRİŞİ
+  async adminLogin(data: { email: string; password: string }) {
+    const { email, password } = data;
+    const user = await this.userRepository.findOne({ where: { email } });
+    
+    // Rol kontrolü (Eğer User entity'de role sütunu varsa)
+    // Yoksa sadece şifre kontrolü yapıyoruz şimdilik
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+       throw new UnauthorizedException('Giriş bilgileri hatalı.');
+    }
+
+    const payload = { sub: user.id, email: user.email, type: 'admin' };
+    
+    return {
+      message: 'Admin girişi başarılı',
+      access_token: this.jwtService.sign(payload),
+    };
+  }
+
+  // 4. PROFİL BİLGİLERİNİ GETİR
+  async getProfile(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['pets', 'addresses', 'orders', 'orders.items', 'orders.items.product']
+    });
+
+    if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı.');
+
+    const { password, ...result } = user;
+    
+    return {
+        ...result,
+        name: `${user.firstName} ${user.lastName}`.trim()
+    };
+  }
+
+  // 5. ADMIN PROFİLİ
+  async getAdminProfile(adminId: string) {
+    return this.getProfile(adminId);
+  }
+}

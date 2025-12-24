@@ -1,0 +1,40 @@
+import { Controller, Get, Patch, Param, Body, UseGuards, Request, UnauthorizedException } from '@nestjs/common';
+import { SubscriptionsService } from './subscriptions.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'; 
+
+@Controller('subscriptions')
+export class SubscriptionsController {
+  constructor(private readonly subscriptionsService: SubscriptionsService) {}
+
+@UseGuards(JwtAuthGuard)
+  @Get()
+  getMySubscriptions(@Request() req) {
+    // 👇 CASUS LOG: Terminalde user objesinin gerçekte neye benzediğini görelim
+    console.log("🔍 Gelen User Objesi:", req.user);
+
+    // 👇 AKILLI ID SEÇİCİ: ID 'id' mi, 'userId' mi, yoksa 'sub' mı? Hepsine bak.
+    const userId = req.user?.id || req.user?.userId || req.user?.sub;
+
+    if (!userId) {
+        throw new UnauthorizedException("Kullanıcı kimliği (ID) bulunamadı!");
+    }
+
+    return this.subscriptionsService.findAllByUser(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/cancel')
+  cancelSubscription(
+      @Param('id') id: string, 
+      @Body('reason') reason: string,
+      @Request() req
+  ) {
+    const userId = req.user?.id || req.user?.userId || req.user?.sub;
+    
+    if (!userId) {
+        throw new UnauthorizedException("Kullanıcı kimliği (ID) bulunamadı!");
+    }
+
+    return this.subscriptionsService.cancel(id, userId, reason);
+  }
+}
