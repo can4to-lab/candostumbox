@@ -30,7 +30,6 @@
     "bcrypt": "^5.1.1",
     "@nestjs/jwt": "^10.2.0",
     "date-fns": "^3.3.1",
-    
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "ts-loader": "^9.4.3",
