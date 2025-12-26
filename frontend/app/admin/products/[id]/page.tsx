@@ -1,6 +1,6 @@
 import AdminProductClient from "./AdminProductClient";
 
-// 👇 BURADA DA OLMALI
+// 👇 Render'ın yeni takıntısı bu fonksiyon. Buraya da ekliyoruz.
 export async function generateStaticParams() {
   return [];
 }
