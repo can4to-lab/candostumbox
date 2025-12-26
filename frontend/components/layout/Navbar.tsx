@@ -129,7 +129,7 @@ export default function Navbar() {
           {/* Linkler */}
           <nav className="flex-1 overflow-y-auto p-6 space-y-2">
               <button onClick={() => handleNavigation('/')} className="block w-full text-left p-4 rounded-xl font-bold text-gray-900 hover:bg-gray-50 transition text-lg">🏠 Ana Sayfa</button>
-              <button onClick={() => handleNavigation('/product')} className="block w-full text-left p-4 rounded-xl font-bold text-gray-900 hover:bg-gray-50 transition text-lg">📦 Paketler</button>
+              <button onClick={() => handleNavigation('/product.html')} className="block w-full text-left p-4 rounded-xl font-bold text-gray-900 hover:bg-gray-50 transition text-lg">📦 Paketler</button>
               <button onClick={() => handleNavigation('/#nasil-calisir')} className="block w-full text-left p-4 rounded-xl font-bold text-gray-900 hover:bg-gray-50 transition text-lg">🤔 Nasıl Çalışır?</button>
               <button onClick={() => handleNavigation('/about')} className="block w-full text-left p-4 rounded-xl font-bold text-gray-900 hover:bg-gray-50 transition text-lg">👋 Biz Kimiz?</button>
           </nav>
