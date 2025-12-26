@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react"; // 👈 Suspense eklendi
 import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -16,7 +16,8 @@ import MySubscriptions from "../components/profile/MySubscriptions";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 
-export default function ProfilePage() {
+// ⚠️ DİKKAT: Buranın adı artık ProfilePage DEĞİL, ProfileContent oldu.
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState<any>(null);
@@ -618,5 +619,15 @@ export default function ProfilePage() {
       <AddAddressModal isOpen={isAddAddressOpen} onClose={() => setAddAddressOpen(false)} onSuccess={fetchProfile} />
       <EditAddressModal isOpen={isEditAddressOpen} onClose={() => setEditAddressOpen(false)} onSuccess={fetchProfile} addressData={selectedAddress} />
     </div>
+  );
+}
+
+// 👇 İŞTE SİHİRLİ DOKUNUŞ BURADA 👇
+// Ana bileşeni (ProfileContent) bir "Suspense" içine alarak dışarı açıyoruz.
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-green-600"></div></div>}>
+      <ProfileContent />
+    </Suspense>
   );
 }
