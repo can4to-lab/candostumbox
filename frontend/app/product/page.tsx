@@ -45,7 +45,7 @@ export default function PaketlerPage() {
     const token = localStorage.getItem("token");
     if (token) {
         setIsLoggedIn(true);
-        fetch("http://localhost:3000/auth/profile", {
+        fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -56,7 +56,7 @@ export default function PaketlerPage() {
     // 2. Ürünleri Çekme
     const fetchProducts = async () => {
       try {
-        const res = await fetch("http://localhost:3000/products");
+        const res = await fetch("https://candostumbox-api.onrender.com/products");
         const data = await res.json();
         setProducts(Array.isArray(data) ? data : []);
       } catch (error) {

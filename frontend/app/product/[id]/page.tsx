@@ -70,7 +70,7 @@ export default function ProductDetail() {
     const token = localStorage.getItem("token");
     
     if (token) {
-        fetch("http://localhost:3000/users/pets", { 
+        fetch("https://candostumbox-api.onrender.com/users/pets", { 
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => {
@@ -89,7 +89,7 @@ export default function ProductDetail() {
 
     const fetchProduct = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/products/${id}`);
+        const res = await fetch(`https://candostumbox-api.onrender.com/products/${id}`);
         if(res.ok){
             const data = await res.json();
             setProduct(data);
@@ -148,7 +148,7 @@ export default function ProductDetail() {
       }
 
       try {
-          const res = await fetch("http://localhost:3000/users/pets", {
+          const res = await fetch("https://candostumbox-api.onrender.com/users/pets", {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",

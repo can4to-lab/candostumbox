@@ -32,7 +32,7 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:3000/users/pets", {
+      const res = await fetch("https://candostumbox-api.onrender.com/users/pets", {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",

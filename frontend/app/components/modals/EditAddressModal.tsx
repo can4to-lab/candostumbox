@@ -43,7 +43,7 @@ export default function EditAddressModal({ isOpen, onClose, onSuccess, addressDa
     if (!token) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/users/addresses/${addressData.id}`, {
+      const res = await fetch(`https://candostumbox-api.onrender.com/users/addresses/${addressData.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

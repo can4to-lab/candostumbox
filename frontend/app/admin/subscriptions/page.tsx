@@ -15,7 +15,7 @@ export default function AdminSubscriptionsPage() {
       if (!token) { router.push("/admin/login"); return; }
 
       try {
-        const res = await fetch("http://localhost:3000/subscriptions", {
+        const res = await fetch("https://candostumbox-api.onrender.com/subscriptions", {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {

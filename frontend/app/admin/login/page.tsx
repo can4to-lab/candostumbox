@@ -14,7 +14,7 @@ export default function AdminLogin() {
 
     try {
       // DİKKAT: Burası dün yazdığımız YENİ admin giriş kapısı
-      const res = await fetch("http://localhost:3000/auth/admin/login", {
+      const res = await fetch("https://candostumbox-api.onrender.com/auth/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

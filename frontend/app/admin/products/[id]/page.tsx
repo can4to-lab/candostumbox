@@ -37,7 +37,7 @@ export default function AdminProducts() {
     if (!token) { router.push("/admin/login"); return; }
 
     try {
-      const res = await fetch("http://localhost:3000/products", {
+      const res = await fetch("https://candostumbox-api.onrender.com/products", {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -89,14 +89,14 @@ export default function AdminProducts() {
         let res;
         if (editingProduct) {
             // GÜNCELLEME (PUT/PATCH)
-            res = await fetch(`http://localhost:3000/products/${editingProduct.id}`, {
+            res = await fetch(`https://candostumbox-api.onrender.com/products/${editingProduct.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload)
             });
         } else {
             // YENİ EKLEME (POST)
-            res = await fetch("http://localhost:3000/products", {
+            res = await fetch("https://candostumbox-api.onrender.com/products", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                 body: JSON.stringify(payload)
@@ -121,7 +121,7 @@ export default function AdminProducts() {
 
       const token = localStorage.getItem("token");
       try {
-          const res = await fetch(`http://localhost:3000/products/${id}`, {
+          const res = await fetch(`https://candostumbox-api.onrender.com/products/${id}`, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` }
           });
@@ -142,7 +142,7 @@ export default function AdminProducts() {
 
       const token = localStorage.getItem("token");
       try {
-          await fetch(`http://localhost:3000/products/${product.id}`, {
+          await fetch(`https://candostumbox-api.onrender.com/products/${product.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({ isVisible: !product.isVisible })

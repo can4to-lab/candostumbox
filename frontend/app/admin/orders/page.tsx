@@ -78,7 +78,7 @@ export default function AdminOrders() {
 
       try {
         // 1. Yetki Kontrolü
-        const profileRes = await fetch("http://localhost:3000/auth/profile", { headers: { Authorization: `Bearer ${token}` } });
+        const profileRes = await fetch("https://candostumbox-api.onrender.com/auth/profile", { headers: { Authorization: `Bearer ${token}` } });
         if (!profileRes.ok) throw new Error("Yetkisiz");
         
         const user = await profileRes.json();
@@ -86,7 +86,7 @@ export default function AdminOrders() {
         if (user.role?.toUpperCase() !== 'ADMIN') { router.push("/"); return; }
 
         // 2. Siparişleri Çek
-        const res = await fetch("http://localhost:3000/orders", { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch("https://candostumbox-api.onrender.com/orders", { headers: { Authorization: `Bearer ${token}` } });
         
         if (res.ok) {
           const data = await res.json();
@@ -154,7 +154,7 @@ export default function AdminOrders() {
     // 2. Sonra Backend'e gönder
     try {
         const token = localStorage.getItem("token");
-        await fetch(`http://localhost:3000/orders/${orderId}/status`, {
+        await fetch(`https://candostumbox-api.onrender.com/orders/${orderId}/status`, {
             method: "PATCH",
             headers: { 
                 "Content-Type": "application/json",

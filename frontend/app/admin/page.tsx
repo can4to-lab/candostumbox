@@ -29,7 +29,7 @@ export default function AdminDashboard() {
 
       try {
         // 1. Yetki Kontrolü
-        const profileRes = await fetch("http://localhost:3000/auth/profile", {
+        const profileRes = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         });
         
@@ -43,9 +43,9 @@ export default function AdminDashboard() {
 
         // 2. Paralel Veri Çekme
         const [ordersRes, productsRes, usersRes] = await Promise.all([
-            fetch("http://localhost:3000/orders", { headers: { "Authorization": `Bearer ${token}` } }),
-            fetch("http://localhost:3000/products"),
-            fetch("http://localhost:3000/users", { headers: { "Authorization": `Bearer ${token}` } })
+            fetch("https://candostumbox-api.onrender.com/orders", { headers: { "Authorization": `Bearer ${token}` } }),
+            fetch("https://candostumbox-api.onrender.com/products"),
+            fetch("https://candostumbox-api.onrender.com/users", { headers: { "Authorization": `Bearer ${token}` } })
         ]);
 
         const orders = await ordersRes.json();

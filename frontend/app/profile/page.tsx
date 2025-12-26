@@ -77,7 +77,7 @@ export default function ProfilePage() {
     if (!token) { router.push("/"); return; }
     
     try {
-        const res = await fetch("http://localhost:3000/auth/profile", {
+        const res = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { Authorization: `Bearer ${token}` }
         });
         if(res.ok) {
@@ -126,7 +126,7 @@ export default function ProfilePage() {
             tcKimlikNo: formData.tcIdentity
         };
 
-        const res = await fetch("http://localhost:3000/users/profile", {
+        const res = await fetch("https://candostumbox-api.onrender.com/users/profile", {
             method: "PATCH",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify(payload)
@@ -145,7 +145,7 @@ export default function ProfilePage() {
     if(!confirm("Bu adresi silmek istediğine emin misin?")) return;
     const token = localStorage.getItem("token");
     try {
-        await fetch(`http://localhost:3000/users/addresses/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await fetch(`https://candostumbox-api.onrender.com/users/addresses/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         toast.success("Adres silindi.");
         fetchProfile();
     } catch (e) { toast.error("Hata oluştu."); }
@@ -155,7 +155,7 @@ export default function ProfilePage() {
     if(!confirm("Dostunu silmek istediğine emin misin?")) return;
     const token = localStorage.getItem("token");
     try {
-        await fetch(`http://localhost:3000/users/pets/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+        await fetch(`https://candostumbox-api.onrender.com/users/pets/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         toast.success("Can dostun silindi.");
         fetchProfile();
     } catch (e) { toast.error("Hata oluştu."); }
@@ -189,7 +189,7 @@ export default function ProfilePage() {
       const toastId = toast.loading("Şifre güncelleniyor...");
       
       try {
-          const res = await fetch("http://localhost:3000/users/change-password", {
+          const res = await fetch("https://candostumbox-api.onrender.com/users/change-password", {
               method: "PATCH",
               headers: { 
                   "Content-Type": "application/json", 

@@ -21,7 +21,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister, onLogi
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:3000/auth/login", {
+      const res = await fetch("https://candostumbox-api.onrender.com/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

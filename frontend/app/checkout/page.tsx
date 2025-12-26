@@ -47,7 +47,7 @@ export default function CheckoutPage() {
 
         if (token) {
             try {
-                const res = await fetch("http://localhost:3000/users/addresses", {
+                const res = await fetch("https://candostumbox-api.onrender.com/users/addresses", {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -61,7 +61,7 @@ export default function CheckoutPage() {
         // Fiyat Doğrulama
         try {
             const promises = items.map(async (item) => {
-                const res = await fetch(`http://localhost:3000/products/${item.productId}`);
+                const res = await fetch(`https://candostumbox-api.onrender.com/products/${item.productId}`);
                 const product = await res.json();
                 const price = Number(product.price);
                 return item.paymentType === 'upfront' ? price * item.duration : price;
@@ -84,7 +84,7 @@ export default function CheckoutPage() {
   const handleAddressSuccess = () => {
       const token = localStorage.getItem("token");
       if (token) {
-        fetch("http://localhost:3000/users/addresses", {
+        fetch("https://candostumbox-api.onrender.com/users/addresses", {
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -130,7 +130,7 @@ export default function CheckoutPage() {
       };
 
       try {
-          const response = await fetch("http://localhost:3000/orders", {
+          const response = await fetch("https://candostumbox-api.onrender.com/orders", {
               method: "POST",
               headers: {
                   "Content-Type": "application/json",

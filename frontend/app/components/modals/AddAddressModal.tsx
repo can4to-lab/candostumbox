@@ -26,7 +26,7 @@ export default function AddAddressModal({ isOpen, onClose, onSuccess }: AddAddre
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:3000/users/addresses", {
+      const res = await fetch("https://candostumbox-api.onrender.com/users/addresses", {
         method: "POST",
         headers: { 
             "Content-Type": "application/json",

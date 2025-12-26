@@ -24,14 +24,14 @@ export default function AdminUsers() {
 
       try {
         // 1. Yetki Kontrolü (Hızlıca)
-        const profileRes = await fetch("http://localhost:3000/auth/profile", {
+        const profileRes = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const adminCheck = await profileRes.json();
         if (adminCheck.role?.toUpperCase() !== 'ADMIN') { router.push("/"); return; }
 
         // 2. Kullanıcıları Çek
-        const res = await fetch("http://localhost:3000/users", {
+        const res = await fetch("https://candostumbox-api.onrender.com/users", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         

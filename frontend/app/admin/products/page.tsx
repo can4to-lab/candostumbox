@@ -52,7 +52,7 @@ export default function AdminPage() {
 
       try {
         // A. KİMLİK VE ROL KONTROLÜ
-        const profileRes = await fetch("http://localhost:3000/auth/profile", {
+        const profileRes = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
           headers: { "Authorization": `Bearer ${token}` }
         });
         
@@ -86,7 +86,7 @@ export default function AdminPage() {
     try {
       // Ürünleri çekerken token göndermene gerek yok (Public endpoint ise), 
       // ama admin tarafında garanti olsun diye gönderebilirsin.
-      const res = await fetch("http://localhost:3000/products");
+      const res = await fetch("https://candostumbox-api.onrender.com/products");
       const data = await res.json();
       setProducts(data);
     } catch (err) {
@@ -105,7 +105,7 @@ export default function AdminPage() {
 
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(`http://localhost:3000/products/${id}`, {
+      const res = await fetch(`https://candostumbox-api.onrender.com/products/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
@@ -141,7 +141,7 @@ export default function AdminPage() {
   const handleQuickOrderChange = async (id: number, newOrder: string) => {
     const token = localStorage.getItem("token");
     try {
-      await fetch(`http://localhost:3000/products/${id}`, {
+      await fetch(`https://candostumbox-api.onrender.com/products/${id}`, {
         method: "PATCH",
         headers: {
             "Content-Type": "application/json",
@@ -163,8 +163,8 @@ export default function AdminPage() {
     const token = localStorage.getItem("token");
 
     const url = editingId 
-        ? `http://localhost:3000/products/${editingId}` 
-        : "http://localhost:3000/products";
+        ? `https://candostumbox-api.onrender.com/products/${editingId}` 
+        : "https://candostumbox-api.onrender.com/products";
     
     const method = editingId ? "PATCH" : "POST";
 

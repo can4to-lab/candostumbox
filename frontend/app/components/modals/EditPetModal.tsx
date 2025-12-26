@@ -46,7 +46,7 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
     const allergiesArray = formData.allergies.split(",").map(item => item.trim()).filter(item => item !== "");
 
     try {
-      const res = await fetch(`http://localhost:3000/users/pets/${petData.id}`, {
+      const res = await fetch(`https://candostumbox-api.onrender.com/users/pets/${petData.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

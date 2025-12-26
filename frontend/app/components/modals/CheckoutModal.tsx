@@ -56,7 +56,7 @@ export default function CheckoutModal({
     if (isOpen) {
         const token = localStorage.getItem("token");
         if (token) {
-            fetch("http://localhost:3000/auth/profile", {
+            fetch("https://candostumbox-api.onrender.com/auth/profile", {
                 headers: { "Authorization": `Bearer ${token}` }
             })
             .then(res => res.json())
@@ -155,7 +155,7 @@ export default function CheckoutModal({
     };
 
     try {
-      const res = await fetch("http://localhost:3000/orders", {
+      const res = await fetch("https://candostumbox-api.onrender.com/orders", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

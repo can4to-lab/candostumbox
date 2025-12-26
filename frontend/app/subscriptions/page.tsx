@@ -15,7 +15,7 @@ export default function MySubscriptionsPage() {
       if (!token) { router.push("/"); return; }
 
       try {
-        const res = await fetch("http://localhost:3000/subscriptions", {
+        const res = await fetch("https://candostumbox-api.onrender.com/subscriptions", {
             headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -41,7 +41,7 @@ export default function MySubscriptionsPage() {
 
       const token = localStorage.getItem("token");
       try {
-          const res = await fetch(`http://localhost:3000/subscriptions/${id}/cancel`, {
+          const res = await fetch(`https://candostumbox-api.onrender.com/subscriptions/${id}/cancel`, {
               method: 'PATCH',
               headers: { Authorization: `Bearer ${token}` }
           });
