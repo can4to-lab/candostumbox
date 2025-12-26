@@ -1,6 +1,6 @@
 import ProductClient from "./ProductClient";
 
-// Sunucu tarafı ayarı burada kalıyor
+// 👇 İŞTE NEXT.JS BU FONKSİYONU ARIYOR!
 export async function generateStaticParams() {
   return [];
 }
