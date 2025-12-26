@@ -287,3 +287,7 @@ export default function AdminProducts() {
     </div>
   );
 }
+// Bu fonksiyon Next.js'e "Önceden oluşturulacak ID listesi boş, sen geç" der.
+export async function generateStaticParams() {
+  return [];
+}
