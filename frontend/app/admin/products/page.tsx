@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast"; // Bildirimler için (yoksa normal alert kullanırız)
+import toast, { Toaster } from "react-hot-toast";
 
-// --- TİP TANIMI (PostgreSQL Uyumlu) ---
+// --- TİP TANIMI ---
 interface Product {
   id: number;
   name: string;
@@ -11,16 +11,14 @@ interface Product {
   description: string | null;
   image: string | null;
   stock: number;
-  order: number; // Senin eklediğin sıralama özelliği
+  order: number;
 }
 
 export default function AdminProductsPage() {
   const router = useRouter();
-  
-  // --- CANLI SUNUCU ADRESİ ---
   const API_URL = "https://candostumbox-api.onrender.com";
 
-  // State Tanımları
+  // State'ler
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -47,31 +45,30 @@ export default function AdminProductsPage() {
   // --- ÜRÜNLERİ GETİR ---
   const fetchProducts = useCallback(async () => {
     try {
-      // cache: "no-store" -> Canlıda eski veriyi göstermemesi için önemli
       const res = await fetch(`${API_URL}/products`, { cache: "no-store" });
       if (!res.ok) throw new Error("Veri çekilemedi");
-
       const data: Product[] = await res.json();
-      
-      // Sıralama (Order'a göre küçükten büyüğe)
       const sortedData = data.sort((a, b) => (a.order || 0) - (b.order || 0));
       setProducts(sortedData);
     } catch (err) {
       console.error("Hata:", err);
+      toast.error("Ürün listesi yüklenemedi.");
     }
   }, [API_URL]);
 
-  // --- GÜVENLİK KONTROLÜ ---
+  // --- GÜVENLİK VE BAŞLANGIÇ KONTROLÜ ---
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem("token");
       
+      // 1. Token Kontrolü
       if (!token) { 
         router.push("/admin/login"); 
         return; 
       }
 
       try {
+        // 2. Profil ve Yetki Kontrolü
         const profileRes = await fetch(`${API_URL}/auth/profile`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -80,18 +77,19 @@ export default function AdminProductsPage() {
 
         const user = await profileRes.json();
 
-        // Admin değilse anasayfaya at
+        // 3. Admin Rol Kontrolü (Büyük/Küçük harf duyarlı)
         if (user.role?.toUpperCase() !== 'ADMIN') {
-          router.push("/");
+          toast.error("Yetkisiz giriş denemesi!");
+          router.push("/"); // Admin değilse anasayfaya at
           return;
         } 
 
-        // Yetki tamamsa ürünleri çek
+        // 4. Yetki tamamsa ürünleri çek
         await fetchProducts();
 
       } catch (err) {
         console.error("Yetki hatası:", err);
-        localStorage.removeItem("token");
+        localStorage.removeItem("token"); // Token bozuksa temizle
         router.push("/admin/login");
       } finally {
         setIsLoading(false);
@@ -107,7 +105,7 @@ export default function AdminProductsPage() {
 
   // --- CRUD İŞLEMLERİ ---
 
-  // 1. SİLME
+  // SİLME
   const handleDelete = async (id: number) => {
     if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
 
@@ -119,18 +117,17 @@ export default function AdminProductsPage() {
       });
 
       if (res.ok) {
-        setMessage("🗑️ Ürün silindi.");
+        toast.success("Ürün başarıyla silindi");
         fetchProducts();
-        setTimeout(() => setMessage(""), 3000);
       } else {
-        alert("Silinirken hata oluştu.");
+        toast.error("Silinirken hata oluştu.");
       }
     } catch (err) {
-      alert("Sunucu hatası.");
+      toast.error("Sunucu hatası.");
     }
   };
 
-  // 2. DÜZENLEME MODU
+  // DÜZENLEME MODU AÇMA
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
     setFormData({
@@ -145,11 +142,10 @@ export default function AdminProductsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 3. HIZLI SIRA GÜNCELLEME (PATCH)
+  // HIZLI SIRA DEĞİŞTİRME
   const handleQuickOrderChange = async (id: number, newOrder: string) => {
     const token = localStorage.getItem("token");
     const orderInt = parseInt(newOrder);
-    
     if(isNaN(orderInt)) return;
 
     try {
@@ -161,32 +157,28 @@ export default function AdminProductsPage() {
         },
         body: JSON.stringify({ order: orderInt }),
       });
-      // Tüm sayfayı yenilemeden state'i güncelle (Performans)
       setProducts(prev => prev.map(p => p.id === id ? { ...p, order: orderInt } : p).sort((a,b) => a.order - b.order));
+      toast.success("Sıra güncellendi");
     } catch (err) {
       console.error(err);
     }
   };
 
-  // 4. KAYDET (POST / PATCH)
+  // KAYDET (EKLE / GÜNCELLE)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
     setError("");
     const token = localStorage.getItem("token");
 
-    const url = editingId 
-        ? `${API_URL}/products/${editingId}` 
-        : `${API_URL}/products`;
-    
+    const url = editingId ? `${API_URL}/products/${editingId}` : `${API_URL}/products`;
     const method = editingId ? "PATCH" : "POST";
 
-    // PostgreSQL için Tip Dönüşümleri (Type Casting)
     const payload = {
         name: formData.name.trim(),
-        price: parseFloat(formData.price),     // String -> Decimal
-        stock: parseInt(formData.stock),       // String -> Integer
-        order: parseInt(formData.order) || 0,  // String -> Integer
+        price: parseFloat(formData.price),
+        stock: parseInt(formData.stock),
+        order: parseInt(formData.order) || 0,
         description: formData.description,
         image: formData.image,
     };
@@ -209,28 +201,24 @@ export default function AdminProductsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Hata oluştu.");
 
-      setMessage(editingId ? "✅ Ürün güncellendi!" : "✅ Ürün eklendi!");
+      toast.success(editingId ? "Ürün güncellendi!" : "Ürün eklendi!");
       
-      // Formu temizle
-      if(!editingId) {
-          setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" });
-      } else {
-          setEditingId(null);
-          setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" });
-      }
+      // Reset
+      setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" });
+      if(editingId) setEditingId(null);
       
       fetchProducts();
-      setTimeout(() => setMessage(""), 3000);
+      setMessage("");
 
     } catch (err: any) {
       setError("❌ " + err.message);
+      toast.error(err.message);
     }
   };
 
-  // --- RENDER ---
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 text-green-600 font-bold animate-pulse">
-        Veriler Yükleniyor... 🚀
+        Yükleniyor... 🚀
     </div>
   );
 
@@ -245,14 +233,17 @@ export default function AdminProductsPage() {
                 <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Ürün Yönetimi</h1>
                 <p className="text-green-100 mt-2">Paketleri düzenle, stokları yönet, fiyatları güncelle.</p>
             </div>
-            <button onClick={() => router.push("/admin")} className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-xl font-bold hover:bg-white/30 transition">
-                ← Geri Git
+            {/* GÜNCELLENEN KISIM: Panele Dönüş Linki */}
+            <button 
+                onClick={() => router.push("/admin/dashboard")} 
+                className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-xl font-bold hover:bg-white/30 transition"
+            >
+                ← Panele Dön
             </button>
           </div>
        </div>
 
       <div className="max-w-6xl mx-auto px-4 -mt-16 space-y-8">
-        
         {/* İSTATİSTİKLER */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <StatCard title="TOPLAM PAKET" value={totalProducts} sub="Aktif Satışta" color="text-gray-800" />
@@ -261,7 +252,7 @@ export default function AdminProductsPage() {
             <StatCard title="ENVANTER DEĞERİ" value={`₺${totalInventoryValue.toLocaleString()}`} sub="Tahmini Kazanç" color="text-blue-600" />
         </div>
 
-        {/* FORM */}
+        {/* FORM ALANI */}
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
             <div className={`p-6 px-8 flex justify-between items-center ${editingId ? "bg-orange-50" : "bg-green-50"}`}>
                 <div className="flex items-center gap-3">
@@ -281,19 +272,15 @@ export default function AdminProductsPage() {
                         <InputGroup label="Kutu Adı" name="name" value={formData.name} onChange={handleChange} placeholder="Örn: Süper Başlangıç Kutusu" required />
                         <InputGroup label="Sıra No (Küçük üstte)" name="order" value={formData.order} onChange={handleChange} type="number" placeholder="0" />
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-6">
                         <InputGroup label="Fiyat (₺)" name="price" value={formData.price} onChange={handleChange} type="number" step="0.01" required icon="₺" />
                         <InputGroup label="Stok Adedi" name="stock" value={formData.stock} onChange={handleChange} type="number" required />
                     </div>
-                    
                     <InputGroup label="Resim URL" name="image" value={formData.image} onChange={handleChange} placeholder="https://..." />
-                    
                     <div>
                         <label className="block font-bold mb-2 text-gray-700 text-sm">Açıklama</label>
                         <textarea name="description" value={formData.description} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 h-24 text-gray-900 transition resize-none" placeholder="Ürün özelliklerini buraya yazın..."></textarea>
                     </div>
-                    
                     <div className="flex gap-4 pt-2">
                         <button type="submit" className={`flex-1 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95 ${editingId ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-gradient-to-r from-green-500 to-green-700"}`}>
                             {editingId ? "Değişiklikleri Kaydet" : "+ Yeni Paket Ekle"}
