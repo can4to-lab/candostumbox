@@ -1,315 +1,345 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import toast, { Toaster } from "react-hot-toast";
 
-// --- TİP TANIMI (PostgreSQL Uyumlu) ---
-interface Product {
-  id: number;
-  name: string;
-  price: number;     // Postgres: Decimal/Numeric
-  description: string | null;
-  image: string | null;
-  stock: number;     // Postgres: Integer
-  isVisible: boolean; // Postgres: Boolean
+// --- TİP TANIMLAMALARI (PostgreSQL Uyumu İçin) ---
+interface DashboardStats {
+  totalRevenue: number;
+  totalOrders: number;
+  pendingOrders: number;
+  totalProducts: number;
+  lowStockProducts: number;
+  totalUsers: number;
 }
 
-export default function AdminProductsPage() {
+export default function AdminDashboard() {
   const router = useRouter();
   
-  // State
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  // CANLI API ADRESİ
+  const API_URL = "https://candostumbox-api.onrender.com";
 
-  // Form State (String olarak tutuyoruz, gönderirken çevireceğiz)
-  const [formData, setFormData] = useState({
-    name: "",
-    price: "",
-    description: "",
-    image: "",
-    stock: "",
-    isVisible: true
+  // --- STATE ---
+  const [stats, setStats] = useState<DashboardStats>({
+    totalRevenue: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    totalProducts: 0,
+    lowStockProducts: 0,
+    totalUsers: 0
   });
 
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   // --- VERİ ÇEKME ---
-  const fetchProducts = useCallback(async () => {
-    try {
-      // API adresini kendi backend adresinle güncelle
-      const res = await fetch("https://candostumbox-api.onrender.com/products", {
-          cache: "no-store"
-      });
-      if (!res.ok) throw new Error("Veri çekilemedi");
-      
-      const data: Product[] = await res.json();
-      // ID'ye göre sırala (Yeni eklenen en sonda olsun)
-      setProducts(data.sort((a, b) => a.id - b.id));
-    } catch (err) {
-      console.error(err);
-      toast.error("Ürünler yüklenirken hata oluştu.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    // Basit token kontrolü (Gelişmiş kontrol middleware'de yapılmalı)
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    if (!token) {
-        router.push("/admin/login");
-        return;
-    }
-    fetchProducts();
-  }, [fetchProducts, router]);
+    const fetchData = async () => {
+      const token = localStorage.getItem("token"); 
+      if (!token) { router.push("/admin/login"); return; }
 
-  // --- FORM İŞLEMLERİ ---
-  const handleEdit = (product: Product) => {
-    setEditingId(product.id);
-    setFormData({
-      name: product.name,
-      price: product.price.toString(),
-      description: product.description || "",
-      image: product.image || "",
-      stock: product.stock.toString(),
-      isVisible: product.isVisible
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleCancel = () => {
-    setEditingId(null);
-    setFormData({ name: "", price: "", description: "", image: "", stock: "", isVisible: true });
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-
-    // PostgreSQL İçin Tip Dönüşümleri (Type Casting)
-    const payload = {
-        name: formData.name.trim(),
-        price: parseFloat(formData.price), // String -> Float
-        stock: parseInt(formData.stock),   // String -> Int
-        description: formData.description.trim() === "" ? null : formData.description,
-        image: formData.image.trim() === "" ? null : formData.image,
-        isVisible: formData.isVisible
-    };
-
-    if (isNaN(payload.price) || isNaN(payload.stock)) {
-        toast.error("Fiyat ve Stok geçerli bir sayı olmalıdır.");
-        return;
-    }
-
-    const url = editingId 
-        ? `https://candostumbox-api.onrender.com/products/${editingId}`
-        : "https://candostumbox-api.onrender.com/products";
-    
-    const method = editingId ? "PATCH" : "POST";
-
-    try {
-        const res = await fetch(url, {
-            method: method,
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) throw new Error("İşlem başarısız");
-
-        toast.success(editingId ? "Ürün güncellendi!" : "Yeni ürün eklendi!");
-        handleCancel(); // Formu temizle
-        fetchProducts(); // Listeyi yenile
-    } catch (error) {
-        toast.error("Kaydedilemedi. Sunucu hatası.");
-    }
-  };
-
-  // --- SİLME ---
-  const handleDelete = async (id: number) => {
-    if (!confirm("Bu ürünü silmek istediğine emin misin?")) return;
-    const token = localStorage.getItem("token");
-
-    try {
-        const res = await fetch(`https://candostumbox-api.onrender.com/products/${id}`, {
-            method: "DELETE",
+      try {
+        // 1. Yetki Kontrolü
+        const profileRes = await fetch(`${API_URL}/auth/profile`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
-
-        if (res.ok) {
-            toast.success("Ürün silindi.");
-            fetchProducts();
-        } else {
-            throw new Error();
+        
+        if (!profileRes.ok) throw new Error("Yetkisiz Erişim");
+        
+        const user = await profileRes.json();
+        if (user.role?.toUpperCase() !== 'ADMIN') { 
+            router.push("/"); 
+            return; 
         }
-    } catch (error) {
-        toast.error("Silme işlemi başarısız.");
-    }
-  };
 
-  // --- GİZLİ/GÖRÜNÜR YAP (Hızlı İşlem) ---
-  const toggleVisibility = async (product: Product) => {
-      // Optimistik güncelleme (Anında arayüzde değişsin)
-      const newStatus = !product.isVisible;
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, isVisible: newStatus } : p));
-      
-      const token = localStorage.getItem("token");
-      try {
-          await fetch(`https://candostumbox-api.onrender.com/products/${product.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-              body: JSON.stringify({ isVisible: newStatus })
-          });
-          toast.success(`Ürün ${newStatus ? 'görünür' : 'gizli'} yapıldı.`);
+        // 2. Paralel Veri Çekme (Siparişler, Ürünler, Kullanıcılar)
+        const [ordersRes, productsRes, usersRes] = await Promise.all([
+            fetch(`${API_URL}/orders`, { headers: { "Authorization": `Bearer ${token}` } }),
+            fetch(`${API_URL}/products`, { cache: 'no-store' }), // Cache kapatıldı, güncel stok için
+            fetch(`${API_URL}/users`, { headers: { "Authorization": `Bearer ${token}` } })
+        ]);
+
+        const orders = ordersRes.ok ? await ordersRes.json() : [];
+        const products = productsRes.ok ? await productsRes.json() : [];
+        const users = usersRes.ok ? await usersRes.json() : [];
+
+        // 3. İstatistik Hesaplama (PostgreSQL Tipi Güvenliği)
+        
+        // Ciro Hesabı: PostgreSQL decimal string dönebilir, Number() ile garantiye alıyoruz.
+        const revenue = Array.isArray(orders) 
+            ? orders.reduce((acc: number, order: any) => acc + Number(order.totalPrice || 0), 0) 
+            : 0;
+        
+        const pending = Array.isArray(orders) 
+            ? orders.filter((o: any) => o.status === "Hazırlanıyor" || o.status === "Sipariş Alındı").length 
+            : 0;
+
+        // Stok Kontrolü: String gelme ihtimaline karşı Number() kullanımı
+        const lowStock = Array.isArray(products) 
+            ? products.filter((p: any) => Number(p.stock) < 5).length 
+            : 0;
+
+        // Son 5 Sipariş (ID'ye göre tersten sırala)
+        const sortedOrders = Array.isArray(orders) 
+            ? orders.sort((a: any, b: any) => b.id - a.id).slice(0, 5) 
+            : [];
+
+        // State Güncellemesi
+        setStats({
+            totalRevenue: revenue,
+            totalOrders: Array.isArray(orders) ? orders.length : 0,
+            pendingOrders: pending,
+            totalProducts: Array.isArray(products) ? products.length : 0,
+            lowStockProducts: lowStock,
+            totalUsers: Array.isArray(users) ? users.length : 0
+        });
+
+        setRecentOrders(sortedOrders);
+
       } catch (error) {
-          toast.error("Güncellenemedi.");
-          fetchProducts(); // Hata varsa geri al
+        console.error("Dashboard verisi çekilemedi", error);
+        // Token hatası varsa login'e at
+        localStorage.removeItem("token");
+        router.push("/admin/login");
+      } finally {
+        setLoading(false);
       }
-  };
+    };
 
-  if (isLoading) return <div className="flex h-screen items-center justify-center text-green-600 font-bold">Yükleniyor...</div>;
+    fetchData();
+  }, [router]);
+
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-green-600 font-bold">
+        <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
+        <span className="animate-pulse">Panel Verileri Yükleniyor... 🚀</span>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans pb-20">
-      <Toaster position="top-right" />
       
-      {/* HEADER */}
-      <div className="bg-gradient-to-r from-green-800 to-green-600 pt-10 pb-24 px-8 shadow-xl">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Ürün Yönetimi</h1>
-                <p className="text-green-100 mt-2 text-lg">PostgreSQL Veritabanı</p>
-            </div>
-            <button onClick={() => router.push("/admin")} className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-xl font-bold hover:bg-white/30 transition">
-                ← Panele Dön
-            </button>
-          </div>
-       </div>
+      {/* --- HEADER --- */}
+      <div className="bg-gradient-to-br from-green-900 via-green-800 to-green-700 pt-12 pb-32 px-8 shadow-2xl relative overflow-hidden">
+         {/* Dekoratif Arka Plan Efektleri */}
+         <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+         <div className="absolute bottom-0 left-0 w-64 h-64 bg-yellow-400 opacity-5 rounded-full blur-3xl transform -translate-x-1/4 translate-y-1/4"></div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-16 space-y-8">
+         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-end relative z-10 gap-6">
+            <div>
+                <h2 className="text-green-200 font-bold tracking-widest uppercase text-xs mb-2">YÖNETİM MERKEZİ</h2>
+                <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">Genel Bakış</h1>
+                <p className="text-green-100 mt-4 text-lg max-w-xl leading-relaxed opacity-90">
+                    İşletmenizin kalbi burada atıyor. Siparişleri takip edin, stokları yönetin ve büyümeyi izleyin.
+                </p>
+            </div>
+            <div className="flex gap-3">
+                <button onClick={() => router.push("/")} className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-xl font-bold hover:bg-white/20 transition flex items-center gap-2 group">
+                    <span>🏠</span> Siteye Git
+                </button>
+                <button onClick={() => { localStorage.removeItem('token'); router.push('/admin/login'); }} className="bg-red-500/80 backdrop-blur-md border border-red-400/20 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-600 transition flex items-center gap-2">
+                    Çıkış Yap 🚪
+                </button>
+            </div>
+         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 -mt-20 relative z-20">
         
-        {/* --- FORM KARTI --- */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-            <div className={`p-6 border-b border-gray-100 ${editingId ? "bg-orange-50" : "bg-green-50"}`}>
-                <h2 className={`text-xl font-bold ${editingId ? "text-orange-700" : "text-green-700"} flex items-center gap-2`}>
-                    {editingId ? "✏️ Ürünü Düzenle" : "✨ Yeni Ürün Ekle"}
-                </h2>
+        {/* --- 1. SATIR: İSTATİSTİKLER --- */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            {/* Ciro */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border-l-4 border-green-500 flex items-center justify-between transform hover:-translate-y-1 transition duration-300">
+                <div>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Toplam Ciro</p>
+                    <h3 className="text-3xl font-black text-gray-800 mt-1">₺{stats.totalRevenue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</h3>
+                </div>
+                <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center text-3xl shadow-sm">💰</div>
+            </div>
+            {/* Sipariş */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border-l-4 border-blue-500 flex items-center justify-between transform hover:-translate-y-1 transition duration-300">
+                <div>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Toplam Sipariş</p>
+                    <h3 className="text-3xl font-black text-gray-800 mt-1">{stats.totalOrders}</h3>
+                </div>
+                <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center text-3xl shadow-sm">📦</div>
             </div>
             
-            <div className="p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Ürün Adı</label>
-                            <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Görsel URL</label>
-                            <input type="text" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition" placeholder="https://..." />
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Fiyat (₺)</label>
-                            <input type="number" step="0.01" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition" required />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Stok</label>
-                            <input type="number" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none transition" required />
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Açıklama</label>
-                        <textarea rows={3} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-green-500 outline-none resize-none transition"></textarea>
-                    </div>
-
-                    <div className="flex items-center gap-3 py-2">
-                        <div 
-                            onClick={() => setFormData(prev => ({...prev, isVisible: !prev.isVisible}))}
-                            className={`w-12 h-7 rounded-full flex items-center p-1 cursor-pointer transition-colors duration-300 ${formData.isVisible ? 'bg-green-500' : 'bg-gray-300'}`}
-                        >
-                            <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 ${formData.isVisible ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                        <span className="text-sm font-bold text-gray-700">
-                            {formData.isVisible ? "Vitrine Koy (Satışa Açık)" : "Gizli Ürün (Listelenmez)"}
-                        </span>
-                    </div>
-                    
-                    <div className="flex gap-4 pt-2">
-                        <button type="submit" className={`flex-1 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95 ${editingId ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-gradient-to-r from-green-600 to-green-800"}`}>
-                            {editingId ? "Değişiklikleri Kaydet" : "+ Ürünü Ekle"}
-                        </button>
-                        {editingId && (
-                            <button type="button" onClick={handleCancel} className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition">
-                                İptal
-                            </button>
-                        )}
-                    </div>
-                </form>
+            {/* Abonelik Yönetimi (Varsa) */}
+            <div 
+                // Eğer abonelik sayfan yoksa burayı kaldırabilir veya pasif yapabilirsin
+                className="bg-white p-6 rounded-2xl shadow-xl border-l-4 border-purple-500 flex items-center justify-between transform hover:-translate-y-1 transition duration-300 opacity-80"
+            >
+                <div>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Abonelik Yönetimi</p>
+                    <h3 className="text-xl font-black text-gray-800 mt-1">Yakında</h3>
+                </div>
+                <div className="w-14 h-14 bg-purple-50 rounded-full flex items-center justify-center text-3xl shadow-sm">🔄</div>
+            </div>
+            
+            {/* Bekleyen İşler */}
+            <div className="bg-white p-6 rounded-2xl shadow-xl border-l-4 border-orange-500 flex items-center justify-between transform hover:-translate-y-1 transition duration-300">
+                <div>
+                    <p className="text-gray-400 text-xs font-bold uppercase tracking-wider">Bekleyen İşler</p>
+                    <h3 className="text-3xl font-black text-gray-800 mt-1">{stats.pendingOrders}</h3>
+                </div>
+                <div className="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center text-3xl shadow-sm animate-pulse">🔔</div>
             </div>
         </div>
 
-        {/* --- LİSTE --- */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-100">
-                            <th className="p-5 font-bold">Ürün</th>
-                            <th className="p-5 font-bold">Fiyat</th>
-                            <th className="p-5 font-bold">Stok</th>
-                            <th className="p-5 font-bold">Durum</th>
-                            <th className="p-5 font-bold text-right">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50 text-gray-700">
-                        {products.map((product) => (
-                            <tr key={product.id} className="hover:bg-green-50/30 transition group">
-                                <td className="p-5">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
-                                            {product.image ? (
-                                                <img src={product.image} className="w-full h-full object-cover" alt="" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">Yok</div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-gray-900">{product.name}</div>
-                                            <div className="text-xs text-gray-400">ID: {product.id}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-5 font-mono font-bold text-green-700">₺{Number(product.price).toFixed(2)}</td>
-                                <td className="p-5">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold ${product.stock < 5 ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                                        {product.stock}
-                                    </span>
-                                </td>
-                                <td className="p-5">
-                                    <button 
-                                        onClick={() => toggleVisibility(product)}
-                                        className={`px-3 py-1 rounded-full text-xs font-bold border transition ${product.isVisible ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200'}`}
-                                    >
-                                        {product.isVisible ? 'Aktif' : 'Gizli'}
-                                    </button>
-                                </td>
-                                <td className="p-5 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => handleEdit(product)} className="text-blue-600 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg transition">✏️</button>
-                                        <button onClick={() => handleDelete(product.id)} className="text-red-600 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition">🗑️</button>
-                                    </div>
-                                </td>
+        {/* --- 2. SATIR: HIZLI MENÜ VE UYARILAR --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* SOL: HIZLI ERİŞİM KARTLARI (Linkler Güncellendi) */}
+            <div className="lg:col-span-2 space-y-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    ⚡ Hızlı Yönetim
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* 1. Sipariş Yönetimi Linki */}
+                    <div 
+                        onClick={() => router.push("/admin/orders")}
+                        className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 cursor-pointer group hover:border-blue-300 transition-all duration-300 relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                        <div className="flex items-start justify-between relative z-10">
+                            <div className="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-3xl group-hover:rotate-12 transition-transform shadow-sm">🚚</div>
+                            <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full text-[10px] font-bold border border-blue-100">{stats.pendingOrders} Yeni</span>
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-800 mt-4 group-hover:text-blue-600 transition">Siparişler</h4>
+                        <p className="text-gray-400 mt-1 text-xs leading-relaxed">Sipariş durumlarını ve kargo takibini yönet.</p>
+                    </div>
+
+                    {/* 2. Ürün Yönetimi Linki */}
+                    <div 
+                        onClick={() => router.push("/admin/products")}
+                        className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 cursor-pointer group hover:border-green-300 transition-all duration-300 relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                        <div className="flex items-start justify-between relative z-10">
+                            <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-3xl group-hover:rotate-12 transition-transform shadow-sm">✨</div>
+                            <span className="bg-green-50 text-green-600 px-2 py-1 rounded-full text-[10px] font-bold border border-green-100">{stats.totalProducts} Paket</span>
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-800 mt-4 group-hover:text-green-600 transition">Ürünler</h4>
+                        <p className="text-gray-400 mt-1 text-xs leading-relaxed">Paket ekle, fiyat güncelle ve stok takibi yap.</p>
+                    </div>
+
+                    {/* 3. Müşteri Yönetimi Linki */}
+                    <div 
+                        onClick={() => router.push("/admin/users")}
+                        className="bg-white p-6 rounded-3xl shadow-lg border border-gray-100 cursor-pointer group hover:border-indigo-300 transition-all duration-300 relative overflow-hidden"
+                    >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-full -mr-8 -mt-8 opacity-50 group-hover:scale-110 transition-transform"></div>
+                        <div className="flex items-start justify-between relative z-10">
+                            <div className="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center text-3xl group-hover:rotate-12 transition-transform shadow-sm">👥</div>
+                            <span className="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full text-[10px] font-bold border border-indigo-100">{stats.totalUsers} Üye</span>
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-800 mt-4 group-hover:text-indigo-600 transition">Müşteriler</h4>
+                        <p className="text-gray-400 mt-1 text-xs leading-relaxed">Kayıtlı kullanıcıları listele ve detayları gör.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* SAĞ: DURUM PANOSU */}
+            <div className="space-y-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    📢 Durum Panosu
+                </h3>
+                <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 relative">
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4 group">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-colors ${stats.lowStockProducts > 0 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-green-100 text-green-600'}`}>
+                                {stats.lowStockProducts > 0 ? '⚠️' : '✅'}
+                            </div>
+                            <div>
+                                <h5 className="font-bold text-gray-800">Stok Durumu</h5>
+                                <p className="text-sm text-gray-500">
+                                    {stats.lowStockProducts > 0 
+                                        ? <span className="text-red-500 font-bold">{stats.lowStockProducts} ürün kritik!</span>
+                                        : "Tüm stoklar yeterli."}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="border-t border-gray-100"></div>
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center text-2xl text-orange-600">⏳</div>
+                            <div>
+                                <h5 className="font-bold text-gray-800">Operasyon</h5>
+                                <p className="text-sm text-gray-500">Hazırlanacak <span className="font-bold text-gray-800">{stats.pendingOrders}</span> sipariş.</p>
+                            </div>
+                        </div>
+                        <div className="border-t border-gray-100"></div>
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl text-blue-600">🛡️</div>
+                            <div>
+                                <h5 className="font-bold text-gray-800">Sistem</h5>
+                                <p className="text-sm text-gray-500">PostgreSQL Bağlantısı Aktif.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* --- 3. SATIR: SON SİPARİŞLER --- */}
+        <div className="mt-8 mb-10">
+            <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                        📦 Son Gelen Siparişler
+                    </h3>
+                    <button onClick={() => router.push("/admin/orders")} className="text-xs font-bold text-green-600 hover:underline bg-green-50 px-3 py-1 rounded-full transition">Tümünü Gör ➜</button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                                <th className="pb-3 font-bold pl-2">Sipariş No</th>
+                                <th className="pb-3 font-bold">Müşteri</th>
+                                <th className="pb-3 font-bold">Tutar</th>
+                                <th className="pb-3 font-bold">Durum</th>
+                                <th className="pb-3 font-bold text-right pr-2">Tarih</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {products.length === 0 && <div className="p-10 text-center text-gray-400">Henüz ürün eklenmemiş.</div>}
+                        </thead>
+                        <tbody className="divide-y divide-gray-50 text-sm">
+                            {recentOrders.length > 0 ? (
+                                recentOrders.map((order: any) => (
+                                    <tr key={order.id} className="hover:bg-gray-50 transition group">
+                                        <td className="py-3 pl-2 font-mono text-gray-500">#{order.id}</td>
+                                        <td className="py-3 font-bold text-gray-800">
+                                            {/* PostgreSQL ilişkisinden kullanıcı adı gelmezse Misafir yaz */}
+                                            {order.user?.firstName ? `${order.user.firstName} ${order.user.lastName || ''}` : (order.guestName || 'Misafir')}
+                                            <div className="text-xs text-gray-400 font-normal">{order.petName ? `🐾 ${order.petName}` : ''}</div>
+                                        </td>
+                                        <td className="py-3 font-bold text-green-600">₺{Number(order.totalPrice).toFixed(2)}</td>
+                                        <td className="py-3">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border
+                                                ${order.status === 'Sipariş Alındı' ? 'bg-blue-50 text-blue-600 border-blue-100' : 
+                                                  order.status === 'Hazırlanıyor' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                                  order.status === 'Kargoya Verildi' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                                  order.status === 'Teslim Edildi' ? 'bg-green-50 text-green-600 border-green-100' :
+                                                  'bg-gray-50 text-gray-500 border-gray-100'}
+                                            `}>
+                                                {order.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 text-right pr-2 text-gray-400 text-xs">
+                                            {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan={5} className="py-6 text-center text-gray-400">Henüz sipariş yok.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+
       </div>
     </div>
   );
