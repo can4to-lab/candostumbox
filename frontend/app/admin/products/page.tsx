@@ -23,6 +23,9 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  // Debug için ekrana hata basma state'i
+  const [debugError, setDebugError] = useState<string | null>(null);
+
   // Form Verileri
   const [formData, setFormData] = useState({
     name: "",
@@ -56,13 +59,14 @@ export default function AdminProductsPage() {
     }
   }, [API_URL]);
 
-  // --- GÜVENLİK VE BAŞLANGIÇ KONTROLÜ ---
+  // --- GÜVENLİK VE BAŞLANGIÇ KONTROLÜ (DÜZENLENMİŞ KISIM) ---
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem("token");
       
       // 1. Token Kontrolü
       if (!token) { 
+        console.log("❌ Token yok, login'e yönlendiriliyor.");
         router.push("/admin/login"); 
         return; 
       }
@@ -73,24 +77,38 @@ export default function AdminProductsPage() {
           headers: { "Authorization": `Bearer ${token}` }
         });
         
-        if (!profileRes.ok) throw new Error("Oturum geçersiz");
+        if (!profileRes.ok) throw new Error("Oturum geçersiz (Profile Fetch Failed)");
 
         const user = await profileRes.json();
 
-        // 3. Admin Rol Kontrolü (Büyük/Küçük harf duyarlı)
+        // --- SORUN TESPİT LOGLARI (BURAYA DİKKAT) ---
+        console.log("-----------------------------------------");
+        console.log("🕵️‍♂️ DETAYLI KULLANICI ANALİZİ BAŞLADI");
+        console.log("1. API'den gelen ham veri:", user);
+        console.log("2. Kullanıcının Rolü (user.role):", user.role);
+        console.log("-----------------------------------------");
+
+        // 3. Admin Rol Kontrolü
         if (user.role?.toUpperCase() !== 'ADMIN') {
-          toast.error("Yetkisiz giriş denemesi!");
-          router.push("/"); // Admin değilse anasayfaya at
+          // Normalde burası router.push("/") yapar.
+          // Ama sorunu görmek için yönlendirmeyi kapattım ve ekrana hata yazdırdım.
+          
+          const hataMesaji = `YETKİ REDDEDİLDİ! Beklenen: ADMIN, Gelen: ${user.role}`;
+          console.error(hataMesaji);
+          setDebugError(hataMesaji); // Ekrana kırmızı yazı ile basacağız
+          toast.error("YETKİ HATASI! (Konsola bakınız)");
+          
+          // router.push("/"); // <--- YÖNLENDİRME GEÇİCİ OLARAK KAPALI
           return;
         } 
 
         // 4. Yetki tamamsa ürünleri çek
+        console.log("✅ Yetki başarılı, ürünler getiriliyor...");
         await fetchProducts();
 
-      } catch (err) {
-        console.error("Yetki hatası:", err);
-        localStorage.removeItem("token"); // Token bozuksa temizle
-        router.push("/admin/login");
+      } catch (err: any) {
+        console.error("Yetki hatası catch bloğu:", err);
+        setDebugError("Bir hata oluştu: " + err.message);
       } finally {
         setIsLoading(false);
       }
@@ -103,19 +121,16 @@ export default function AdminProductsPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- CRUD İŞLEMLERİ ---
-
-  // SİLME
+  // --- CRUD İŞLEMLERİ (DELETE, EDIT, SAVE) ---
+  
   const handleDelete = async (id: number) => {
     if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
-
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(`${API_URL}/products/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` },
       });
-
       if (res.ok) {
         toast.success("Ürün başarıyla silindi");
         fetchProducts();
@@ -127,7 +142,6 @@ export default function AdminProductsPage() {
     }
   };
 
-  // DÜZENLEME MODU AÇMA
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
     setFormData({
@@ -142,12 +156,10 @@ export default function AdminProductsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // HIZLI SIRA DEĞİŞTİRME
   const handleQuickOrderChange = async (id: number, newOrder: string) => {
     const token = localStorage.getItem("token");
     const orderInt = parseInt(newOrder);
     if(isNaN(orderInt)) return;
-
     try {
       await fetch(`${API_URL}/products/${id}`, {
         method: "PATCH",
@@ -164,16 +176,13 @@ export default function AdminProductsPage() {
     }
   };
 
-  // KAYDET (EKLE / GÜNCELLE)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
     setError("");
     const token = localStorage.getItem("token");
-
     const url = editingId ? `${API_URL}/products/${editingId}` : `${API_URL}/products`;
     const method = editingId ? "PATCH" : "POST";
-
     const payload = {
         name: formData.name.trim(),
         price: parseFloat(formData.price),
@@ -182,12 +191,10 @@ export default function AdminProductsPage() {
         description: formData.description,
         image: formData.image,
     };
-
     if (isNaN(payload.price) || isNaN(payload.stock)) {
         setError("Fiyat ve Stok sayısal değer olmalıdır.");
         return;
     }
-
     try {
       const res = await fetch(url, {
         method: method,
@@ -197,28 +204,45 @@ export default function AdminProductsPage() {
         },
         body: JSON.stringify(payload),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Hata oluştu.");
-
       toast.success(editingId ? "Ürün güncellendi!" : "Ürün eklendi!");
-      
-      // Reset
       setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" });
       if(editingId) setEditingId(null);
-      
       fetchProducts();
       setMessage("");
-
     } catch (err: any) {
       setError("❌ " + err.message);
       toast.error(err.message);
     }
   };
 
+  // --- RENDER KISMI ---
+
   if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 text-green-600 font-bold animate-pulse">
-        Yükleniyor... 🚀
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-green-600 font-bold">
+        <div className="animate-pulse mb-4">Veriler Kontrol Ediliyor... 🚀</div>
+        <div className="text-gray-400 text-sm">Lütfen bekleyin</div>
+    </div>
+  );
+
+  // EĞER HATA VARSA EKRANA BAS (Böylece anasayfaya atılmadan sorunu görürsün)
+  if (debugError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-red-50 p-10">
+        <h1 className="text-3xl font-bold text-red-600 mb-4">⚠️ ERİŞİM SORUNU TESPİT EDİLDİ</h1>
+        <div className="bg-white p-6 rounded-xl shadow-xl border border-red-200 max-w-2xl w-full">
+            <p className="font-bold text-gray-800 mb-2">Hata Detayı:</p>
+            <code className="block bg-gray-100 p-4 rounded text-red-700 font-mono text-sm mb-6 break-all">
+                {debugError}
+            </code>
+            <p className="text-gray-600 mb-4">
+                Bu mesajı görüyorsanız, veritabanındaki rolünüz ile kodun beklediği rol uyuşmuyor demektir.
+            </p>
+            <div className="flex gap-4">
+                <button onClick={() => router.push("/admin/login")} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Giriş Sayfasına Git</button>
+                <button onClick={() => window.location.reload()} className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">Sayfayı Yenile</button>
+            </div>
+        </div>
     </div>
   );
 
@@ -233,7 +257,6 @@ export default function AdminProductsPage() {
                 <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Ürün Yönetimi</h1>
                 <p className="text-green-100 mt-2">Paketleri düzenle, stokları yönet, fiyatları güncelle.</p>
             </div>
-            {/* GÜNCELLENEN KISIM: Panele Dönüş Linki */}
             <button 
                 onClick={() => router.push("/admin/dashboard")} 
                 className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-xl font-bold hover:bg-white/30 transition"
@@ -244,7 +267,6 @@ export default function AdminProductsPage() {
        </div>
 
       <div className="max-w-6xl mx-auto px-4 -mt-16 space-y-8">
-        {/* İSTATİSTİKLER */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <StatCard title="TOPLAM PAKET" value={totalProducts} sub="Aktif Satışta" color="text-gray-800" />
             <StatCard title="KRİTİK STOK" value={lowStockCount} sub="< 5 Adet" color="text-orange-600" />
@@ -252,7 +274,6 @@ export default function AdminProductsPage() {
             <StatCard title="ENVANTER DEĞERİ" value={`₺${totalInventoryValue.toLocaleString()}`} sub="Tahmini Kazanç" color="text-blue-600" />
         </div>
 
-        {/* FORM ALANI */}
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
             <div className={`p-6 px-8 flex justify-between items-center ${editingId ? "bg-orange-50" : "bg-green-50"}`}>
                 <div className="flex items-center gap-3">
@@ -262,7 +283,6 @@ export default function AdminProductsPage() {
                     </h2>
                 </div>
             </div>
-            
             <div className="p-8">
                 {message && <div className="bg-blue-50 text-blue-700 p-4 rounded-xl mb-6 font-bold flex items-center gap-2 animate-pulse">ℹ️ {message}</div>}
                 {error && <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 font-bold flex items-center gap-2">🚨 {error}</div>}
@@ -295,12 +315,10 @@ export default function AdminProductsPage() {
             </div>
         </div>
 
-        {/* LİSTE */}
         <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
             <div className="p-6 border-b border-gray-100 bg-gray-50/50">
                 <h2 className="text-xl font-bold text-gray-800">Paket Listesi & Envanter</h2>
             </div>
-            
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
