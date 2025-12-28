@@ -10,9 +10,20 @@ interface RegisterModalProps {
   onRegisterSuccess: () => void;
 }
 
+// 👇 1. İKONLARI BURAYA EKLEDİK
+const OTHER_ICONS: Record<string, string> = {
+    'Kuş': '🦜',
+    'Hamster': '🐹',
+    'Tavşan': '🐰',
+    'Balık': '🐟'
+};
+
 export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initialData, onRegisterSuccess }: RegisterModalProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  
+  // 👇 2. DROPDOWN İÇİN STATE EKLEDİK
+  const [isOtherOpen, setIsOtherOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "", email: "", password: "", phone: "",
@@ -37,16 +48,40 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
     }
   }, [initialData, isOpen]);
 
+  const isValidEmail = (email: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // 👇 3. YARDIMCI FONKSİYON: Seçili diğer hayvanın ikonunu bulur
+  const getOtherIcon = () => {
+      // Eğer seçili tip, bizim diğer ikonlar listemizde varsa onu döndür
+      if (OTHER_ICONS[formData.petType]) {
+          return OTHER_ICONS[formData.petType];
+      }
+      return '🦜'; // Varsayılan ikon
+  };
+
   const nextStep = () => {
-    if (step === 1 && (!formData.name || !formData.email || !formData.password || !formData.phone)) {
-        toast.error("Zorunlu alanları doldurmalısın ✍️");
-        return;
+    if (step === 1) {
+        if (!formData.name || !formData.email || !formData.password || !formData.phone) {
+            toast.error("Zorunlu alanları doldurmalısın ✍️");
+            return;
+        }
+        if (!isValidEmail(formData.email)) {
+            toast.error("Lütfen geçerli bir e-posta adresi girin 📧");
+            return;
+        }
+        if (formData.password.length < 6) {
+            toast.error("Şifreniz en az 6 karakter olmalıdır 🔒");
+            return;
+        }
     }
     if (step === 2 && (!formData.petName || !formData.petBirthDate || !formData.petWeight)) {
         toast.error("Dostunun temel bilgilerini girmelisin 🐾");
@@ -89,9 +124,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
     }
   };
 
-  // 👇 TEK VE ORTAK STİL: Gri kutu, siyah yazı
   const inputStyle = "w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-100 text-black placeholder-gray-500 focus:bg-white focus:border-green-600 focus:ring-2 focus:ring-green-100 outline-none transition font-medium text-sm";
-  const labelStyle = "block text-sm font-bold text-gray-800 mb-1 ml-1";
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -143,17 +176,64 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
                     </div>
                 )}
 
-                {/* --- AŞAMA 2 --- */}
+                {/* --- AŞAMA 2 (GÜNCELLENEN KISIM) --- */}
                 {step === 2 && (
                     <div className="space-y-5">
+                        
+                        {/* 👇 TÜR SEÇİMİ BUTONLARI */}
                         <div className="flex gap-4 mb-4">
-                             <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer text-center transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800 font-bold':'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                                <input type="radio" name="petType" value="kopek" checked={formData.petType==='kopek'} onChange={handleChange} className="hidden"/>🐶 Köpek
-                             </label>
-                             <label className={`flex-1 border-2 rounded-xl p-4 cursor-pointer text-center transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800 font-bold':'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                                <input type="radio" name="petType" value="kedi" checked={formData.petType==='kedi'} onChange={handleChange} className="hidden"/>🐱 Kedi
-                             </label>
+                             {/* KÖPEK BUTONU */}
+                             <button 
+                                type="button"
+                                onClick={() => { setFormData({...formData, petType: 'kopek'}); setIsOtherOpen(false); }}
+                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                             >
+                                🐶 Köpek
+                             </button>
+
+                             {/* KEDİ BUTONU */}
+                             <button 
+                                type="button"
+                                onClick={() => { setFormData({...formData, petType: 'kedi'}); setIsOtherOpen(false); }}
+                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                             >
+                                🐱 Kedi
+                             </button>
+
+                             {/* DİĞER (DROPDOWN) BUTONU */}
+                             <div className="relative flex-1">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsOtherOpen(!isOtherOpen)} 
+                                    className={`w-full h-full py-4 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 ${
+                                        (formData.petType !== 'kopek' && formData.petType !== 'kedi') 
+                                        ? 'border-green-500 bg-green-50 text-green-800' 
+                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    <span>{(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? getOtherIcon() : '🦜'}</span> Diğer ▼
+                                </button>
+                                
+                                {isOtherOpen && (
+                                    <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden animate-fade-in">
+                                        {Object.keys(OTHER_ICONS).map((t) => (
+                                            <button 
+                                                key={t} 
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData({...formData, petType: t}); 
+                                                    setIsOtherOpen(false);
+                                                }} 
+                                                className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"
+                                            >
+                                                <span>{OTHER_ICONS[t]}</span> {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                             </div>
                         </div>
+
                         <div className="grid grid-cols-2 gap-4">
                             <input type="text" name="petName" value={formData.petName} onChange={handleChange} className={inputStyle} placeholder="Adı *" />
                             <input type="text" name="petBreed" value={formData.petBreed} onChange={handleChange} className={inputStyle} placeholder="Irkı" />
