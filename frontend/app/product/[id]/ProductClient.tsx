@@ -2,8 +2,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import Image from 'next/image';
-import { useCart } from "@/context/CartContext"; 
+
+// Navbar için gerekli bileşenler (Yolunu projene göre kontrol et)
+import LoginModal from "@/components/LoginModal";
+import RegisterModal from "@/components/RegisterModal";
+
+// --- API ADRESİ (CANLI ORTAM) ---
+const API_URL = "https://candostumbox-api.onrender.com";
 
 interface Product {
   id: number;
@@ -25,6 +30,7 @@ interface Pet {
     allergies?: string[];
 }
 
+// Diğer hayvanlar için ikon haritası
 const OTHER_ICONS: Record<string, string> = {
     'Kuş': '🦜',
     'Hamster': '🐹',
@@ -33,12 +39,19 @@ const OTHER_ICONS: Record<string, string> = {
 };
 
 export default function ProductDetail() {
-  const { id } = useParams();
+  const params = useParams(); // params'ı güvenli alıyoruz
+  const id = params?.id; // id kontrolü
   const router = useRouter();
-  const { addToCart } = useCart(); 
   
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // --- NAVBAR STATE ---
+  const [isLoginOpen, setLoginOpen] = useState(false);
+  const [isRegisterOpen, setRegisterOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // userName kullanılmıyorsa kaldırılabilir veya Navbar'a prop olarak geçilebilir
+  const [userName, setUserName] = useState(""); 
 
   // --- FORM STATE ---
   const [step, setStep] = useState(1);
@@ -67,10 +80,21 @@ export default function ProductDetail() {
 
   // --- VERİ ÇEKME ---
   useEffect(() => {
+    // 1. Kullanıcı Giriş Kontrolü ve Petleri Çekme
     const token = localStorage.getItem("token");
-    
     if (token) {
-        fetch("https://candostumbox-api.onrender.com/users/pets", { 
+        setIsLoggedIn(true);
+        
+        // Profil Çek
+        fetch(`${API_URL}/auth/profile`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(data => setUserName(data.name || "Dostum"))
+        .catch(() => localStorage.removeItem("token")); // Token bozuksa sil
+
+        // Petleri Çek
+        fetch(`${API_URL}/users/pets`, { 
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => {
@@ -87,27 +111,30 @@ export default function ProductDetail() {
         .catch(err => console.log("Petler çekilemedi:", err));
     }
 
+    // 2. Ürün Detayını Çekme
     const fetchProduct = async () => {
+      if (!id) return;
+      
       try {
-        const res = await fetch(`https://candostumbox-api.onrender.com/products/${id}`);
+        const res = await fetch(`${API_URL}/products/${id}`);
         if(res.ok){
             const data = await res.json();
             setProduct(data);
         } else {
-            toast.error("Ürün bulunamadı");
+            // Ürün bulunamadıysa null bırak, aşağıda hata ekranı göstereceğiz
+            console.error("Ürün API'de bulunamadı");
         }
       } catch (error) {
-        console.error("Ürün yüklenemedi", error);
+        console.error("Ürün yüklenemedi sunucu hatası:", error);
       } finally {
         setLoading(false);
       }
     };
-    if(id) fetchProduct();
+
+    fetchProduct();
   }, [id]);
 
-  // ❌ BURADAKİ useEffect (OTOMATİK EKLEME) SİLİNDİ! ARTIK MANUEL EKLENECEK.
-
-  // --- YARDIMCI FONKSİYONLAR ---
+  // --- FONKSİYONLAR ---
   const handleAddAllergy = () => {
       if (petData.allergyInput.trim() && !petData.allergies.includes(petData.allergyInput.trim())) {
           setPetData({...petData, allergies: [...petData.allergies, petData.allergyInput.trim()], allergyInput: ""});
@@ -140,15 +167,17 @@ export default function ProductDetail() {
       });
   };
 
+  // 👇 YENİ PET KAYDETME FONKSİYONU
   const saveNewPet = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
           toast.error("Lütfen önce giriş yapın.");
+          setLoginOpen(true); // Login modalını aç
           return false;
       }
 
       try {
-          const res = await fetch("https://candostumbox-api.onrender.com/users/pets", {
+          const res = await fetch(`${API_URL}/users/pets`, {
               method: "POST",
               headers: { 
                   "Content-Type": "application/json",
@@ -168,9 +197,9 @@ export default function ProductDetail() {
           if (!res.ok) throw new Error("Kayıt başarısız");
           
           const newPet = await res.json();
-          setSavedPets([...savedPets, newPet]);
-          setSelectedPetId(newPet.id);
-          setIsNewPetMode(false);
+          setSavedPets([...savedPets, newPet]); 
+          setSelectedPetId(newPet.id); 
+          setIsNewPetMode(false); 
           toast.success("Dostun başarıyla kaydedildi! 🎉");
           return true;
 
@@ -180,44 +209,35 @@ export default function ProductDetail() {
       }
   };
 
-  // ✅ YENİ: MANUEL SEPETE EKLEME FONKSİYONU
-  const handleAddToCartManual = async () => {
-      if (!product) return;
-
-      // Pet ismini belirle
-      const currentPet = savedPets.find(p => p.id === selectedPetId);
-      const finalPetName = isNewPetMode ? petData.name : (currentPet?.name || "Yeni Dost");
-
-      // Sepete Ekle
-      addToCart({
-          productId: product.id,
-          productName: product.name,
-          price: product.price, // Fiyat hesaplaması backend/cart context mantığına göre değişebilir
-          duration: duration,
-          petId: selectedPetId,
-          petName: finalPetName,
-          paymentType: paymentType,
-          image: product.image
-      });
-
-      // İsteğe bağlı: Sepet açıldığı için beklemeye gerek yok, 
-      // ama direkt ödemeye gitmek istersen aşağıyı açabilirsin:
-      // setTimeout(() => router.push('/checkout'), 500);
-  };
-
-  // İLERLEME FONKSİYONU
+  // 👇 İLERLEME FONKSİYONU
   const handleNextStep = async () => {
       if (step === 1) {
           setStep(2);
       } else if (step === 2) {
+          const token = localStorage.getItem("token");
+          
+          // Eğer giriş yapılmamışsa uyar
+          if (!token) {
+              toast.error("Devam etmek için lütfen giriş yapın.");
+              setLoginOpen(true);
+              return;
+          }
+
+          // Validasyonlar
           if (isNewPetMode || savedPets.length === 0) {
               if (!petData.name || !petData.breed || !petData.weight) {
                   toast.error("Lütfen dostunun bilgilerini eksiksiz doldur.");
                   return;
               }
+              if (petData.type === 'diger' && !petData.otherType) {
+                  toast.error("Lütfen hayvan türünü belirt.");
+                  return;
+              }
+
+              // ✅ Eğer yeni ekleme modundaysak önce veritabanına kaydet
               if (isNewPetMode) {
                   const isSaved = await saveNewPet();
-                  if (!isSaved) return;
+                  if (!isSaved) return; // Kayıt başarısızsa ilerleme
               }
           } else if (!selectedPetId) {
               toast.error("Lütfen bir dostunu seç veya yeni ekle.");
@@ -226,20 +246,57 @@ export default function ProductDetail() {
           
           setStep(3);
       } else {
-          // STEP 3'te bir şey yapmamıza gerek kalmadı çünkü butonu aşağıda değiştirdik.
+          toast.success("Ödeme sayfasına yönlendiriliyorsunuz...");
+          // Sepete ekleme veya checkout mantığı buraya eklenebilir
+          setTimeout(() => {
+              router.push('/checkout');
+          }, 1000);
       }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]"><div className="animate-spin text-4xl text-green-600">🎁</div></div>;
-  if (!product) return <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">Ürün bulunamadı.</div>;
+  // --- RENDER DURUMLARI ---
 
-  const monthlyPrice = Number(product.price); 
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]">
+        <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin text-5xl">🎁</div>
+            <p className="text-gray-500 font-bold">Paket yükleniyor...</p>
+        </div>
+    </div>
+  );
+
+  if (!product) return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8f9fa] p-4 text-center">
+          <div className="text-6xl mb-4">🔍</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Aradığınız Paket Bulunamadı</h2>
+          <p className="text-gray-500 mb-6">Bu ürün kaldırılmış veya adresi değişmiş olabilir.</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition"
+          >
+            Anasayfaya Dön
+          </button>
+      </div>
+  );
+
+  const monthlyPrice = Number(product.price);
   const totalPrice = monthlyPrice * duration;
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] font-sans">
-      
+      <Toaster position="top-right" />
+
+      {/* MODALLAR */}
+      <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
+      <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
+
+      {/* --- ANA İÇERİK --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Üstte Geri Dön Butonu (Mobil için iyi olur) */}
+        <button onClick={() => router.back()} className="mb-6 text-gray-500 font-bold hover:text-green-600 transition flex items-center gap-2">
+            ← Listeye Dön
+        </button>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             
             {/* SOL: ÜRÜN BİLGİSİ */}
@@ -247,23 +304,36 @@ export default function ProductDetail() {
                 <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
                     <h1 className="text-3xl font-black text-gray-900 mb-2">{product.name}</h1>
-                    <p className="text-gray-500 text-sm mb-6 leading-relaxed">{product.description}</p>
-                    <div className="relative h-64 w-full mb-6 group"><img src={product.image || "https://placehold.co/400x400/png?text=Paket"} alt={product.name} className="object-contain w-full h-full drop-shadow-2xl transition-transform duration-500 group-hover:scale-105" /></div>
-                    <div className="text-5xl font-black text-gray-900 mb-1 tracking-tighter">₺{product.price}</div>
-                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-8">Aylık Fiyat</div>
-                    <div className="space-y-3 text-left border-t border-gray-100 pt-6">
-                        {product.features?.map((feature, idx) => (
-                            <div key={idx} className="flex items-center gap-3 text-sm text-gray-600 font-medium"><span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold flex-shrink-0">✓</span>{feature}</div>
-                        ))}
+                    <p className="text-gray-500 text-sm mb-6 leading-relaxed">{product.description || "Açıklama bulunmuyor."}</p>
+                    <div className="relative h-64 w-full mb-6 group">
+                        <img 
+                            src={product.image || "https://placehold.co/400x400/png?text=Paket"} 
+                            alt={product.name} 
+                            className="object-contain w-full h-full drop-shadow-2xl transition-transform duration-500 group-hover:scale-105" 
+                        />
                     </div>
+                    <div className="text-5xl font-black text-gray-900 mb-1 tracking-tighter">₺{monthlyPrice.toFixed(2)}</div>
+                    <div className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-8">Aylık Fiyat</div>
+                    
+                    {/* Ürün Özellikleri Varsa Göster */}
+                    {product.features && product.features.length > 0 && (
+                        <div className="space-y-3 text-left border-t border-gray-100 pt-6">
+                            {product.features.map((feature, idx) => (
+                                <div key={idx} className="flex items-center gap-3 text-sm text-gray-600 font-medium">
+                                    <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold flex-shrink-0">✓</span>
+                                    {feature}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
+
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                     <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">💳 Ödeme Seçenekleri</h4>
                     <div className="text-sm text-gray-500 space-y-3 font-medium">
                         <div className="flex justify-between border-b border-gray-50 pb-2"><span>Tek Çekim</span><span className="font-bold text-gray-900">Komisyonsuz</span></div>
                         <div className="flex justify-between border-b border-gray-50 pb-2"><span>3 Taksit</span><span className="font-bold text-green-600">%0 Faiz Fırsatı</span></div>
-                        <div className="flex justify-between border-b border-gray-50 pb-2"><span>6 Taksit</span><span>+ Vade Farkı</span></div>
-                        <div className="flex justify-between"><span>12 Taksit</span><span>+ Vade Farkı</span></div>
+                        <div className="flex justify-between"><span>Güvenli Ödeme</span><span>256-bit SSL</span></div>
                     </div>
                 </div>
             </div>
@@ -308,6 +378,7 @@ export default function ProductDetail() {
                                     <p className="text-gray-500">Kayıtlı dostlarından birini seç veya yeni bir tane ekle.</p>
                                 </div>
 
+                                {/* 1. KAYITLI PETLER LİSTESİ */}
                                 {savedPets.length > 0 && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {savedPets.map(pet => (
@@ -329,34 +400,35 @@ export default function ProductDetail() {
                                     </div>
                                 )}
 
-                                {savedPets.length > 0 && (
-                                    <button 
-                                        onClick={() => { 
-                                            setIsNewPetMode(true); 
-                                            setSelectedPetId(null); 
-                                            setPetData({
-                                                type: "kopek",
-                                                otherType: "",
-                                                name: "",
-                                                breed: "",
-                                                weight: "",
-                                                birthDate: "",
-                                                isNeutered: false,
-                                                shippingDate: "1-5",
-                                                allergies: [],
-                                                allergyInput: ""
-                                            });
-                                        }}
-                                        className={`w-full p-4 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold hover:border-green-500 hover:text-green-600 transition flex items-center justify-center gap-2 ${isNewPetMode ? 'border-green-500 bg-green-50 text-green-700' : ''}`}
-                                    >
-                                        <span>+</span> Yeni Bir Dost Ekle
-                                    </button>
-                                )}
+                                {/* 2. YENİ EKLE BUTONU */}
+                                <button 
+                                    onClick={() => { 
+                                        setIsNewPetMode(true); 
+                                        setSelectedPetId(null); 
+                                        setPetData({
+                                            type: "kopek",
+                                            otherType: "",
+                                            name: "",
+                                            breed: "",
+                                            weight: "",
+                                            birthDate: "",
+                                            isNeutered: false,
+                                            shippingDate: "1-5",
+                                            allergies: [],
+                                            allergyInput: ""
+                                        });
+                                    }}
+                                    className={`w-full p-4 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold hover:border-green-500 hover:text-green-600 transition flex items-center justify-center gap-2 ${isNewPetMode ? 'border-green-500 bg-green-50 text-green-700' : ''}`}
+                                >
+                                    <span>+</span> {savedPets.length > 0 ? 'Farklı Bir Dost Ekle' : 'Yeni Bir Dost Ekle'}
+                                </button>
 
+                                {/* 3. GİZLİ FORM ALANI */}
                                 {(isNewPetMode || savedPets.length === 0) && (
                                     <div className="animate-slide-down border-t border-gray-100 pt-6">
                                         <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2">📝 Dostunun Bilgileri</h3>
                                         
+                                        {/* TÜR SEÇİMİ */}
                                         <div className="flex gap-4 justify-center mb-6">
                                             <button onClick={() => { setPetData({...petData, type: 'kopek', otherType: ''}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${petData.type === 'kopek' ? 'border-green-500 bg-white text-green-700' : 'border-gray-200 bg-white text-gray-400'}`}>🐶 Köpek</button>
                                             <button onClick={() => { setPetData({...petData, type: 'kedi', otherType: ''}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${petData.type === 'kedi' ? 'border-green-500 bg-white text-green-700' : 'border-gray-200 bg-white text-gray-400'}`}>🐱 Kedi</button>
@@ -372,6 +444,7 @@ export default function ProductDetail() {
                                             </div>
                                         </div>
 
+                                        {/* INPUTLAR */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                             <input type="text" value={petData.name} onChange={e => setPetData({...petData, name: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" placeholder="İsim (Örn: Pamuk)" />
                                             <input type="text" value={petData.breed} onChange={e => setPetData({...petData, breed: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" placeholder="Irk (Örn: Golden)" />
@@ -379,6 +452,7 @@ export default function ProductDetail() {
                                             <input type="date" value={petData.birthDate} onChange={e => setPetData({...petData, birthDate: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" />
                                         </div>
 
+                                        {/* KARGO TARİHİ */}
                                         <div className="mb-6">
                                             <label className="block text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Kargo Gönderim Dönemi 🚚</label>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -388,6 +462,7 @@ export default function ProductDetail() {
                                             </div>
                                         </div>
 
+                                        {/* KISIRLAŞTIRMA VE ALERJİ */}
                                         <div className="space-y-4">
                                             <label className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition group bg-white">
                                                 <input type="checkbox" checked={petData.isNeutered} onChange={e => setPetData({...petData, isNeutered: e.target.checked})} className="w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300" />
@@ -446,13 +521,7 @@ export default function ProductDetail() {
                                 </div>
                                 <div className="flex justify-between items-center pt-4">
                                     <button onClick={() => setStep(2)} className="text-gray-400 font-bold hover:text-gray-900 px-6">Düzenle</button>
-                                    {/* 👇 GÜNCELLENEN BUTON */}
-                                    <button 
-                                        onClick={handleAddToCartManual} 
-                                        className="bg-green-600 text-white px-12 py-5 rounded-xl font-bold hover:bg-green-700 transition shadow-xl shadow-green-200 transform active:scale-95 flex items-center gap-3 text-lg"
-                                    >
-                                        Sepete Ekle & Öde <span className="text-2xl">🛒</span>
-                                    </button>
+                                    <button onClick={handleNextStep} className="bg-green-600 text-white px-12 py-5 rounded-xl font-bold hover:bg-green-700 transition shadow-xl shadow-green-200 transform active:scale-95 flex items-center gap-3 text-lg">Ödemeye Geç <span className="text-2xl">💳</span></button>
                                 </div>
                             </div>
                         )}
