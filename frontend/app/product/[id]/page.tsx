@@ -548,3 +548,30 @@ export default function ProductDetail() {
     </main>
   );
 }
+// ... (yukarıdaki kodların aynen kalsın) ...
+
+// 👇 BU KISMI DOSYANIN EN ALTINA EKLE 👇
+
+// Bu fonksiyon Build (Derleme) sırasında çalışır ve
+// veritabanındaki tüm ürünleri çekerek her biri için statik bir sayfa (HTML) oluşturur.
+export async function generateStaticParams() {
+  try {
+    // Canlı API'den tüm ürünleri çek
+    const res = await fetch("https://candostumbox-api.onrender.com/products");
+    
+    // Eğer veri gelmezse boş dizi döndür (Hata vermemesi için)
+    if (!res.ok) return [];
+
+    const products = await res.json();
+
+    // Next.js'e bu ID'ler için sayfa oluşturmasını söyle
+    // ÖNEMLİ: id değeri mutlaka String (yazı) olmalıdır.
+    return products.map((product: { id: number }) => ({
+      id: product.id.toString(),
+    }));
+
+  } catch (error) {
+    console.error("Build sırasında ürünler çekilemedi:", error);
+    return [];
+  }
+}
