@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense } from "react"; // 👈 Suspense eklendi
+import { useState, useEffect, Suspense } from "react"; 
 import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -9,14 +9,19 @@ import EditPetModal from "../components/modals/EditPetModal";
 import AddAddressModal from "../components/modals/AddAddressModal";
 import EditAddressModal from "../components/modals/EditAddressModal";
 
-// 👇 YENİ BİLEŞENİ BURADAN ÇAĞIRIYORUZ
 import MySubscriptions from "../components/profile/MySubscriptions"; 
 
-// Navbar ve Auth Modalları
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 
-// ⚠️ DİKKAT: Buranın adı artık ProfilePage DEĞİL, ProfileContent oldu.
+// 👇 1. YENİ İKON LİSTESİ (MODALLARLA AYNI)
+const OTHER_ICONS: Record<string, string> = {
+    'Kuş': '🦜',
+    'Hamster': '🐹',
+    'Tavşan': '🐰',
+    'Balık': '🐟'
+};
+
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,7 +29,6 @@ function ProfileContent() {
   const [loading, setLoading] = useState(true);
   
   // Navbar State
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
 
@@ -59,7 +63,7 @@ function ProfileContent() {
 
   const [passData, setPassData] = useState({ current: "", new: "", confirm: "" });
 
-  // --- YARDIMCI FONKSİYON: YAŞ HESAPLAMA ---
+  // --- YARDIMCI FONKSİYONLAR ---
   const calculateAge = (dateString: string) => {
       if(!dateString) return "Bilinmiyor";
       const today = new Date();
@@ -71,6 +75,20 @@ function ProfileContent() {
       }
       return age;
   }
+
+  // 👇 2. İKON SEÇİCİ FONKSİYON
+  const getPetIcon = (type: string) => {
+    if (type === 'kopek') return '🐶';
+    if (type === 'kedi') return '🐱';
+    return OTHER_ICONS[type] || '🐾';
+  };
+
+  // 👇 3. RENK SEÇİCİ FONKSİYON
+  const getPetBg = (type: string) => {
+    if (type === 'kopek') return 'bg-orange-100 text-orange-600';
+    if (type === 'kedi') return 'bg-blue-100 text-blue-600';
+    return 'bg-green-100 text-green-600'; // Diğer türler için yeşil
+  };
 
   // --- VERİ ÇEKME ---
   const fetchProfile = async () => {
@@ -121,9 +139,15 @@ function ProfileContent() {
       if (!token) return;
       const toastId = toast.loading("Güncelleniyor...");
       try {
+        // Tarih formatı kontrolü (Daha önce konuştuğumuz düzeltme)
+        let formattedDate = null;
+        if (formData.birthDate) {
+             formattedDate = new Date(formData.birthDate).toISOString();
+        }
+
         const payload = {
             ...formData,
-            userBirthDate: formData.birthDate,
+            userBirthDate: formattedDate,
             tcKimlikNo: formData.tcIdentity
         };
 
@@ -132,14 +156,22 @@ function ProfileContent() {
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify(payload)
         });
+        
+        const data = await res.json();
+
         if (res.ok) {
             toast.success("Bilgilerin güncellendi! ✅", { id: toastId });
             fetchProfile();
         } else {
-            const err = await res.json();
-            toast.error(err.message || "Güncelleme başarısız.", { id: toastId });
+             // Backend'den gelen hatayı göster
+             const errorMessage = data.message || "Güncelleme başarısız.";
+             if (errorMessage.includes("email")) {
+                  toast.error("Bu e-posta kullanılamıyor.", { id: toastId });
+             } else {
+                  toast.error(errorMessage, { id: toastId });
+             }
         }
-      } catch (error) { toast.error("Hata oluştu.", { id: toastId }); }
+      } catch (error) { toast.error("Sunucu hatası.", { id: toastId }); }
   };
 
   const handleDeleteAddress = async (id: number) => {
@@ -279,12 +311,10 @@ function ProfileContent() {
                 {/* SAĞ İÇERİK */}
                 <div className="lg:col-span-9">
                     
-                    {/* 1. ABONELİK (GÜNCELLENDİ: ARTIK COMPONENT KULLANIYOR) */}
                     {activeTab === "abonelik" && (
                         <MySubscriptions />
                     )}
 
-                    {/* 2. SİPARİŞLERİM */}
                     {activeTab === "siparisler" && (
                         <div className="space-y-6">
                             <h2 className="text-xl font-bold text-gray-900">Siparişlerim</h2>
@@ -350,7 +380,6 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 3. KULLANICI BİLGİLERİ */}
                     {activeTab === "bilgiler" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm max-w-3xl">
                             <h2 className="text-xl font-bold text-gray-900 mb-2">Kullanıcı Bilgilerim</h2>
@@ -436,7 +465,7 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 4. CAN DOSTLARIM */}
+                    {/* 4. CAN DOSTLARIM (GÜNCELLENDİ) */}
                     {activeTab === "pets" && (
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
@@ -446,9 +475,12 @@ function ProfileContent() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {user?.pets?.map((pet: any) => (
                                     <div key={pet.id} className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm flex items-start gap-4 relative group hover:border-green-400 transition">
-                                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0 ${pet.type === 'kopek' ? 'bg-orange-100' : 'bg-blue-100'}`}>
-                                            {pet.type === 'kopek' ? '🐶' : '🐱'}
+                                        
+                                        {/* 👇 DİNAMİK İKON VE RENK KULLANIMI */}
+                                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0 ${getPetBg(pet.type)}`}>
+                                            {getPetIcon(pet.type)}
                                         </div>
+                                        
                                         <div className="flex-1">
                                             <div className="flex justify-between items-start">
                                                 <div>
@@ -503,7 +535,6 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 5. ŞİFRE DEĞİŞTİR */}
                     {activeTab === "sifre" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm max-w-2xl">
                             <h2 className="text-xl font-bold text-gray-900 mb-6">Şifremi Değiştir</h2>
@@ -540,7 +571,6 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 6. ADRESLERİM */}
                     {activeTab === "adresler" && (
                         <div className="space-y-6">
                             <div className="flex justify-between items-center">
@@ -580,7 +610,6 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 7. KAYITLI KARTLAR */}
                     {activeTab === "kartlar" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm text-center">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">💳</div>
@@ -590,7 +619,6 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* 8. İLETİŞİM */}
                     {activeTab === "iletisim" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm">
@@ -611,7 +639,6 @@ function ProfileContent() {
         </div>
       </div>
 
-      {/* --- MODALLAR --- */}
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} onLoginSuccess={() => router.push('/profile')} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} initialData={null} onRegisterSuccess={() => router.push('/profile')} />
       <AddPetModal isOpen={isAddPetOpen} onClose={() => setAddPetOpen(false)} onSuccess={fetchProfile} />
@@ -622,8 +649,6 @@ function ProfileContent() {
   );
 }
 
-// 👇 İŞTE SİHİRLİ DOKUNUŞ BURADA 👇
-// Ana bileşeni (ProfileContent) bir "Suspense" içine alarak dışarı açıyoruz.
 export default function ProfilePage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-4 border-green-600"></div></div>}>

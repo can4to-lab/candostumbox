@@ -6,10 +6,20 @@ interface EditPetModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  petData: any; // Düzenlenecek hayvanın verisi
+  petData: any; 
 }
 
+// 1. İKON LİSTESİ
+const OTHER_ICONS: Record<string, string> = {
+    'Kuş': '🦜',
+    'Hamster': '🐹',
+    'Tavşan': '🐰',
+    'Balık': '🐟'
+};
+
 export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: EditPetModalProps) {
+  const [isOtherOpen, setIsOtherOpen] = useState(false); // 2. DROPDOWN STATE
+
   const [formData, setFormData] = useState({
     name: "",
     type: "kopek",
@@ -20,7 +30,6 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
     allergies: "",
   });
 
-  // Modal açıldığında veya petData değiştiğinde formu doldur
   useEffect(() => {
     if (petData) {
       setFormData({
@@ -28,21 +37,26 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
         type: petData.type || "kopek",
         breed: petData.breed || "",
         weight: petData.weight || "",
-        // Tarihi input formatına (YYYY-MM-DD) çevir
         birthDate: petData.birthDate ? new Date(petData.birthDate).toISOString().split('T')[0] : "",
         isNeutered: petData.isNeutered || false,
-        // Alerji array'ini string'e çevir (virgülle ayrılmış)
         allergies: petData.allergies ? petData.allergies.join(", ") : "",
       });
     }
   }, [petData, isOpen]);
+
+  // 3. YARDIMCI FONKSİYON
+  const getOtherIcon = () => {
+      if (OTHER_ICONS[formData.type]) {
+          return OTHER_ICONS[formData.type];
+      }
+      return '🦜'; 
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    // Alerjileri array'e çevir
     const allergiesArray = formData.allergies.split(",").map(item => item.trim()).filter(item => item !== "");
 
     try {
@@ -82,17 +96,60 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
 
         <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* Tür Seçimi */}
-            <div className="grid grid-cols-2 gap-4">
-                <button type="button" onClick={() => setFormData({...formData, type: 'kopek'})} className={`p-4 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition ${formData.type === 'kopek' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}>
+            {/* 4. GÜNCELLENEN TÜR SEÇİMİ */}
+            <div className="flex gap-4 mb-4">
+                {/* KÖPEK */}
+                <button 
+                    type="button"
+                    onClick={() => { setFormData({...formData, type: 'kopek'}); setIsOtherOpen(false); }}
+                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.type === 'kopek' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}
+                >
                     🐶 Köpek
                 </button>
-                <button type="button" onClick={() => setFormData({...formData, type: 'kedi'})} className={`p-4 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition ${formData.type === 'kedi' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}>
+
+                {/* KEDİ */}
+                <button 
+                    type="button"
+                    onClick={() => { setFormData({...formData, type: 'kedi'}); setIsOtherOpen(false); }}
+                    className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.type === 'kedi' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}
+                >
                     🐱 Kedi
                 </button>
+
+                {/* DİĞER (DROPDOWN) */}
+                <div className="relative flex-1">
+                    <button 
+                        type="button"
+                        onClick={() => setIsOtherOpen(!isOtherOpen)} 
+                        className={`w-full h-full py-4 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 ${
+                            (formData.type !== 'kopek' && formData.type !== 'kedi') 
+                            ? 'border-green-500 bg-green-50 text-green-700' 
+                            : 'border-gray-100 text-gray-400 hover:border-gray-300'
+                        }`}
+                    >
+                        <span>{(formData.type !== 'kopek' && formData.type !== 'kedi') ? getOtherIcon() : '🦜'}</span> Diğer ▼
+                    </button>
+                    
+                    {isOtherOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden animate-fade-in">
+                            {Object.keys(OTHER_ICONS).map((t) => (
+                                <button 
+                                    key={t} 
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData({...formData, type: t}); 
+                                        setIsOtherOpen(false);
+                                    }} 
+                                    className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"
+                                >
+                                    <span>{OTHER_ICONS[t]}</span> {t}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* İsim & Irk */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">İsim</label>
@@ -104,7 +161,6 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
                 </div>
             </div>
 
-            {/* Kilo & Doğum Tarihi */}
             <div className="grid grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Kilo (kg)</label>
@@ -116,7 +172,6 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
                 </div>
             </div>
 
-            {/* Kısırlaştırma Durumu */}
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
                 <input 
                     type="checkbox" 
@@ -128,7 +183,6 @@ export default function EditPetModal({ isOpen, onClose, onSuccess, petData }: Ed
                 <label htmlFor="isNeutered" className="text-sm font-bold text-gray-700 cursor-pointer">Kısırlaştırılmış</label>
             </div>
 
-            {/* Alerjiler */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Alerjiler (Opsiyonel)</label>
                 <input 

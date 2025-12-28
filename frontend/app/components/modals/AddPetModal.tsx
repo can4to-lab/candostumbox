@@ -8,8 +8,18 @@ interface AddPetModalProps {
   onSuccess: () => void; 
 }
 
+// 1. İKON LİSTESİ
+const OTHER_ICONS: Record<string, string> = {
+    'Kuş': '🦜',
+    'Hamster': '🐹',
+    'Tavşan': '🐰',
+    'Balık': '🐟'
+};
+
 export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalProps) {
   const [loading, setLoading] = useState(false);
+  const [isOtherOpen, setIsOtherOpen] = useState(false); // 2. DROPDOWN STATE
+
   const [formData, setFormData] = useState({
     name: "",
     type: "kopek",
@@ -19,6 +29,14 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
     isNeutered: "false",
     allergies: ""
   });
+
+  // 3. YARDIMCI FONKSİYON
+  const getOtherIcon = () => {
+      if (OTHER_ICONS[formData.type]) {
+          return OTHER_ICONS[formData.type];
+      }
+      return '🦜'; 
+  };
 
   if (!isOpen) return null;
 
@@ -64,14 +82,59 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
         <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">🐾 Yeni Dost Ekle</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Tür Seçimi */}
+            
+            {/* 4. GÜNCELLENEN TÜR SEÇİMİ */}
             <div className="flex gap-4 mb-4">
-                <label className={`flex-1 border-2 rounded-xl p-3 cursor-pointer text-center transition ${formData.type==='kopek' ? 'border-green-500 bg-green-50 text-green-700':'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                    <input type="radio" name="type" value="kopek" checked={formData.type==='kopek'} onChange={handleChange} className="hidden"/>🐶 Köpek
-                </label>
-                <label className={`flex-1 border-2 rounded-xl p-3 cursor-pointer text-center transition ${formData.type==='kedi' ? 'border-green-500 bg-green-50 text-green-700':'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-                    <input type="radio" name="type" value="kedi" checked={formData.type==='kedi'} onChange={handleChange} className="hidden"/>🐱 Kedi
-                </label>
+                {/* KÖPEK */}
+                <button 
+                    type="button"
+                    onClick={() => { setFormData({...formData, type: 'kopek'}); setIsOtherOpen(false); }}
+                    className={`flex-1 py-3 rounded-xl font-bold border-2 transition ${formData.type==='kopek' ? 'border-green-500 bg-green-50 text-green-700':'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                >
+                    🐶 Köpek
+                </button>
+
+                {/* KEDİ */}
+                <button 
+                    type="button"
+                    onClick={() => { setFormData({...formData, type: 'kedi'}); setIsOtherOpen(false); }}
+                    className={`flex-1 py-3 rounded-xl font-bold border-2 transition ${formData.type==='kedi' ? 'border-green-500 bg-green-50 text-green-700':'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                >
+                    🐱 Kedi
+                </button>
+
+                {/* DİĞER (DROPDOWN) */}
+                <div className="relative flex-1">
+                    <button 
+                        type="button"
+                        onClick={() => setIsOtherOpen(!isOtherOpen)} 
+                        className={`w-full h-full py-3 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 ${
+                            (formData.type !== 'kopek' && formData.type !== 'kedi') 
+                            ? 'border-green-500 bg-green-50 text-green-700' 
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                        }`}
+                    >
+                        <span>{(formData.type !== 'kopek' && formData.type !== 'kedi') ? getOtherIcon() : '🦜'}</span> Diğer ▼
+                    </button>
+                    
+                    {isOtherOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden animate-fade-in">
+                            {Object.keys(OTHER_ICONS).map((t) => (
+                                <button 
+                                    key={t} 
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData({...formData, type: t}); 
+                                        setIsOtherOpen(false);
+                                    }} 
+                                    className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"
+                                >
+                                    <span>{OTHER_ICONS[t]}</span> {t}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -104,15 +167,14 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
         </form>
       </div>
       
-      {/* 👇 DÜZELTİLEN CSS BURASI */}
       <style jsx>{`
         .input-field {
             width: 100%;
             padding: 0.8rem 1rem;
             border-radius: 0.75rem;
-            border: 2px solid #f3f4f6; /* Daha belirgin kenarlık */
-            background-color: #ffffff; /* Arka plan kesinlikle beyaz */
-            color: #111827; /* Yazı rengi KOYU (Neredeyse Siyah) - Saydam değil! */
+            border: 2px solid #f3f4f6;
+            background-color: #ffffff;
+            color: #111827;
             font-weight: 500;
             outline: none;
             transition: all 0.2s;
@@ -123,7 +185,7 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
             box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
         }
         .input-field::placeholder {
-            color: #9ca3af; /* Placeholder rengi gri */
+            color: #9ca3af;
         }
       `}</style>
     </div>
