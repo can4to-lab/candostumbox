@@ -15,9 +15,9 @@ export default function Footer() {
                 <div>
                     <h4 className="font-bold text-white mb-6">Kurumsal</h4>
                     <ul className="space-y-3 text-sm text-gray-400">
-                        <li><a href="#" className="hover:text-green-400 transition">Hakkımızda</a></li>
-                        <li><a href="#" className="hover:text-green-400 transition">Sıkça Sorulan Sorular</a></li>
-                        <li><a href="#" className="hover:text-green-400 transition">İletişim</a></li>
+                        <li><a href="/about" className="hover:text-green-400 transition">Hakkımızda</a></li>
+                        <li><a href="/faq" className="hover:text-green-400 transition">Sıkça Sorulan Sorular</a></li>
+                        <li><a href="/contact" className="hover:text-green-400 transition">İletişim</a></li>
                     </ul>
                 </div>
                 <div>

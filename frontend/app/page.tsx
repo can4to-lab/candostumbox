@@ -38,7 +38,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
 
-  // --- SLIDER VERİLERİ (GÜNCELLENDİ: Link Eklendi) ---
+  // --- SLIDER VERİLERİ (GÜNCELLENDİ: Buton Metinleri Eklendi) ---
   const slides = [
     {
         id: 1,
@@ -47,7 +47,9 @@ export default function Home() {
         description: "Her ay kapına gelen özenle seçilmiş oyuncaklar, doğal atıştırmalıklar ve bakım ürünleri. Onun kuyruğunu, senin yüzünü güldürmek için buradayız.",
         image: "/slider-1.jpg", 
         btnColor: "bg-green-600 hover:bg-green-700 border-transparent",
-        link: "/product" // Yönlendirme linki
+        link: "/product",
+        btnTextGuest: "Hemen Başla 🚀",
+        btnTextUser: "Paketleri İncele 🎁"
     },
     {
         id: 2,
@@ -56,7 +58,9 @@ export default function Home() {
         description: "Farklı temalarla hazırlanan kutularımızla dostunun merakını her zaman canlı tut. Sıkılmak yok, sadece eğlence var!",
         image: "/slider-3.jpg", 
         btnColor: "bg-orange-600 hover:bg-orange-700 border-transparent",
-        link: "/product"
+        link: "/product",
+        btnTextGuest: "Hemen Başla 🚀",
+        btnTextUser: "Paketleri İncele 🎁"
     },
     {
         id: 3,
@@ -65,7 +69,10 @@ export default function Home() {
         description: "Gönderdiğimiz tüm ürünler uzman veterinerler tarafından kontrol edilir. Dostunun sağlığı bizim için her şeyden önemli.",
         image: "/veteriner-onayli.jpg", 
         btnColor: "bg-blue-600 hover:bg-blue-700 border-transparent",
-        link: "/neden-biz"
+        link: "/about",
+        // 👇 BURADA FARKLI METİN KULLANIYORUZ
+        btnTextGuest: "Bizi Tanı 🛡️",
+        btnTextUser: "Standartlarımızı Gör 🩺"
     }
   ];
 
@@ -206,10 +213,11 @@ export default function Home() {
                                 {slide.description}
                             </p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 animate-fade-in-up delay-300">
+                                {/* 👇 BUTON METNİ BURADA DİNAMİKLEŞTİ */}
                                 <button onClick={() => handleHeroButtonClick(slide.link)} className={`px-10 py-4 text-white rounded-full font-bold text-lg transition shadow-xl transform hover:-translate-y-1 active:scale-95 flex items-center gap-2 border ${slide.btnColor}`}>
-                                    {isLoggedIn ? "Paketleri İncele 🎁" : "Hemen Başla 🚀"}
+                                    {isLoggedIn ? slide.btnTextUser : slide.btnTextGuest}
                                 </button>
-                                <button onClick={() => handleNavigation('/nasil-calisir')} className="px-10 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/50 rounded-full font-bold text-lg transition flex items-center gap-2">
+                                <button onClick={() => handleNavigation('/how-it-works')} className="px-10 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/50 rounded-full font-bold text-lg transition flex items-center gap-2">
                                     Nasıl Çalışır? 🤔
                                 </button>
                             </div>
@@ -233,9 +241,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* --- KAYAN BANNER (KALDIRILDI - İSTEK ÜZERİNE) --- */}
-      
- {/* --- ABONELİK SİSTEMİ BİLGİLENDİRME BANNERI (YENİ) --- */}
+      {/* --- ABONELİK SİSTEMİ BİLGİLENDİRME BANNERI (YENİ) --- */}
       <section className="py-16 bg-white border-b border-gray-100">
           <div className="container mx-auto px-6 text-center">
               <h2 className="text-3xl font-black text-gray-900 mb-8">Nasıl Çalışır?</h2>
@@ -317,8 +323,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-
 
       {/* --- MUTLU KULÜP (KORUNDU) --- */}
       <section className="py-20 bg-orange-50/50">
