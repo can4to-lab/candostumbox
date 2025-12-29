@@ -101,29 +101,58 @@ export default function AdminOrders() {
                         <th className="p-6 text-right">İşlem</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {filteredOrders.map((order) => (
-                        <tr key={order.id} className="hover:bg-gray-50 transition">
-                            <td className="p-6 font-mono text-xs text-gray-500">#{order.id.slice(0,8)}...</td>
-                            <td className="p-6 font-bold text-gray-900">
-                                {order.user?.name || order.shippingAddressSnapshot?.name || "Misafir"}
-                            </td>
-                            <td className="p-6 font-bold text-green-600">₺{Number(order.totalPrice).toFixed(2)}</td>
-                            <td className="p-6">
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                    order.status === 'PAID' ? 'bg-yellow-100 text-yellow-700' :
-                                    order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-green-100 text-green-700'
-                                }`}>
-                                    {order.status === 'PAID' ? 'Hazırlanıyor' : 
-                                     order.status === 'SHIPPED' ? 'Kargoda' : order.status}
-                                </span>
-                            </td>
-                            <td className="p-6 text-right">
-                                <button onClick={() => setSelectedOrder(order)} className="text-sm font-bold text-gray-500 hover:text-black underline">Detay</button>
-                            </td>
-                        </tr>
-                    ))}
+               <tbody className="divide-y divide-gray-50">
+                    {filteredOrders.map((order) => {
+                        // DEBUG İÇİN: Tarayıcı konsoluna (F12) misafir verisini yazdıralım
+                        if (!order.user) {
+                            console.log("🔍 Misafir Sipariş Verisi:", order.shippingAddressSnapshot);
+                        }
+
+                        let displayName = "Misafir";
+                        const snap = order.shippingAddressSnapshot; // Kısaltma
+
+                        if (order.user) {
+                            // 1. ÜYE İSE: Profil bilgilerini birleştir
+                            displayName = order.user.firstName 
+                                ? `${order.user.firstName} ${order.user.lastName || ''}`
+                                : (order.user.name || "İsimsiz Üye");
+                        
+                        } else if (snap) {
+                            // 2. MİSAFİR İSE: Adres Snapshot içindeki olası tüm isim alanlarını dene
+                            displayName = 
+                                snap.contactName ||          // Genellikle kullanılan alan
+                                snap.name ||                 // Alternatif
+                                snap.fullName ||             // Alternatif
+                                (snap.firstName ? `${snap.firstName} ${snap.lastName || ''}` : null) || // Parçalı isim
+                                snap.ad ||                   // Türkçe kayıt ihtimali
+                                "İsimsiz Misafir";           // Hiçbiri yoksa
+                            
+                            displayName += " (Misafir)";
+                        }
+
+                        return (
+                            <tr key={order.id} className="hover:bg-gray-50 transition">
+                                <td className="p-6 font-mono text-xs text-gray-500">#{order.id.slice(0,8)}...</td>
+                                <td className="p-6 font-bold text-gray-900">
+                                    {displayName}
+                                </td>
+                                <td className="p-6 font-bold text-green-600">₺{Number(order.totalPrice).toFixed(2)}</td>
+                                <td className="p-6">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        order.status === 'PAID' ? 'bg-yellow-100 text-yellow-700' :
+                                        order.status === 'SHIPPED' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-green-100 text-green-700'
+                                    }`}>
+                                        {order.status === 'PAID' ? 'Hazırlanıyor' : 
+                                         order.status === 'SHIPPED' ? 'Kargoda' : order.status}
+                                    </span>
+                                </td>
+                                <td className="p-6 text-right">
+                                    <button onClick={() => setSelectedOrder(order)} className="text-sm font-bold text-gray-500 hover:text-black underline">Detay</button>
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>

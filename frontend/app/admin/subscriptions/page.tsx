@@ -39,34 +39,37 @@ export default function AdminSubscriptions() {
                         <th className="p-6">Durum</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                    {subs.map((sub) => (
-                        <tr key={sub.id} className="hover:bg-gray-50 transition">
-                            <td className="p-6 font-mono text-xs text-gray-400">#{sub.id.toString().slice(0,5)}</td>
-                            <td className="p-6">
-                                <div className="font-bold text-gray-900">{sub.user?.name || "Misafir"}</div>
-                                <div className="text-xs text-gray-500">🐾 {sub.pet?.name || "İsimsiz"}</div>
-                            </td>
-                            <td className="p-6 text-sm text-gray-700">{sub.product?.name}</td>
-                            <td className="p-6 font-bold text-blue-600">{sub.remainingMonths} / {sub.totalMonths} Ay</td>
-                            <td className="p-6 text-sm text-gray-500">
-                                {sub.nextDeliveryDate ? new Date(sub.nextDeliveryDate).toLocaleDateString("tr-TR") : "-"}
-                            </td>
-                            <td className="p-6">
-                                {/* 👇 GÜNCELLENEN KISIM: Büyük/Küçük harf ve sayı kontrolü */}
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                    (sub.status === 'ACTIVE' || sub.status === 'active' || sub.status === 1) 
-                                    ? 'bg-green-100 text-green-700' 
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                    {(sub.status === 'ACTIVE' || sub.status === 'active' || sub.status === 1) ? 'Aktif' : 'Pasif'}
-                                    
-                                    {/* Debug: Parantez içinde gerçek değeri görelim */}
-                                    <span className="opacity-50 ml-1 text-[10px]">({sub.status})</span>
-                                </span>
-                            </td>
-                        </tr>
-                    ))}
+               <tbody className="divide-y divide-gray-50">
+                    {subs.map((sub) => {
+                        // 👇 İSİM GÖSTERME MANTIĞI GÜNCELLENDİ
+                        const userName = sub.user?.firstName 
+                            ? `${sub.user.firstName} ${sub.user.lastName || ''}`
+                            : (sub.user?.name || "Misafir");
+
+                        return (
+                            <tr key={sub.id} className="hover:bg-gray-50 transition">
+                                <td className="p-6 font-mono text-xs text-gray-400">#{sub.id.toString().slice(0,5)}</td>
+                                <td className="p-6">
+                                    <div className="font-bold text-gray-900">{userName}</div>
+                                    <div className="text-xs text-gray-500">🐾 {sub.pet?.name || "İsimsiz"}</div>
+                                </td>
+                                <td className="p-6 text-sm text-gray-700">{sub.product?.name}</td>
+                                <td className="p-6 font-bold text-blue-600">{sub.remainingMonths} / {sub.totalMonths} Ay</td>
+                                <td className="p-6 text-sm text-gray-500">
+                                    {sub.nextDeliveryDate ? new Date(sub.nextDeliveryDate).toLocaleDateString("tr-TR") : "-"}
+                                </td>
+                                <td className="p-6">
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        (sub.status === 'ACTIVE' || sub.status === 'active' || sub.status === 1) 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : 'bg-red-100 text-red-700'
+                                    }`}>
+                                        {(sub.status === 'ACTIVE' || sub.status === 'active' || sub.status === 1) ? 'Aktif' : 'Pasif'}
+                                    </span>
+                                </td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
         </div>
