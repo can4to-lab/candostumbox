@@ -60,6 +60,9 @@ export default function ProductDetail() {
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null); 
   const [isNewPetMode, setIsNewPetMode] = useState(false); 
 
+  // 👇 YENİ: Misafir "Downgrade" Modalı için State
+  const [showGuestModal, setShowGuestModal] = useState(false);
+
   const [petData, setPetData] = useState({
     type: "kopek",
     otherType: "",
@@ -190,18 +193,37 @@ export default function ProductDetail() {
           return false;
       }
   };
+// A) MİSAFİR: "Üye Olmak İstiyorum" derse
+  const handleGuestRegister = () => {
+      setShowGuestModal(false); // Bu uyarıyı kapat
+      setRegisterOpen(true);    // Kayıt olma modalını aç
+  };
 
+  // B) MİSAFİR: "Üye Olmadan Devam Et" derse (Downgrade İşlemi)
+  const handleGuestDowngrade = () => {
+      setShowGuestModal(false);
+
+      // Eğer 1 aydan uzun süre seçtiyse, zorla 1 aya düşür
+      if (duration > 1) {
+          setDuration(1);
+          setPaymentType('upfront'); // Mecburen peşin olacak
+          
+          toast("Üye girişi yapılmadığı için '1 Aylık Deneme Paketi' seçildi.", {
+              icon: 'ℹ️',
+              style: { border: '1px solid #3b82f6', color: '#1e40af' },
+              duration: 4000
+          });
+      }
+
+      setStep(3); // Özet ekranına geç
+  };
+ // 👇 GÜNCELLENEN STEP 2 MANTIĞI
   const handleNextStep = async () => {
       if (step === 1) {
           setStep(2);
       } 
       else if (step === 2) {
-          const token = localStorage.getItem("token");
-          if (!token) {
-              toast.error("Devam etmek için lütfen giriş yapın.");
-              setLoginOpen(true);
-              return;
-          }
+          // 1. Validasyon (Pet Bilgileri Dolu mu?)
           if (isNewPetMode || savedPets.length === 0) {
               if (!petData.name || !petData.breed || !petData.weight) {
                   toast.error("Lütfen dostunun bilgilerini eksiksiz doldur.");
@@ -211,20 +233,37 @@ export default function ProductDetail() {
                   toast.error("Lütfen hayvan türünü belirt.");
                   return;
               }
-              if (isNewPetMode) {
-                  const isSaved = await saveNewPet();
-                  if (!isSaved) return; 
-              }
           } else if (!selectedPetId) {
               toast.error("Lütfen bir dostunu seç veya yeni ekle.");
               return;
           }
-          setStep(3);
+
+          // 2. Token Kontrolü (Giriş Yapılmış mı?)
+          const token = localStorage.getItem("token");
+
+          if (token) {
+              // --- GİRİŞ YAPMIŞ KULLANICI ---
+              // Yeni pet ekliyorsa kaydet
+              if (isNewPetMode) {
+                  const isSaved = await saveNewPet();
+                  if (!isSaved) return; 
+              }
+              setStep(3); // Sorunsuz devam et
+          } else {
+              // --- MİSAFİR KULLANICI ---
+              // Eğer 1 aydan fazla seçtiyse (3, 6, 9, 12) -> MODALI AÇ VE DURDUR
+              if (duration > 1) {
+                  setShowGuestModal(true);
+              } else {
+                  // Zaten 1 ay seçmişse sorun yok, devam etsin
+                  setStep(3);
+              }
+          }
       } 
       else {
+          // ... Step 3 (Sepete Ekleme) kodu AYNI KALSIN ...
           if (!product) return;
 
-          // 👇 GÜNCELLENEN KISIM: Küsüratları burada temizliyoruz
           const calculatedPrice = paymentType === 'monthly' 
             ? Number(product.price) 
             : Number((Number(product.price) * duration).toFixed(2));
@@ -236,7 +275,7 @@ export default function ProductDetail() {
               image: product.image,
               duration: duration,
               paymentType: paymentType,
-              petId: selectedPetId, 
+              petId: selectedPetId || 0, // Misafir için geçici ID
               petName: petData.name, 
               deliveryPeriod: petData.shippingDate
           };
@@ -274,7 +313,56 @@ export default function ProductDetail() {
       <Toaster position="top-right" />
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
+{/* ... Diğer Modallar ... */}
+      
+      {/* 👇 YENİ: MİSAFİR DOWNGRADE MODALI */}
+      {showGuestModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative border border-gray-100 transform transition-all scale-100">
+                <button onClick={() => setShowGuestModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 transition text-xl font-bold">✕</button>
+                
+                <div className="text-center mb-8">
+                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">
+                        🔒
+                    </div>
+                    <h3 className="text-2xl font-black text-gray-900 mb-3">
+                        Abonelik Fırsatı!
+                    </h3>
+                    <p className="text-gray-500 text-sm leading-relaxed px-2">
+                        Seçtiğin <span className="font-bold text-gray-900">{duration} Aylık</span> avantajlı paket bir abonelik planıdır ve indirimleri korumak için üyelik gerektirir.
+                    </p>
+                </div>
 
+                <div className="space-y-3">
+                    {/* Seçenek 1: Üye Ol (Tavsiye Edilen) */}
+                    <button 
+                        onClick={handleGuestRegister}
+                        className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg shadow-green-200 flex items-center justify-center gap-2 group"
+                    >
+                        <span>🚀</span> Üye Ol ve İndirimi Kap
+                    </button>
+
+                    {/* Ayırıcı */}
+                    <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-gray-100"></div>
+                        <span className="flex-shrink-0 mx-4 text-xs font-bold text-gray-400 uppercase">Veya</span>
+                        <div className="flex-grow border-t border-gray-100"></div>
+                    </div>
+
+                    {/* Seçenek 2: Downgrade (Misafir Devam) */}
+                    <button 
+                        onClick={handleGuestDowngrade}
+                        className="w-full py-4 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition flex items-center justify-center gap-2 border border-gray-200"
+                    >
+                        <span>📦</span> Üye Olmadan "Deneme Paketi" Al
+                    </button>
+                    <p className="text-[10px] text-center text-gray-400 mt-2">
+                        *Deneme paketi tek seferliktir ve abonelik avantajlarını içermez.
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <button onClick={() => router.back()} className="mb-6 text-gray-500 font-bold hover:text-green-600 transition flex items-center gap-2">← Listeye Dön</button>
 

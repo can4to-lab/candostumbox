@@ -18,9 +18,6 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // 👇 İlişki tanımı
-  @ManyToOne(() => User, (user) => user.orders)
-  user: User;
 
   @Column({ nullable: true })
   userId: string;
@@ -37,6 +34,9 @@ export class Order {
     default: OrderStatus.PENDING,
   })
   status: OrderStatus;
+
+  @ManyToOne(() => User, (user) => user.orders, { nullable: true }) // 👈 BURASI TRUE OLMALI
+  user: User;
 
   // OrderItem entity'si henüz yoksa bu satırı geçici olarak yorum satırı yapın!
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })

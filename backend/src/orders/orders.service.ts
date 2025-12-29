@@ -13,38 +13,50 @@ import { User } from 'src/users/entities/user.entity';
 export class OrdersService {
   constructor(private dataSource: DataSource) {}
 
-  // 1. GÜVENLİ SİPARİŞ OLUŞTURMA
-  async create(userId: string, createOrderDto: CreateOrderDto) {
-    const { addressId, items, paymentType } = createOrderDto;
+  // 1. CREATE ORDER (Supports Guest)
+  // Changed userId to allow null
+  async create(userId: string | null, createOrderDto: CreateOrderDto) {
+    const { addressId, items, paymentType, isGuest, guestInfo } = createOrderDto;
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      // A. Adres Kontrolü
-      const address = await queryRunner.manager.findOne(Address, {
-        where: { id: addressId, userId },
-      });
+      let addressSnapshot: any = {};
 
-      if (!address) throw new NotFoundException('Teslimat adresi bulunamadı.');
+      // A. ADDRESS LOGIC
+      if (userId) {
+          // Member: Find saved address
+          const address = await queryRunner.manager.findOne(Address, {
+            where: { id: addressId, userId },
+          });
+          if (!address) throw new NotFoundException('Delivery address not found.');
+          addressSnapshot = address;
+      } else {
+          // Guest: Use provided info
+          if (!guestInfo) throw new BadRequestException('Guest information is missing.');
+          addressSnapshot = { ...guestInfo, title: 'Guest Address' };
+      }
 
-      // B. Değişkenler
+      // B. Variables
       let totalPrice = 0;
       const orderItems: OrderItem[] = [];
 
-      // C. DÖNGÜ: Her ürünü tek tek hesapla
+      // C. LOOP ITEMS
       for (const item of items) {
-        const product = await queryRunner.manager.findOne(Product, { where: { id: item.productId } });
+        const product = await queryRunner.manager.findOne(Product, { 
+            where: { id: item.productId }
+           });
         
-        if (!product) throw new NotFoundException(`Ürün bulunamadı (ID: ${item.productId})`);
+        if (!product) throw new NotFoundException(`Product not found (ID: ${item.productId})`);
         
-        // Stok Kontrolü
+        // Stock Check
         if (product.stock < item.quantity) {
-           throw new BadRequestException(`${product.name} için stok yetersiz.`);
+           throw new BadRequestException(`Insufficient stock for ${product.name}.`);
         }
 
-        // --- 💰 FİYAT HESAPLAMA ---
+        // --- 💰 PRICE CALCULATION ---
         let itemTotal = Number(product.price) * item.quantity;
         const itemDuration = item.duration || 1;
 
@@ -56,7 +68,7 @@ export class OrdersService {
 
         totalPrice += itemTotal;
 
-        // Sipariş Kalemi Oluştur
+        // Create Order Item
         const orderItem = new OrderItem();
         orderItem.product = product;
         orderItem.productId = Number(product.id); 
@@ -65,40 +77,36 @@ export class OrdersService {
         orderItem.productNameSnapshot = product.name; 
         orderItems.push(orderItem);
 
-        // Stok Düş
+        // Deduct Stock
         product.stock -= item.quantity;
         await queryRunner.manager.save(product);
 
-        // ... (Fiyat hesaplamalarının bittiği yer) ...
+        // --- 📅 SUBSCRIPTION LOGIC ---
+        // (Only create subscription if it's a user, guests usually get one-time trial or simple record)
+        // For this logic, we will create a subscription record but userId will be null for guests
+        // or we skip subscription creation for guests if your business logic dictates.
+        // Assuming we create it but without a user relation for guests:
 
-        // --- 📅 ABONELİK İŞLEMLERİ (DÜZELTİLMİŞ HALİ) ---
-        
-        // SENARYO 1: SÜRE UZATMA (Eğer Frontend ID gönderdiyse)
         if (item.subscriptionId) {
-            // Mevcut aboneliği bul
+            // EXTEND EXISTING
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: item.subscriptionId } 
             });
 
             if (existingSub) {
-                // Mevcut sürelerin üzerine satın alınan süreyi ekle
                 existingSub.totalMonths += itemDuration;
                 existingSub.remainingMonths += itemDuration;
                 
-                // Eğer statüsü bitmiş veya iptal edilmişse tekrar Aktif yap
                 if (existingSub.status === SubscriptionStatus.COMPLETED || existingSub.status === SubscriptionStatus.CANCELLED) {
                     existingSub.status = SubscriptionStatus.ACTIVE;
                 }
-
-                // Güncelle ve Kaydet
                 await queryRunner.manager.save(Subscription, existingSub);
             }
         } 
-        
-        // SENARYO 2: YENİ ABONELİK (ID yoksa sıfırdan oluştur)
         else {
+            // NEW SUBSCRIPTION
             const subscription = new Subscription();
-            subscription.user = { id: userId } as User;
+            if (userId) subscription.user = { id: userId } as User; // Only link if user exists
             subscription.product = product;
             
             if (createOrderDto.petId) {
@@ -106,9 +114,7 @@ export class OrdersService {
                  if (pet) subscription.pet = pet;
             }
 
-            // Kargo Dönemi
-            subscription.deliveryPeriod = item.deliveryPeriod || "Her Ayın 1-5'i";
-
+            subscription.deliveryPeriod = item.deliveryPeriod || "1-5 of Month";
             subscription.totalMonths = itemDuration;
             subscription.remainingMonths = itemDuration;
             subscription.startDate = new Date();
@@ -123,10 +129,14 @@ export class OrdersService {
         }
       }
 
-      // D. Siparişi Kaydet
+      // D. SAVE ORDER
       const order = new Order();
-      order.user = { id: userId } as User;
-      order.shippingAddressSnapshot = address; 
+      if (userId) order.user = { id: userId } as User; // Link user only if exists
+      
+      // We assume shippingAddressSnapshot is a JSON column or simple fields in your entity
+      // If it's a relation, this needs adjustment. Assuming JSON/Embedded based on "Snapshot" name.
+      order.shippingAddressSnapshot = addressSnapshot; 
+      
       order.totalPrice = totalPrice;
       order.status = OrderStatus.PAID; 
       order.items = orderItems;
@@ -136,7 +146,7 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
-      return { success: true, orderId: savedOrder.id, message: 'Sipariş alındı!' };
+      return { success: true, orderId: savedOrder.id, message: 'Order received!' };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -146,7 +156,7 @@ export class OrdersService {
     }
   }
 
-  // --- Diğer Metodlar ---
+  // --- Other Methods ---
   async findMyOrders(userId: string) {
     return await this.dataSource.getRepository(Order).find({
       where: { user: { id: userId } },
@@ -164,7 +174,7 @@ export class OrdersService {
 
   async updateStatus(id: string, status: OrderStatus) {
     const order = await this.dataSource.getRepository(Order).findOne({ where: { id } });
-    if (!order) throw new NotFoundException('Sipariş bulunamadı');
+    if (!order) throw new NotFoundException('Order not found');
     
     order.status = status;
     return await this.dataSource.getRepository(Order).save(order);
