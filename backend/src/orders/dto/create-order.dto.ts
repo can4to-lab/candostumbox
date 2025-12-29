@@ -10,6 +10,11 @@ export class GuestInfoDto {
   @IsString() @IsNotEmpty() city: string;
   @IsString() @IsNotEmpty() district: string;
   @IsString() @IsNotEmpty() fullAddress: string;
+
+  @IsString() 
+  @IsOptional() 
+  title?: string;
+  
 }
 
 export class OrderItemDto {
