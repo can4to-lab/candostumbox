@@ -6,13 +6,13 @@ import { Order } from './entities/order.entity'; // 👈 EKLENDİ
 import { OrderItem } from './entities/order-item.entity'; // 👈 OrderItem da varsa eklenmeli
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { DiscountsModule } from '../discounts/discounts.module'; // 👈 İMPORT ET
 
 @Module({
   imports: [
     ConfigModule,
     // 👇 KRİTİK: Order ve (varsa) OrderItem tablolarını buraya tanıtıyoruz
     TypeOrmModule.forFeature([Order, OrderItem]), 
-
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -21,6 +21,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         signOptions: { expiresIn: '1d' },
       }),
     }),
+    DiscountsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService], // PrismaService SİLİNDİ

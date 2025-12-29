@@ -8,13 +8,16 @@ import { Product } from 'src/products/entities/product.entity';
 import { Address } from 'src/addresses/entities/address.entity';
 import { Pet } from 'src/pets/entities/pet.entity';
 import { User } from 'src/users/entities/user.entity';
+import { DiscountsService } from 'src/discounts/discounts.service'; // 👈 YENİ IMPORT
 
 @Injectable()
 export class OrdersService {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private discountsService: DiscountsService // 👈 SERVİS ENJEKTE EDİLDİ
+  ) {}
 
   // 1. CREATE ORDER (Supports Guest)
-  // Changed userId to allow null
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
     const { addressId, items, paymentType, isGuest, guestInfo } = createOrderDto;
 
@@ -27,14 +30,12 @@ export class OrdersService {
 
       // A. ADDRESS LOGIC
       if (userId) {
-          // Member: Find saved address
           const address = await queryRunner.manager.findOne(Address, {
             where: { id: addressId, userId },
           });
           if (!address) throw new NotFoundException('Delivery address not found.');
           addressSnapshot = address;
       } else {
-          // Guest: Use provided info
           if (!guestInfo) throw new BadRequestException('Guest information is missing.');
           addressSnapshot = { ...guestInfo, title: 'Guest Address' };
       }
@@ -51,19 +52,22 @@ export class OrdersService {
         
         if (!product) throw new NotFoundException(`Product not found (ID: ${item.productId})`);
         
-        // Stock Check
         if (product.stock < item.quantity) {
            throw new BadRequestException(`Insufficient stock for ${product.name}.`);
         }
 
-        // --- 💰 PRICE CALCULATION ---
-        let itemTotal = Number(product.price) * item.quantity;
+        // --- 💰 PRICE CALCULATION (DYNAMIC DISCOUNT) ---
+        let itemTotal = 0;
         const itemDuration = item.duration || 1;
+        const basePrice = Number(product.price);
 
         if (paymentType === 'upfront') {
-            itemTotal = itemTotal * itemDuration;
+            // 👇 ESKİ STATİK HESAPLAMA YERİNE DİNAMİK SERVİS ÇAĞRISI
+            const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
+            itemTotal = calculation.finalPrice * item.quantity;
         } else {
-            itemTotal = itemTotal * 1; 
+            // Aylık ödemede indirim yok (1 aylık fiyat * adet)
+            itemTotal = basePrice * item.quantity; 
         }
 
         totalPrice += itemTotal;
@@ -71,7 +75,7 @@ export class OrdersService {
         // Create Order Item
         const orderItem = new OrderItem();
         orderItem.product = product;
-        orderItem.productId = Number(product.id); 
+        orderItem.productId = item.productId; // String olarak geçiyoruz
         orderItem.quantity = item.quantity;
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name; 
@@ -82,13 +86,7 @@ export class OrdersService {
         await queryRunner.manager.save(product);
 
         // --- 📅 SUBSCRIPTION LOGIC ---
-        // (Only create subscription if it's a user, guests usually get one-time trial or simple record)
-        // For this logic, we will create a subscription record but userId will be null for guests
-        // or we skip subscription creation for guests if your business logic dictates.
-        // Assuming we create it but without a user relation for guests:
-
         if (item.subscriptionId) {
-            // EXTEND EXISTING
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: item.subscriptionId } 
             });
@@ -104,9 +102,8 @@ export class OrdersService {
             }
         } 
         else {
-            // NEW SUBSCRIPTION
             const subscription = new Subscription();
-            if (userId) subscription.user = { id: userId } as User; // Only link if user exists
+            if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             
             if (createOrderDto.petId) {
@@ -131,12 +128,9 @@ export class OrdersService {
 
       // D. SAVE ORDER
       const order = new Order();
-      if (userId) order.user = { id: userId } as User; // Link user only if exists
+      if (userId) order.user = { id: userId } as User;
       
-      // We assume shippingAddressSnapshot is a JSON column or simple fields in your entity
-      // If it's a relation, this needs adjustment. Assuming JSON/Embedded based on "Snapshot" name.
       order.shippingAddressSnapshot = addressSnapshot; 
-      
       order.totalPrice = totalPrice;
       order.status = OrderStatus.PAID; 
       order.items = orderItems;
@@ -156,7 +150,6 @@ export class OrdersService {
     }
   }
 
-  // --- Other Methods ---
   async findMyOrders(userId: string) {
     return await this.dataSource.getRepository(Order).find({
       where: { user: { id: userId } },

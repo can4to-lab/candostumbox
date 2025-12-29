@@ -13,8 +13,8 @@ export class OrderItem {
   @ManyToOne(() => Product, { nullable: true }) // Ürün silinse bile sipariş raporu bozulmasın
   product: Product;
 
-  @Column({ nullable: true })
-  productId: number;
+  @Column()
+  productId: string;
 
   @Column()
   quantity: number; 
