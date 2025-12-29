@@ -72,4 +72,11 @@ export class UsersController {
   findMyAddresses(@Request() req) {
       return this.usersService.findMyAddresses(req.user.userId);
   }
+  // ... diğer kodların altına ...
+
+  // 👇 EKSİK OLAN KISIM BURASIYDI
+  @Get()
+  findAll() {
+    return this.usersService.findAll();
+  }
 }
