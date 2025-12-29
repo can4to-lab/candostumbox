@@ -413,25 +413,26 @@ export default function ProductDetail() {
                             <div className="animate-fade-in space-y-8">
                                 <div><h2 className="text-3xl font-black text-gray-900 mb-2">Abonelik Süresi 🗓️</h2><p className="text-gray-500">Ne kadar uzun süreli dostluk, o kadar avantaj!</p></div>
                                 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {[1, 3, 6, 12].map((m) => {
+                                {/* 👇 DÜZELTME: grid-cols-5 yapıldı ve 9 eklendi */}
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                    {[1, 3, 6, 9, 12].map((m) => {
                                         const info = calculatePrice(m);
                                         const isSelected = duration === m;
                                         return (
                                             <button 
                                                 key={m} 
                                                 onClick={() => setDuration(m)} 
-                                                className={`p-6 rounded-2xl border-2 transition-all duration-300 relative group flex flex-col justify-between h-40 ${isSelected ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200' : 'border-gray-100 hover:border-green-200 hover:bg-gray-50'}`}
+                                                className={`p-4 rounded-2xl border-2 transition-all duration-300 relative group flex flex-col justify-between h-44 ${isSelected ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200' : 'border-gray-100 hover:border-green-200 hover:bg-gray-50'}`}
                                             >
                                                 {/* Etiketler */}
-                                                {m === 1 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-400 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">DENEME</div>}
-                                                {info.discountRate > 0 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md">%{info.discountRate} İNDİRİM</div>}
+                                                {m === 1 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-400 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md whitespace-nowrap">DENEME</div>}
+                                                {info.discountRate > 0 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md whitespace-nowrap">%{info.discountRate} İNDİRİM</div>}
 
-                                                <div className="text-3xl font-black text-gray-900">{m}</div>
-                                                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">AYLIK</div>
+                                                <div className="text-3xl font-black text-gray-900 mt-2">{m}</div>
+                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">AYLIK</div>
                                                 
                                                 {/* Fiyat Gösterimi */}
-                                                <div>
+                                                <div className="mb-1">
                                                     {info.discountRate > 0 && <div className="text-[10px] text-red-400 line-through decoration-red-400 font-bold">₺{info.originalTotal.toFixed(0)}</div>}
                                                     <div className="text-sm font-black text-green-700">₺{info.total.toFixed(0)}</div>
                                                 </div>

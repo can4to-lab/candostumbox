@@ -1,418 +1,133 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
-// --- TİP TANIMI ---
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  description: string | null;
-  image: string | null;
-  stock: number;
-  order: number;
-}
+export default function AdminProducts() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
 
-export default function AdminProductsPage() {
-  const router = useRouter();
-  const API_URL = "https://candostumbox-api.onrender.com";
-
-  // State'ler
-  const [isLoading, setIsLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
-
-  // Form Verileri
+  // Form State
   const [formData, setFormData] = useState({
-    name: "",
-    price: "",
-    description: "",
-    image: "",
-    stock: "",
-    order: "0",
+      name: "", price: "", description: "", stock: "", image: "", features: "", order: 0
   });
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
-  // İstatistikler
-  const totalProducts = products.length;
-  const lowStockCount = products.filter(p => p.stock < 5 && p.stock > 0).length;
-  const outOfStockCount = products.filter(p => p.stock <= 0).length;
-  const totalInventoryValue = products.reduce((acc, p) => acc + (Number(p.price) * Number(p.stock)), 0);
-
-  // --- ÜRÜNLERİ GETİR ---
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = async () => {
     try {
-      const res = await fetch(`${API_URL}/products`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Veri çekilemedi");
-      const data: Product[] = await res.json();
-      const sortedData = data.sort((a, b) => (a.order || 0) - (b.order || 0));
-      setProducts(sortedData);
-    } catch (err) {
-      console.error("Hata:", err);
-      toast.error("Ürün listesi yüklenemedi.");
-    }
-  }, [API_URL]);
+        const res = await fetch("https://candostumbox-api.onrender.com/products");
+        const data = await res.json();
+        setProducts(data.sort((a:any, b:any) => a.order - b.order));
+    } catch (e) { toast.error("Ürünler yüklenemedi"); } 
+    finally { setLoading(false); }
+  };
 
-  // --- GÜVENLİK VE BAŞLANGIÇ KONTROLÜ ---
-  useEffect(() => {
-    const init = async () => {
+  useEffect(() => { fetchProducts(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
       const token = localStorage.getItem("token");
+      const url = editingProduct 
+        ? `https://candostumbox-api.onrender.com/products/${editingProduct.id}`
+        : "https://candostumbox-api.onrender.com/products";
       
-      // 1. Token Kontrolü
-      if (!token) { 
-        router.push("/admin/login"); 
-        return; 
-      }
+      const method = editingProduct ? "PATCH" : "POST";
+      
+      // Feature string to array
+      const payload = {
+          ...formData,
+          features: typeof formData.features === 'string' ? formData.features.split(',').map(s=>s.trim()) : formData.features,
+          price: Number(formData.price),
+          stock: Number(formData.stock),
+          order: Number(formData.order)
+      };
 
       try {
-        // 2. Profil ve Yetki Kontrolü
-        const profileRes = await fetch(`${API_URL}/auth/profile`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        
-        if (!profileRes.ok) throw new Error("Oturum geçersiz");
-
-        const user = await profileRes.json();
-
-        // 3. Admin Rol Kontrolü (Büyük/Küçük harf duyarlı)
-        if (user.role?.toUpperCase() !== 'ADMIN') {
-          toast.error("Yetkisiz giriş denemesi!");
-          router.push("/"); // Admin değilse anasayfaya at
-          return;
-        } 
-
-        // 4. Yetki tamamsa ürünleri çek
-        await fetchProducts();
-
-      } catch (err) {
-        console.error("Yetki hatası:", err);
-        localStorage.removeItem("token"); // Token bozuksa temizle
-        router.push("/admin/login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    init();
-  }, [router, fetchProducts, API_URL]);
-
-  // Form Değişince
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+          const res = await fetch(url, {
+              method,
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+              body: JSON.stringify(payload)
+          });
+          if (res.ok) {
+              toast.success(editingProduct ? "Ürün güncellendi" : "Yeni ürün eklendi");
+              setModalOpen(false);
+              fetchProducts();
+          }
+      } catch (err) { toast.error("İşlem başarısız"); }
   };
 
-  // --- CRUD İŞLEMLERİ ---
-
-  // SİLME
-  const handleDelete = async (id: number) => {
-    if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
-
-    const token = localStorage.getItem("token");
-    try {
-      const res = await fetch(`${API_URL}/products/${id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` },
+  const openEdit = (p: any) => {
+      setEditingProduct(p);
+      setFormData({
+          name: p.name, price: p.price, description: p.description, 
+          stock: p.stock, image: p.image, features: p.features?.join(', '), order: p.order
       });
-
-      if (res.ok) {
-        toast.success("Ürün başarıyla silindi");
-        fetchProducts();
-      } else {
-        toast.error("Silinirken hata oluştu.");
-      }
-    } catch (err) {
-      toast.error("Sunucu hatası.");
-    }
+      setModalOpen(true);
   };
 
-  // DÜZENLEME MODU AÇMA
-  const handleEdit = (product: Product) => {
-    setEditingId(product.id);
-    setFormData({
-      name: product.name,
-      price: product.price.toString(),
-      description: product.description || "",
-      image: product.image || "",
-      stock: product.stock.toString(),
-      order: product.order ? product.order.toString() : "0",
-    });
-    setMessage("✏️ Düzenleme modu aktif.");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const openNew = () => {
+      setEditingProduct(null);
+      setFormData({ name: "", price: "", description: "", stock: "", image: "", features: "", order: 0 });
+      setModalOpen(true);
   };
 
-  // HIZLI SIRA DEĞİŞTİRME
-  const handleQuickOrderChange = async (id: number, newOrder: string) => {
-    const token = localStorage.getItem("token");
-    const orderInt = parseInt(newOrder);
-    if(isNaN(orderInt)) return;
-
-    try {
-      await fetch(`${API_URL}/products/${id}`, {
-        method: "PATCH",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}` 
-        },
-        body: JSON.stringify({ order: orderInt }),
-      });
-      setProducts(prev => prev.map(p => p.id === id ? { ...p, order: orderInt } : p).sort((a,b) => a.order - b.order));
-      toast.success("Sıra güncellendi");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // KAYDET (EKLE / GÜNCELLE)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-    const token = localStorage.getItem("token");
-
-    const url = editingId ? `${API_URL}/products/${editingId}` : `${API_URL}/products`;
-    const method = editingId ? "PATCH" : "POST";
-
-    const payload = {
-        name: formData.name.trim(),
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
-        order: parseInt(formData.order) || 0,
-        description: formData.description,
-        image: formData.image,
-    };
-
-    if (isNaN(payload.price) || isNaN(payload.stock)) {
-        setError("Fiyat ve Stok sayısal değer olmalıdır.");
-        return;
-    }
-
-    try {
-      const res = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Hata oluştu.");
-
-      toast.success(editingId ? "Ürün güncellendi!" : "Ürün eklendi!");
-      
-      // Reset
-      setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" });
-      if(editingId) setEditingId(null);
-      
-      fetchProducts();
-      setMessage("");
-
-    } catch (err: any) {
-      setError("❌ " + err.message);
-      toast.error(err.message);
-    }
-  };
-
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 text-green-600 font-bold animate-pulse">
-        Yükleniyor... 🚀
-    </div>
-  );
+  if (loading) return <div className="mt-10 font-bold text-gray-500">Yükleniyor...</div>;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] font-sans pb-20">
-      <Toaster position="top-right" />
-
-      {/* HEADER */}
-      <div className="bg-gradient-to-r from-green-800 to-green-600 pt-10 pb-24 px-8 shadow-xl">
-          <div className="max-w-6xl mx-auto flex justify-between items-center">
-            <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">Ürün Yönetimi</h1>
-                <p className="text-green-100 mt-2">Paketleri düzenle, stokları yönet, fiyatları güncelle.</p>
-            </div>
-            {/* GÜNCELLENEN KISIM: Panele Dönüş Linki */}
-            <button 
-                onClick={() => router.push("/admin/dashboard")} 
-                className="bg-white/20 backdrop-blur-md text-white border border-white/30 px-6 py-2 rounded-xl font-bold hover:bg-white/30 transition"
-            >
-                ← Panele Dön
-            </button>
+      <div className="space-y-6 animate-fade-in">
+          <Toaster position="top-right" />
+          
+          <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-black text-gray-800">Ürün & Stok Yönetimi</h1>
+              <button onClick={openNew} className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition flex items-center gap-2">
+                  <span>+</span> Yeni Paket Ekle
+              </button>
           </div>
-       </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-16 space-y-8">
-        {/* İSTATİSTİKLER */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <StatCard title="TOPLAM PAKET" value={totalProducts} sub="Aktif Satışta" color="text-gray-800" />
-            <StatCard title="KRİTİK STOK" value={lowStockCount} sub="< 5 Adet" color="text-orange-600" />
-            <StatCard title="TÜKENENLER" value={outOfStockCount} sub="Satışa Kapalı" color="text-red-600" />
-            <StatCard title="ENVANTER DEĞERİ" value={`₺${totalInventoryValue.toLocaleString()}`} sub="Tahmini Kazanç" color="text-blue-600" />
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map((p) => (
+                  <div key={p.id} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-lg group hover:border-green-200 transition relative">
+                      <div className="absolute top-4 right-4 bg-gray-100 px-3 py-1 rounded-full text-xs font-bold text-gray-500">Sıra: {p.order}</div>
+                      
+                      <div className="h-32 w-full mb-4 relative">
+                          <img src={p.image || "https://placehold.co/400x300/e2e8f0/94a3b8?text=Resim+Yok"} alt={p.name} className="w-full h-full object-contain" />
+                      </div>
+                      
+                      <h3 className="text-xl font-bold text-gray-900">{p.name}</h3>
+                      <div className="flex justify-between items-center mt-2">
+                          <span className="text-2xl font-black text-green-600">₺{Number(p.price).toFixed(0)}</span>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-lg ${p.stock < 10 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                              {p.stock} Adet Stok
+                          </span>
+                      </div>
+                      
+                      <button onClick={() => openEdit(p)} className="w-full mt-4 py-3 bg-gray-50 text-gray-600 font-bold rounded-xl hover:bg-gray-900 hover:text-white transition">Düzenle</button>
+                  </div>
+              ))}
+          </div>
 
-        {/* FORM ALANI */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-            <div className={`p-6 px-8 flex justify-between items-center ${editingId ? "bg-orange-50" : "bg-green-50"}`}>
-                <div className="flex items-center gap-3">
-                    <span className="text-2xl">{editingId ? "✏️" : "✨"}</span>
-                    <h2 className={`text-xl font-bold ${editingId ? "text-orange-700" : "text-green-700"}`}>
-                        {editingId ? "Paketi Düzenle" : "Yeni Paket Oluştur"}
-                    </h2>
-                </div>
-            </div>
-            
-            <div className="p-8">
-                {message && <div className="bg-blue-50 text-blue-700 p-4 rounded-xl mb-6 font-bold flex items-center gap-2 animate-pulse">ℹ️ {message}</div>}
-                {error && <div className="bg-red-50 text-red-700 p-4 rounded-xl mb-6 font-bold flex items-center gap-2">🚨 {error}</div>}
-                
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <InputGroup label="Kutu Adı" name="name" value={formData.name} onChange={handleChange} placeholder="Örn: Süper Başlangıç Kutusu" required />
-                        <InputGroup label="Sıra No (Küçük üstte)" name="order" value={formData.order} onChange={handleChange} type="number" placeholder="0" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                        <InputGroup label="Fiyat (₺)" name="price" value={formData.price} onChange={handleChange} type="number" step="0.01" required icon="₺" />
-                        <InputGroup label="Stok Adedi" name="stock" value={formData.stock} onChange={handleChange} type="number" required />
-                    </div>
-                    <InputGroup label="Resim URL" name="image" value={formData.image} onChange={handleChange} placeholder="https://..." />
-                    <div>
-                        <label className="block font-bold mb-2 text-gray-700 text-sm">Açıklama</label>
-                        <textarea name="description" value={formData.description} onChange={handleChange} className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 h-24 text-gray-900 transition resize-none" placeholder="Ürün özelliklerini buraya yazın..."></textarea>
-                    </div>
-                    <div className="flex gap-4 pt-2">
-                        <button type="submit" className={`flex-1 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95 ${editingId ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-gradient-to-r from-green-500 to-green-700"}`}>
-                            {editingId ? "Değişiklikleri Kaydet" : "+ Yeni Paket Ekle"}
-                        </button>
-                        {editingId && (
-                            <button type="button" onClick={() => {setEditingId(null); setFormData({ name: "", price: "", description: "", image: "", stock: "", order: "0" }); setMessage(""); setError("");}} className="px-8 py-4 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition">
-                                İptal
-                            </button>
-                        )}
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        {/* LİSTE */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-            <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-                <h2 className="text-xl font-bold text-gray-800">Paket Listesi & Envanter</h2>
-            </div>
-            
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="text-gray-400 text-xs uppercase tracking-wider border-b border-gray-100 bg-white">
-                            <th className="p-5 w-24 text-center">Sıra</th>
-                            <th className="p-5">Ürün</th>
-                            <th className="p-5">Fiyat</th>
-                            <th className="p-5">Stok Durumu</th>
-                            <th className="p-5 text-right">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-gray-700 divide-y divide-gray-50">
-                        {products.map((product) => (
-                            <tr key={product.id} className="hover:bg-green-50/20 transition duration-150 group">
-                                <td className="p-5 text-center">
-                                    <input 
-                                        type="number" 
-                                        defaultValue={product.order} 
-                                        onBlur={(e) => handleQuickOrderChange(product.id, e.target.value)}
-                                        className="w-14 h-10 border border-gray-200 rounded-lg text-center font-bold focus:ring-2 focus:ring-green-500 outline-none text-gray-900 bg-gray-50 focus:bg-white"
-                                    />
-                                </td>
-                                <td className="p-5">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
-                                            {product.image ? (
-                                                <img src={product.image} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-xs text-gray-300">Resim Yok</div>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-gray-900 text-lg">{product.name}</div>
-                                            <div className="text-xs text-gray-400 line-clamp-1 max-w-[200px]">{product.description || "Açıklama yok"}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-5">
-                                    <span className="font-mono font-bold text-green-700 bg-green-50 px-3 py-1 rounded-lg">
-                                        ₺{Number(product.price).toFixed(2)}
-                                    </span>
-                                </td>
-                                <td className="p-5">
-                                    <StockBadge stock={product.stock} />
-                                </td>
-                                <td className="p-5 text-right">
-                                    <div className="flex justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleEdit(product)} className="bg-white text-blue-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-50 border border-blue-200 shadow-sm transition hover:-translate-y-0.5">
-                                            Düzenle
-                                        </button>
-                                        <button onClick={() => handleDelete(product.id)} className="bg-white text-red-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-50 border border-red-200 shadow-sm transition hover:-translate-y-0.5">
-                                            Sil
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {products.length === 0 && (
-                    <div className="p-12 text-center flex flex-col items-center justify-center bg-gray-50 border-t border-gray-100">
-                        <span className="text-4xl mb-3">📦</span>
-                        <p className="text-gray-500 font-medium">Henüz hiç paket oluşturulmadı.</p>
-                    </div>
-                )}
-            </div>
-        </div>
+          {/* EKLEME/DÜZENLEME MODALI */}
+          {isModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                  <div className="bg-white w-full max-w-lg rounded-3xl p-8 shadow-2xl relative">
+                      <button onClick={() => setModalOpen(false)} className="absolute top-4 right-4 text-gray-400 font-bold hover:text-black">✕</button>
+                      <h2 className="text-2xl font-black mb-6">{editingProduct ? "Paketi Düzenle" : "Yeni Paket Oluştur"}</h2>
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                          <input required placeholder="Paket Adı" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                          <div className="grid grid-cols-2 gap-4">
+                              <input required type="number" placeholder="Fiyat (TL)" value={formData.price} onChange={e=>setFormData({...formData, price: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                              <input required type="number" placeholder="Stok Adedi" value={formData.stock} onChange={e=>setFormData({...formData, stock: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                          </div>
+                          <input placeholder="Görsel URL" value={formData.image} onChange={e=>setFormData({...formData, image: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                          <textarea placeholder="Açıklama" value={formData.description} onChange={e=>setFormData({...formData, description: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 h-24" />
+                          <input placeholder="Özellikler (Virgülle ayır)" value={formData.features} onChange={e=>setFormData({...formData, features: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm" />
+                          <input type="number" placeholder="Sıralama (Order)" value={formData.order} onChange={e=>setFormData({...formData, order: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" />
+                          
+                          <button type="submit" className="w-full py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200">Kaydet ✅</button>
+                      </form>
+                  </div>
+              </div>
+          )}
       </div>
-    </div>
   );
-}
-
-// --- YARDIMCI BİLEŞENLER ---
-function StatCard({ title, value, sub, color }: any) {
-    return (
-        <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transform hover:-translate-y-1 transition duration-300">
-            <p className="text-gray-500 text-xs font-bold uppercase">{title}</p>
-            <h2 className={`text-3xl font-extrabold mt-2 ${color}`}>{value}</h2>
-            <div className={`mt-2 text-xs font-bold opacity-70 ${color}`}>{sub}</div>
-        </div>
-    );
-}
-
-function InputGroup({ label, icon, ...props }: any) {
-    return (
-        <div>
-            <label className="block font-bold mb-2 text-gray-700 text-sm">{label}</label>
-            <div className="relative">
-                {icon && <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-bold">{icon}</span>}
-                <input 
-                    className={`w-full ${icon ? 'pl-8' : 'px-4'} pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 text-gray-900 transition font-bold`} 
-                    {...props} 
-                />
-            </div>
-        </div>
-    );
-}
-
-function StockBadge({ stock }: { stock: number }) {
-    if (stock <= 0) return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
-            <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span> Tükendi
-        </span>
-    );
-    if (stock < 5) return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600 border border-orange-200">
-            <span className="w-2 h-2 rounded-full bg-orange-500"></span> Kritik: {stock}
-        </span>
-    );
-    return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-600 border border-green-200">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span> Stokta: {stock}
-        </span>
-    );
 }
