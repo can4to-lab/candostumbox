@@ -75,7 +75,7 @@ export class OrdersService {
         // Create Order Item
         const orderItem = new OrderItem();
         orderItem.product = product;
-        orderItem.productId = item.productId; // String olarak geçiyoruz
+        orderItem.product = { id: item.productId } as any; // ✅ DOĞRU: İlişki objesi içine ID veriyoruz
         orderItem.quantity = item.quantity;
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name; 

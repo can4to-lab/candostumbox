@@ -47,7 +47,6 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
     } catch (err) { toast.error("Bir hata oluştu."); } finally { setLoading(false); }
   };
 
-  // Ortak Input Stili (Kesin Renkler)
   const inputClass = "w-full p-3 md:p-4 rounded-xl border-2 border-gray-100 bg-gray-50 text-gray-900 font-bold outline-none focus:border-green-500 focus:bg-white transition placeholder:text-gray-400 text-sm md:text-base";
 
   return (
@@ -60,30 +59,36 @@ export default function AddPetModal({ isOpen, onClose, onSuccess }: AddPetModalP
 
         <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* TÜR SEÇİMİ */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+            {/* 👇 KESİN ÇÖZÜM: Grid Yapısı (3 Eşit Sütun) */}
+            <div className="grid grid-cols-3 gap-2 mb-4 font-bold">
                 {['kopek', 'kedi'].map((t) => (
                    <button key={t} type="button" onClick={() => { setFormData({...formData, type: t}); setIsOtherOpen(false); }}
-                    className={`flex-1 min-w-[80px] py-3 rounded-xl font-bold border-2 transition whitespace-nowrap
+                    className={`w-full h-14 rounded-xl border-2 transition flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-xs md:text-sm
                         ${formData.type===t ? 'border-green-500 bg-green-50 text-green-700 shadow-sm' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
                    >
-                    {t==='kopek' ? '🐶 Köpek' : '🐱 Kedi'}
+                    <span className="text-lg md:text-xl">{t==='kopek' ? '🐶' : '🐱'}</span>
+                    <span>{t==='kopek' ? 'Köpek' : 'Kedi'}</span>
                    </button> 
                 ))}
                 
-                <div className="relative flex-1 min-w-[100px]">
+                <div className="relative w-full">
                     <button type="button" onClick={() => setIsOtherOpen(!isOtherOpen)} 
-                        className={`w-full h-full py-3 rounded-xl font-bold border-2 transition flex items-center justify-center gap-1
-                        ${!['kopek','kedi'].includes(formData.type) ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500'}`}
+                        className={`w-full h-14 px-2 md:px-3 rounded-xl border-2 transition flex items-center justify-between text-xs md:text-sm
+                        ${!['kopek','kedi'].includes(formData.type) ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
                     >
-                        <span>{!['kopek','kedi'].includes(formData.type) ? getOtherIcon() : '🦜'}</span> Diğer ▼
+                        <div className="flex items-center gap-1 md:gap-2 truncate">
+                            <span className="text-lg md:text-xl">{!['kopek','kedi'].includes(formData.type) ? getOtherIcon() : '🦜'}</span>
+                            <span className="truncate">{!['kopek','kedi'].includes(formData.type) ? formData.type : 'Diğer'}</span>
+                        </div>
+                        <span className="text-[10px]">▼</span>
                     </button>
+                    
                     {isOtherOpen && (
-                        <div className="absolute top-full right-0 w-40 mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden">
+                        <div className="absolute top-full right-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden min-w-[120px]">
                             {Object.keys(OTHER_ICONS).map((t) => (
                                 <button key={t} type="button" onClick={() => { setFormData({...formData, type: t}); setIsOtherOpen(false); }} 
-                                    className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-bold text-gray-600 text-sm flex items-center gap-2">
-                                    <span>{OTHER_ICONS[t]}</span> {t}
+                                    className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-bold text-gray-600 border-b border-gray-50 last:border-0 flex items-center gap-2 text-sm transition">
+                                    <span className="text-xl">{OTHER_ICONS[t]}</span> {t}
                                 </button>
                             ))}
                         </div>
