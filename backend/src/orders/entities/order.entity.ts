@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from 'typeorm';
-// 👇 DÜZELTME: 'src/' yerine göreli yol (../../) kullanıyoruz
 import { User } from '../../users/entities/user.entity';
 import { OrderItem } from './order-item.entity';
+// Pet importunu buradan kaldırabilirsin, burada işimiz yok.
 
 export enum OrderStatus {
   PENDING = 'PENDING',
@@ -17,7 +17,6 @@ export enum OrderStatus {
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
 
   @Column({ nullable: true })
   userId: string;
@@ -35,13 +34,19 @@ export class Order {
   })
   status: OrderStatus;
 
-  @ManyToOne(() => User, (user) => user.orders, { nullable: true }) // 👈 BURASI TRUE OLMALI
+  // ✅ BU DOĞRU: paymentType burada kalmalı
+  @Column({ nullable: true }) 
+  paymentType: string; 
+
+  @ManyToOne(() => User, (user) => user.orders, { nullable: true })
   user: User;
 
-  // OrderItem entity'si henüz yoksa bu satırı geçici olarak yorum satırı yapın!
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
-
+  
+  // ❌ HATALI OLAN KISIM BURASIYDI: Pet ilişkisini buradan SİLİYORUZ.
+  // Çünkü pet siparişin geneline değil, içindeki ürüne (Item) bağlıdır.
+  
   @Column({ nullable: true })
   paymentId: string;
   

@@ -1,29 +1,30 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Order } from './order.entity';
-import { Product } from 'src/products/entities/product.entity'; // Product yolunu kontrol edin
+import { Product } from '../../products/entities/product.entity';
+// 👇 Pet Entity'sini buraya import et
+import { Pet } from '../../pets/entities/pet.entity'; 
 
 @Entity()
 export class OrderItem {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryGeneratedColumn("uuid")
   id: string;
 
   @ManyToOne(() => Order, (order) => order.items, { onDelete: 'CASCADE' })
   order: Order;
 
-  @ManyToOne(() => Product, { nullable: true }) // Ürün silinse bile sipariş raporu bozulmasın
+  @ManyToOne(() => Product, { eager: true })
   product: Product;
 
-  @Column()
-  productId: string;
+  // 👇 İŞTE BURAYA EKLİYORUZ (Doğru yer burası)
+  @ManyToOne(() => Pet, { nullable: true, eager: true })
+  pet: Pet;
 
-  @Column()
-  quantity: number; 
+  @Column('int')
+  quantity: number;
 
-  // ✅ KRİTİK: Ürünün o anki fiyatını donduruyoruz.
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  priceAtPurchase: number; 
+  @Column('decimal', { precision: 10, scale: 2 })
+  priceAtPurchase: number;
 
-  // ✅ KRİTİK: Ürün adı değişse bile faturadaki isim değişmez.
-  @Column()
-  productNameSnapshot: string; 
+  @Column({ nullable: true })
+  productNameSnapshot: string;
 }
