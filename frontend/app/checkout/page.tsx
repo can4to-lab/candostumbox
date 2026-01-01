@@ -2,13 +2,21 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
-import Script from "next/script"; // PayTR Scripti için
+import Script from "next/script"; 
+import Image from "next/image"; // Logo kullanımı için
 import { useCart } from "@/context/CartContext";
 
 // Modallar
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import AddAddressModal from "../components/modals/AddAddressModal";
+
+// İkonlar (SVG)
+const UserIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
+const MailIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const PhoneIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>;
+const MapIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const LockIcon = () => <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>;
 
 interface Address {
     id: string; 
@@ -32,13 +40,13 @@ interface GuestForm {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, clearCart } = useCart();
+  const { items } = useCart();
   
   // --- STATE ---
   const [loading, setLoading] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [iframeToken, setIframeToken] = useState<string | null>(null); // PAYTR TOKEN
+  const [iframeToken, setIframeToken] = useState<string | null>(null); 
   
   const [isGuest, setIsGuest] = useState(false);
   const [guestData, setGuestData] = useState<GuestForm>({
@@ -148,24 +156,19 @@ export default function CheckoutPage() {
       setGuestData({ ...guestData, [e.target.name]: e.target.value });
   };
 
-  // 👇 GÜNCELLENEN ÖDEME FONKSİYONU (PAYTR)
-  // 👇 GÜNCELLENEN HANDLE PAYMENT
   const handlePayment = async () => {
       setLoading(true);
       const token = localStorage.getItem("token");
       
-      // Güvenlik: Fiyat null ise işlemi durdur
       if(verifiedTotal === null) {
           toast.error("Fiyat hesaplanıyor, lütfen bekleyin...");
           setLoading(false);
           return;
       }
 
-      // Backend'e gidecek veri
-      // Dikkat: items array'ini sadeleştirdik, fiyatı verifiedTotal yaptık.
       let payload: any = {
-          price: verifiedTotal, // Örn: 297.00
-          items: [], // Backend artık burayı önemsemiyor, kendi oluşturuyor
+          price: verifiedTotal, 
+          items: [], 
           user: {},
           address: {}
       };
@@ -177,11 +180,9 @@ export default function CheckoutPage() {
               return;
           }
           const addr = addresses.find(a => a.id === selectedAddressId);
-          // Backend'deki user verisini kullanacak ama yedek olsun
           payload.address = { fullAddress: addr?.fullAddress || "Adres Bilgisi Yok" };
           payload.user = { email: "user@candostum.com", phone: "05555555555" }; 
       } else {
-          // Misafir Kontrolleri
           if (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone || !guestData.fullAddress) {
               toast.error("Lütfen tüm zorunlu alanları doldurun.");
               setLoading(false);
@@ -213,11 +214,9 @@ export default function CheckoutPage() {
               setTimeout(() => {
                   document.getElementById('paytr-iframe')?.scrollIntoView({ behavior: 'smooth' });
               }, 100);
-              toast.success("Ödeme ekranı yüklendi 👇");
+              toast.success("Güvenli ödeme ortamına bağlanıldı 🔒");
           } else {
-              // PayTR'den gelen gerçek hatayı göster
-              toast.error("Hata: " + result.message);
-              console.error("PayTR Hatası:", result);
+              toast.error("Ödeme başlatılamadı: " + result.message);
           }
 
       } catch (error: any) {
@@ -230,77 +229,121 @@ export default function CheckoutPage() {
   if (items.length === 0) return null;
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] font-sans">
-      <Toaster position="top-right" />
+    <main className="min-h-screen bg-[#F3F4F6] font-sans pb-20">
+      <Toaster position="top-center" reverseOrder={false} />
       
+      {/* Modallar */}
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
       <AddAddressModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} onSuccess={handleAddressSuccess} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      {/* HEADER ALANI */}
+      <div className="bg-white border-b border-gray-200 py-6 mb-8 shadow-sm">
+         <div className="max-w-7xl mx-auto px-6 flex items-center gap-3">
+             <button onClick={() => router.back()} className="p-2 hover:bg-gray-100 rounded-full transition">←</button>
+             <h1 className="text-2xl font-black text-gray-900 tracking-tight">Ödemeyi Tamamla</h1>
+         </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
             
-            {/* SOL TARAFLAR */}
+            {/* SOL KOLON: Form ve Ödeme */}
             <div className="lg:col-span-8 space-y-8">
-                {/* ADRES KARTI (Aynı Kaldı) */}
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-black text-gray-900">Teslimat Bilgileri 📍</h2>
+                
+                {/* 1. ADRES & İLETİŞİM KARTI */}
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-200/60 relative overflow-hidden group hover:shadow-md transition duration-300">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-green-400 to-teal-500"></div>
+                    
+                    <div className="flex justify-between items-center mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-lg">1</div>
+                            <h2 className="text-xl font-bold text-gray-900">Teslimat Bilgileri</h2>
+                        </div>
                         {!isGuest && (
-                            <button onClick={() => setIsAddressModalOpen(true)} className="text-sm font-bold text-green-600 hover:text-green-700 flex items-center gap-1"><span>+</span> Yeni Ekle</button>
+                            <button onClick={() => setIsAddressModalOpen(true)} className="text-sm font-bold text-green-600 hover:text-green-700 bg-green-50 px-4 py-2 rounded-lg transition">
+                                + Yeni Adres
+                            </button>
                         )}
                     </div>
+
                     {isGuest ? (
-                        <div className="space-y-4 animate-fade-in">
-                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
-                                <p className="text-sm text-blue-800 font-bold">👤 Üye olmadan devam ediyorsunuz.</p>
-                                <p className="text-xs text-blue-600">Sipariş takibi için bilgilerinizi eksiksiz doldurunuz.</p>
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none group-focus-within:text-green-500 transition"><UserIcon /></div>
+                                    <input name="firstName" placeholder="Adınız" value={guestData.firstName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                </div>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><UserIcon /></div>
+                                    <input name="lastName" placeholder="Soyadınız" value={guestData.lastName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input name="firstName" placeholder="Adınız" value={guestData.firstName} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
-                                <input name="lastName" placeholder="Soyadınız" value={guestData.lastName} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MailIcon /></div>
+                                    <input name="email" type="email" placeholder="E-posta Adresiniz" value={guestData.email} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                </div>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><PhoneIcon /></div>
+                                    <input name="phone" type="tel" placeholder="Telefon (5XX...)" value={guestData.phone} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input name="email" type="email" placeholder="E-posta Adresiniz" value={guestData.email} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
-                                <input name="phone" type="tel" placeholder="Telefon (5XX...)" value={guestData.phone} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <input name="city" placeholder="İl" value={guestData.city} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                <input name="district" placeholder="İlçe" value={guestData.district} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input name="city" placeholder="Şehir" value={guestData.city} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
-                                <input name="district" placeholder="İlçe" value={guestData.district} onChange={handleGuestChange} className="p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold" />
+
+                            <div className="relative">
+                                <div className="absolute top-3.5 left-3 pointer-events-none"><MapIcon /></div>
+                                <textarea name="fullAddress" placeholder="Açık Adres (Mahalle, Sokak, Bina No, Kapı No...)" rows={3} value={guestData.fullAddress} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium resize-none" />
                             </div>
-                            <textarea name="fullAddress" placeholder="Açık Adres (Mahalle, Sokak, Bina No, Kapı No...)" rows={3} value={guestData.fullAddress} onChange={handleGuestChange} className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 outline-none focus:border-green-500 font-bold resize-none" />
                         </div>
                     ) : (
                         addresses.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {addresses.map((addr) => (
-                                    <div key={addr.id} onClick={() => setSelectedAddressId(addr.id)} className={`p-6 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between h-full ${selectedAddressId === addr.id ? 'border-green-500 bg-green-50/30' : 'border-gray-100 hover:border-green-200'}`}>
-                                        {selectedAddressId === addr.id && <div className="absolute top-4 right-4 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><span className="text-white text-xs">✓</span></div>}
-                                        <div>
-                                            <div className="font-bold text-gray-900 mb-2 text-lg">{addr.title}</div>
-                                            <div className="text-sm text-gray-600 leading-relaxed min-h-[40px]">{addr.fullAddress}</div>
+                                    <div key={addr.id} onClick={() => setSelectedAddressId(addr.id)} className={`p-5 rounded-2xl border-2 cursor-pointer transition-all relative flex flex-col justify-between h-full group ${selectedAddressId === addr.id ? 'border-green-500 bg-green-50/50 shadow-green-100 shadow-lg' : 'border-gray-100 hover:border-green-200 bg-white'}`}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="font-bold text-gray-900 flex items-center gap-2">
+                                                <span className="bg-gray-100 p-1.5 rounded-lg"><MapIcon/></span>
+                                                {addr.title}
+                                            </span>
+                                            {selectedAddressId === addr.id && <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs shadow-md">✓</div>}
                                         </div>
+                                        <p className="text-sm text-gray-600 leading-relaxed pl-1">{addr.fullAddress}</p>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="text-center py-8 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                                <p className="text-gray-500 mb-4">Henüz kayıtlı bir adresin yok.</p>
-                                <button onClick={() => setIsAddressModalOpen(true)} className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold text-sm">Adres Ekle</button>
+                            <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 hover:border-green-400 transition cursor-pointer group" onClick={() => setIsAddressModalOpen(true)}>
+                                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition"><span className="text-3xl text-gray-400 group-hover:text-green-500">+</span></div>
+                                <p className="text-gray-500 font-medium">Kayıtlı adresiniz yok, hemen ekleyin.</p>
                             </div>
                         )
                     )}
                 </div>
 
-                {/* 👇 ÖDEME ALANI (PAYTR IFRAME) */}
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100" id="paytr-iframe">
-                    <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
-                        Ödeme 💳 
-                        {iframeToken && <span className="text-sm font-normal text-green-600 bg-green-50 px-2 py-1 rounded-lg">Güvenli Bağlantı</span>}
-                    </h2>
+                {/* 2. ÖDEME ALANI (PAYTR IFRAME) */}
+                <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-200/60 relative overflow-hidden min-h-[300px]" id="paytr-iframe">
+                    <div className="absolute top-0 left-0 w-2 h-full bg-gray-200"></div>
+                    
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors ${iframeToken ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>2</div>
+                            <h2 className="text-xl font-bold text-gray-900">Ödeme Yöntemi</h2>
+                        </div>
+                        {iframeToken && (
+                            <span className="flex items-center gap-2 text-xs font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 animate-pulse">
+                                <LockIcon /> 256-Bit SSL Korumalı
+                            </span>
+                        )}
+                    </div>
                     
                     {iframeToken ? (
-                        <div className="w-full min-h-[600px] border border-gray-100 rounded-xl overflow-hidden">
+                        <div className="w-full min-h-[600px] border border-gray-100 rounded-2xl overflow-hidden shadow-inner bg-gray-50">
                              <iframe
                                 src={`https://www.paytr.com/odeme/guvenli/${iframeToken}`}
                                 id="paytriframe"
@@ -312,71 +355,111 @@ export default function CheckoutPage() {
                             }} />
                         </div>
                     ) : (
-                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 text-center">
-                            <p className="text-gray-500 mb-4">Ödeme adımına geçmek için sağdaki "Ödemeye Geç" butonuna tıklayınız.</p>
-                            <div className="flex justify-center gap-2 opacity-50">
-                                <span className="bg-white p-2 rounded border">Visa</span>
-                                <span className="bg-white p-2 rounded border">MasterCard</span>
-                                <span className="bg-white p-2 rounded border">Troy</span>
+                        <div className="bg-gray-50 rounded-2xl border border-dashed border-gray-300 p-8 text-center flex flex-col items-center justify-center h-[300px]">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
+                                <svg className="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                            </div>
+                            <h3 className="text-gray-900 font-bold text-lg mb-2">Güvenli Ödeme Ortamı</h3>
+                            <p className="text-gray-500 max-w-md mx-auto mb-6 text-sm">
+                                Ödemeniz PayTR altyapısı ile 256-bit SSL şifreleme kullanılarak korunmaktadır. Kart bilgileriniz tarafımızca saklanmaz.
+                            </p>
+                            
+                            {/* Banka Logoları (Görsel Güven) */}
+                            <div className="flex gap-4 opacity-50 grayscale hover:grayscale-0 transition duration-500">
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Visa</span>
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Mastercard</span>
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Troy</span>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* SAĞ: ÖZET */}
+            {/* SAĞ KOLON: SİPARİŞ ÖZETİ (STICKY) */}
             <div className="lg:col-span-4">
-                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 sticky top-24">
-                    <h3 className="text-xl font-black text-gray-900 mb-6">Sipariş Özeti</h3>
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sticky top-6 overflow-hidden">
+                    {/* Arka Plan Dekoru */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full blur-3xl -mr-16 -mt-16"></div>
+
+                    <h3 className="text-xl font-black text-gray-900 mb-6 relative z-10">Sipariş Özeti 🛍️</h3>
                     
                     {verifiedTotal === null ? (
                         <div className="py-12 flex justify-center text-green-600">
                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                         </div>
                     ) : (
-                        <div className="space-y-6 mb-8">
-                            <div className="pb-6 border-b border-gray-100">
-                                <div className="mb-4">
-                                    <div className="font-bold text-gray-900 text-lg">{verifiedItem?.productName || items[0].productName}</div>
-                                    <div className="text-xs text-gray-500">
+                        <div className="space-y-6 mb-8 relative z-10">
+                            <div className="flex gap-4 items-start">
+                                <div className="w-16 h-16 bg-gray-100 rounded-xl flex-shrink-0 flex items-center justify-center text-2xl">📦</div>
+                                <div>
+                                    <div className="font-bold text-gray-900">{verifiedItem?.productName || items[0].productName}</div>
+                                    <div className="text-xs text-gray-500 mt-1">
                                         {items[0].duration} Aylık Plan • {items[0].petName}
                                     </div>
                                     {verifiedItem?.discountRate > 0 && (
-                                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
+                                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-2">
                                             %{verifiedItem.discountRate} Kampanya İndirimi
                                         </span>
                                     )}
                                 </div>
-                                <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-dashed border-gray-200">
-                                    <span>Ödenecek Tutar</span>
-                                    <span>₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            
+                            <div className="border-t border-dashed border-gray-200 my-4"></div>
+                            
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between text-gray-600">
+                                    <span>Ara Toplam</span>
+                                    <span className="font-bold text-gray-900">₺{(verifiedItem?.rawPrice || 0).toLocaleString('tr-TR')}</span>
                                 </div>
+                                <div className="flex justify-between text-green-600">
+                                    <span>Kargo</span>
+                                    <span className="font-bold">Ücretsiz</span>
+                                </div>
+                                {verifiedItem?.discountRate > 0 && (
+                                     <div className="flex justify-between text-green-600">
+                                        <span>İndirim</span>
+                                        <span className="font-bold">-₺{((verifiedItem?.rawPrice || 0) - verifiedTotal).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}</span>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="border-t border-gray-200 pt-4 mt-2">
+                                <div className="flex justify-between items-end">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-gray-500 font-medium">Toplam Tutar</span>
+                                        <span className="text-3xl font-black text-gray-900 tracking-tighter">
+                                            ₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-2 text-right">KDV Dahildir.</p>
                             </div>
                         </div>
                     )}
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center text-sm"><span className="text-gray-500">Kargo</span><span className="font-bold text-green-600">Ücretsiz</span></div>
-                        <div className="border-t border-gray-200 my-2"></div>
-                        <div className="flex justify-between items-end">
-                            <div className="flex flex-col"><span className="text-lg font-bold text-gray-900">Toplam</span></div>
-                            <span className="text-3xl font-black text-green-600 tracking-tighter">
-                                {verifiedTotal !== null ? `₺${verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '...'}
-                            </span>
-                        </div>
-                    </div>
 
                     {!iframeToken && (
                         <button 
                             onClick={handlePayment} 
                             disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
-                            className={`w-full py-5 rounded-2xl font-bold text-lg transition shadow-lg transform active:scale-95 flex items-center justify-center gap-3 mt-8
-                                ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}
+                            className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg transform active:scale-95 flex items-center justify-center gap-3 relative z-10 group
+                                ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) 
+                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                                    : 'bg-gray-900 text-white hover:bg-black hover:shadow-xl hover:shadow-gray-400/20'}
                             `}
                         >
-                            {loading ? 'Yükleniyor...' : 'Güvenli Ödemeye Geç 👉'}
+                            {loading ? (
+                                <span className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Yükleniyor...</span>
+                            ) : (
+                                <>
+                                    Güvenli Ödemeye Geç <span className="group-hover:translate-x-1 transition">👉</span>
+                                </>
+                            )}
                         </button>
                     )}
+                    
+                    <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
+                        <LockIcon/> Ödemeniz 256-Bit SSL ile korunmaktadır.
+                    </div>
                 </div>
             </div>
         </div>
