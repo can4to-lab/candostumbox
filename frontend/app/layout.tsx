@@ -14,7 +14,7 @@ const inter = Inter({subsets:["latin"]})
 export const metadata: Metadata = {
     title: "Can Dostum Box | Sürpriz Mutluluk", 
     description: "Can dostunuz için aylık sürpriz kutular.",
-    icons:{icon: '/logo_arka.png', }
+    icons:{icon: '/icon.png', }
 };
 
 export default function RootLayout({

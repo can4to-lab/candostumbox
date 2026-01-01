@@ -1,33 +1,51 @@
+"use client";
+import Image from "next/image"; 
+import Link from "next/link"; 
+
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white py-12 border-t border-gray-800 text-center mt-auto">
         <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16 text-left">
+                
+                {/* 1. Logo ve Açıklama Bölümü */}
                 <div className="col-span-1 md:col-span-1">
                     <div className="flex items-center gap-2 mb-6">
-                        <img src="/logo_arka.png" alt="Logo" className="h-10 w-auto opacity-90 invert brightness-0" />
-                        <span className="font-bold text-xl">CanDostumBox</span>
+                        <div className="relative h-12 w-48"> 
+                            <Image 
+                                src="/logo-footer.jpg" 
+                                alt="Can Dostum Box Logo" 
+                                fill
+                                className="object-contain" 
+                            />
+                        </div>
                     </div>
                     <p className="text-gray-400 text-sm leading-relaxed">
                         Minik dostlarınız için her ay özenle hazırlanan sürpriz mutluluk kutuları. Sevgiyle paketlendi.
                     </p>
                 </div>
+
+                {/* 2. Kurumsal Linkler */}
                 <div>
                     <h4 className="font-bold text-white mb-6">Kurumsal</h4>
                     <ul className="space-y-3 text-sm text-gray-400">
-                        <li><a href="/about" className="hover:text-green-400 transition">Hakkımızda</a></li>
-                        <li><a href="/faq" className="hover:text-green-400 transition">Sıkça Sorulan Sorular</a></li>
-                        <li><a href="/contact" className="hover:text-green-400 transition">İletişim</a></li>
+                        <li><Link href="/about" className="hover:text-green-400 transition">Hakkımızda</Link></li>
+                        <li><Link href="/faq" className="hover:text-green-400 transition">Sıkça Sorulan Sorular</Link></li>
+                        <li><Link href="/contact" className="hover:text-green-400 transition">İletişim</Link></li>
                     </ul>
                 </div>
+
+                {/* 3. Yasal Linkler */}
                 <div>
                     <h4 className="font-bold text-white mb-6">Yasal</h4>
                     <ul className="space-y-3 text-sm text-gray-400">
-                        <li><a href="#" className="hover:text-green-400 transition">Kullanım Koşulları</a></li>
-                        <li><a href="#" className="hover:text-green-400 transition">Gizlilik Politikası</a></li>
-                        <li><a href="#" className="hover:text-green-400 transition">Mesafeli Satış Sözleşmesi</a></li>
+                        <li><Link href="#" className="hover:text-green-400 transition">Kullanım Koşulları</Link></li>
+                        <li><Link href="#" className="hover:text-green-400 transition">Gizlilik Politikası</Link></li>
+                        <li><Link href="#" className="hover:text-green-400 transition">Mesafeli Satış Sözleşmesi</Link></li>
                     </ul>
                 </div>
+
+                {/* 4. Bülten Aboneliği */}
                 <div>
                     <h4 className="font-bold text-white mb-6">Haberdar Olun</h4>
                     <p className="text-gray-400 text-sm mb-4">Kampanyalardan ilk siz haberdar olun.</p>
@@ -37,12 +55,45 @@ export default function Footer() {
                     </div>
                 </div>
             </div>
+
+            {/* Alt Kısım (Copyright & Sosyal Medya) */}
             <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
                 <p className="text-gray-500 text-sm">© 2025 Can Dostum Box. Tüm hakları saklıdır.</p>
-                <div className="flex gap-6 text-gray-400">
-                    <span className="cursor-pointer hover:text-white transition">Instagram</span>
-                    <span className="cursor-pointer hover:text-white transition">Twitter</span>
-                    <span className="cursor-pointer hover:text-white transition">TikTok</span>
+                
+                {/* 👇 GÜNCELLENEN SOSYAL MEDYA LİNKLERİ */}
+                <div className="flex gap-6 text-gray-400 font-medium text-sm">
+                    <a 
+                        href="https://www.facebook.com/profile.php?id=61585193774745" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="hover:text-green-400 transition"
+                    >
+                        Facebook
+                    </a>
+                    <a 
+                        href="https://www.instagram.com/candostumbox/" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="hover:text-green-400 transition"
+                    >
+                        Instagram
+                    </a>
+                    <a 
+                        href="https://www.youtube.com/@CanDostumBox" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="hover:text-green-400 transition"
+                    >
+                        YouTube
+                    </a>
+                    <a 
+                        href="https://www.tiktok.com/@candostumbox" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="hover:text-green-400 transition"
+                    >
+                        TikTok
+                    </a>
                 </div>
             </div>
         </div>

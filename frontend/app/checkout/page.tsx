@@ -29,17 +29,6 @@ interface GuestForm {
     title: string;
 }
 
-// Hesaplamalar için yeni arayüz
-interface CalculatedItem {
-    originalItem: any;
-    unitPrice: number;
-    rawTotal: number;      // İndirimsiz Toplam (500 * 6 = 3000)
-    discountAmount: number; // İndirim (210)
-    finalTotal: number;    // Ödenecek (2790)
-    discountRate: number;  // %7
-    isDiscounted: boolean;
-}
-
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCart();
@@ -55,28 +44,26 @@ export default function CheckoutPage() {
       city: "", district: "", fullAddress: "", title: "Misafir Adresi"
   });
 
-  // 👇 YENİ: Hesaplanmış Kalemler ve Toplam
-  const [calculatedItems, setCalculatedItems] = useState<CalculatedItem[]>([]);
-  const [verifiedTotal, setVerifiedTotal] = useState(0);
-  const [isVerifying, setIsVerifying] = useState(true);
+  // 👇 GÜVENLİK: API'den Hesaplanmış Gerçek Fiyatlar
+  const [verifiedTotal, setVerifiedTotal] = useState<number | null>(null); // Null ise hesaplanıyor
+  const [verifiedItem, setVerifiedItem] = useState<any>(null); // Doğrulanmış ürün bilgisi
 
   // Modallar
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
 
-  // --- 1. VERİLERİ YÜKLE VE HESAPLA ---
+  // --- 1. SAYFA YÜKLENİNCE: ADRESLERİ ÇEK VE FİYATI DOĞRULA ---
   useEffect(() => {
     const initPage = async () => {
         const token = localStorage.getItem("token");
 
         if (items.length === 0) {
-            toast.error("Sepetiniz boş!");
             router.push("/");
             return;
         }
 
-        // Adresleri Çek
+        // 1. Adresleri Çek
         if (token) {
             try {
                 const res = await fetch("https://candostumbox-api.onrender.com/users/addresses", {
@@ -92,68 +79,56 @@ export default function CheckoutPage() {
             setIsGuest(true);
         }
 
-        // FİYAT HESAPLAMA MOTORU 🧮
+        // 2. FİYAT DOĞRULAMA (GÜVENLİK) 🛡️
+        // Sepetteki fiyatı değil, API'den gelen güncel fiyatı ve indirimi hesapla
         try {
-            // A) İndirim Kurallarını Çek
-            const discountsRes = await fetch("https://candostumbox-api.onrender.com/discounts");
+            const item = items[0]; // Şimdilik tek ürün mantığı
+            
+            // A) Ürün ve İndirim Kurallarını Çek
+            const [productRes, discountsRes] = await Promise.all([
+                fetch(`https://candostumbox-api.onrender.com/products/${item.productId}`),
+                fetch(`https://candostumbox-api.onrender.com/discounts`)
+            ]);
+
+            const product = await productRes.json();
             const discounts = await discountsRes.json();
 
-            // B) Her Ürün İçin Detaylı Hesaplama Yap
-            const calculations = await Promise.all(items.map(async (item) => {
-                // Güvenlik için güncel birim fiyatı API'den al
-                const res = await fetch(`https://candostumbox-api.onrender.com/products/${item.productId}`);
-                const product = await res.json();
-                const unitPrice = Number(product.price);
-
-                // Hesaplama Mantığı
-                const duration = item.duration;
-                let rawTotal = 0;
-                let discountAmount = 0;
-                let finalTotal = 0;
-                let discountRate = 0;
-
-                if (item.paymentType === 'upfront') {
-                    rawTotal = unitPrice * duration; // Örn: 500 * 6 = 3000
-
-                    // İndirim Kuralını Bul
-                    const rule = discounts.find((d: any) => d.durationMonths === duration);
-                    discountRate = rule ? Number(rule.discountPercentage) : 0;
-
-                    if (duration > 1 && discountRate > 0) {
-                        discountAmount = rawTotal * (discountRate / 100); // 3000 * 0.07 = 210
-                        finalTotal = rawTotal - discountAmount; // 3000 - 210 = 2790
-                    } else {
-                        finalTotal = rawTotal;
-                    }
-                } else {
-                    // Aylık ödeme ise (genelde ilk ay alınır veya taahhütlü gösterim farklıdır)
-                    // Burada 1 aylık çekim yapılacak varsayıyoruz
-                    rawTotal = unitPrice;
-                    finalTotal = unitPrice;
-                }
-
-                return {
-                    originalItem: item,
-                    unitPrice,
-                    rawTotal,
-                    discountAmount,
-                    finalTotal,
-                    discountRate,
-                    isDiscounted: discountAmount > 0
-                };
-            }));
-
-            setCalculatedItems(calculations);
+            // B) Hesaplama Yap
+            const unitPrice = Number(product.price);
+            const duration = Number(item.duration);
             
-            // Toplamı hesaplanmış veriden al (Kuruş hatası olmaz)
-            const total = calculations.reduce((acc, curr) => acc + curr.finalTotal, 0);
-            setVerifiedTotal(total);
+            let calculatedTotal = 0;
+            let discountRate = 0;
+
+            if (item.paymentType === 'monthly') {
+                // Aylık ödemede o ayın ücreti alınır (İndirim yok)
+                calculatedTotal = unitPrice; 
+            } else {
+                // Peşin Ödeme (Upfront)
+                const rawTotal = unitPrice * duration; // Örn: 300 * 12 = 3600
+                
+                // İndirim kuralını bul
+                const rule = discounts.find((d: any) => Number(d.durationMonths) === duration);
+                if (rule) {
+                    discountRate = Number(rule.discountPercentage);
+                    // İndirim uygula: 3600 - (3600 * 0.20)
+                    calculatedTotal = rawTotal - (rawTotal * (discountRate / 100));
+                } else {
+                    calculatedTotal = rawTotal;
+                }
+            }
+
+            setVerifiedTotal(calculatedTotal);
+            setVerifiedItem({
+                ...item,
+                productName: product.name, // İsim de API'den gelsin
+                rawPrice: item.paymentType === 'monthly' ? unitPrice : (unitPrice * duration), // İndirimsiz halini göstermek için
+                discountRate: discountRate
+            });
 
         } catch (e) {
-            console.error(e);
-            toast.error("Fiyat bilgisi güncellenemedi.");
-        } finally {
-            setIsVerifying(false);
+            console.error("Fiyat doğrulama hatası:", e);
+            toast.error("Fiyat bilgisi doğrulanamadı.");
         }
     };
 
@@ -186,8 +161,8 @@ export default function CheckoutPage() {
       const token = localStorage.getItem("token");
       let payload: any = {};
 
-      // Sepet verisi olarak `items` (CartContext) kullanılıyor, hesaplamalar görsel içindir.
-      // Backend zaten kendi hesaplamasını yapacaktır ama tutarlı gönderelim.
+      // Backend'e FİYAT GÖNDERMİYORUZ. Sadece ürün ID ve Süre gönderiyoruz.
+      // Backend kendi veritabanından hesaplayıp çekecek. Bu en güvenli yoldur.
 
       if (token) {
           if (!selectedAddressId) {
@@ -202,8 +177,8 @@ export default function CheckoutPage() {
                   productId: item.productId,
                   quantity: 1,
                   duration: item.duration,
-                  deliveryPeriod: item.deliveryPeriod,
-                  subscriptionId: item.subscriptionId
+                  deliveryPeriod: item.deliveryPeriod, // Backend'de entity'de varsa
+                  // subscriptionId: ... (Gerekirse)
               }))
           };
       } else {
@@ -270,6 +245,7 @@ export default function CheckoutPage() {
             
             {/* SOL TARAFLAR (Adres vb.) */}
             <div className="lg:col-span-8 space-y-8">
+                {/* ADRES KARTI */}
                 <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-black text-gray-900">Teslimat Bilgileri 📍</h2>
@@ -277,7 +253,6 @@ export default function CheckoutPage() {
                             <button onClick={() => setIsAddressModalOpen(true)} className="text-sm font-bold text-green-600 hover:text-green-700 flex items-center gap-1"><span>+</span> Yeni Ekle</button>
                         )}
                     </div>
-                    {/* ... (Adres içeriği aynı kalıyor, kod kalabalığı yapmasın diye burası aynı) ... */}
                     {isGuest ? (
                         <div className="space-y-4 animate-fade-in">
                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-4">
@@ -335,61 +310,55 @@ export default function CheckoutPage() {
                 <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 sticky top-24">
                     <h3 className="text-xl font-black text-gray-900 mb-6">Sipariş Özeti</h3>
                     
-                    {/* 👇 YENİLENMİŞ GÖRÜNÜM: ARTIK HESAPLANMIŞ VERİ KULLANILIYOR */}
-                    <div className="space-y-6 mb-8">
-                        {calculatedItems.map((calc, idx) => (
-                            <div key={calc.originalItem.uniqueId || idx} className="pb-6 border-b border-gray-100 last:border-0">
+                    {verifiedTotal === null ? (
+                        <div className="py-12 flex justify-center text-green-600">
+                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 mb-8">
+                            <div className="pb-6 border-b border-gray-100">
                                 <div className="mb-4">
-                                    <div className="font-bold text-gray-900 text-lg">{calc.originalItem.productName}</div>
-                                    <div className="text-xs text-gray-500">{calc.originalItem.duration} Aylık Plan • {calc.originalItem.petName}</div>
-                                    
-                                    {calc.isDiscounted && (
+                                    <div className="font-bold text-gray-900 text-lg">{verifiedItem?.productName || items[0].productName}</div>
+                                    <div className="text-xs text-gray-500">
+                                        {items[0].duration} Aylık Plan • {items[0].petName}
+                                    </div>
+                                    {verifiedItem?.discountRate > 0 && (
                                         <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mt-1">
-                                            %{calc.discountRate} Kampanya İndirimi
+                                            %{verifiedItem.discountRate} Kampanya İndirimi
                                         </span>
                                     )}
                                 </div>
 
                                 <div className="space-y-2 text-sm">
-                                    {/* 1. Paket Tutarı (Örn: 3000 TL) */}
                                     <div className="flex justify-between text-gray-500">
-                                        <span>Paket Tutarı ({calc.originalItem.duration} Ay)</span>
-                                        <span className="font-medium">₺{calc.rawTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                                        <span>Paket Tutarı</span>
+                                        <span className="font-medium line-through">₺{verifiedItem?.rawPrice?.toFixed(2)}</span>
                                     </div>
-
-                                    {/* 2. İndirim Tutarı (Örn: 210 TL) */}
-                                    {calc.isDiscounted && (
-                                        <div className="flex justify-between text-green-600">
-                                            <span>İndirim Tutarı</span>
-                                            <span className="font-bold">-₺{calc.discountAmount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                    )}
-
-                                    {/* 3. Tutar (Örn: 2790 TL) */}
                                     <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-dashed border-gray-200">
-                                        <span>Tutar</span>
-                                        <span>₺{calc.finalTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                                        <span>Ödenecek Tutar</span>
+                                        <span>₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    )}
 
                     <div className="space-y-4">
                         <div className="flex justify-between items-center text-sm"><span className="text-gray-500">Kargo</span><span className="font-bold text-green-600">Ücretsiz</span></div>
                         <div className="border-t border-gray-200 my-2"></div>
                         <div className="flex justify-between items-end">
-                            <div className="flex flex-col"><span className="text-lg font-bold text-gray-900">Ödenecek Tutar</span></div>
-                            {/* 👇 ARTIK KESİN DOĞRU */}
-                            <span className="text-3xl font-black text-green-600 tracking-tighter">₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
+                            <div className="flex flex-col"><span className="text-lg font-bold text-gray-900">Toplam</span></div>
+                            <span className="text-3xl font-black text-green-600 tracking-tighter">
+                                {verifiedTotal !== null ? `₺${verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '...'}
+                            </span>
                         </div>
                     </div>
 
                     <button 
                         onClick={handlePayment} 
-                        disabled={loading || isVerifying || (!isGuest && addresses.length === 0)} 
+                        disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
                         className={`w-full py-5 rounded-2xl font-bold text-lg transition shadow-lg transform active:scale-95 flex items-center justify-center gap-3 mt-8
-                            ${loading || isVerifying || (!isGuest && addresses.length === 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}
+                            ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}
                         `}
                     >
                         {loading ? 'İşleniyor...' : (isGuest ? 'Misafir Olarak Tamamla 👉' : 'Siparişi Tamamla ✅')}

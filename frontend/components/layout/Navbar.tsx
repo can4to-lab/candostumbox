@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import { useCart } from "@/context/CartContext";
+import Image from "next/image";
 
 export default function Navbar() {
   const router = useRouter();
@@ -58,14 +59,23 @@ export default function Navbar() {
                 <span className="text-sm font-bold text-gray-600 hidden md:block cursor-pointer tracking-wider" onClick={() => setIsSideMenuOpen(true)}>MENÜ</span>
             </div>
 
-            {/* 2. ORTA: LOGO */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center cursor-pointer group" onClick={() => router.push('/')}>
-                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition duration-300 mr-2">
-                    🎁
+            {/* 2. ORTA: LOGO (GÜNCELLENDİ) */}
+            <div 
+                className="absolute left-1/2 transform -translate-x-1/2 flex items-center cursor-pointer" 
+                onClick={() => router.push('/')}
+            >
+                {/* Lütfen 'public' klasörüne 'logo-navbar.png' (beyaz zeminli yatay logo) 
+                    dosyasını attığından emin ol. 
+                */}
+                <div className="relative h-12 w-40 md:h-16 md:w-56">
+                    <Image
+                        src="/logo-navbar.jpg" 
+                        alt="Can Dostum Box Logo"
+                        fill
+                        className="object-contain"
+                        priority
+                    />
                 </div>
-                <span className="text-2xl font-black text-gray-900 tracking-tighter hidden lg:block">
-                    CanDostum<span className="text-green-600">Box</span>
-                </span>
             </div>
 
             {/* 3. SAĞ: İKONLAR */}

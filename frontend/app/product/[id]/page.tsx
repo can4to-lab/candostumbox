@@ -136,7 +136,14 @@ export default function ProductDetail() {
 
     fetchData();
   }, [id]);
-
+// ... diğer useEffect'lerin yanına ekle
+  
+  // 1 Ay seçilirse otomatik ödeme tipini 'upfront' (peşin) yap
+  useEffect(() => {
+      if (duration === 1) {
+          setPaymentType('upfront');
+      }
+  }, [duration]);
   // --- DİNAMİK FİYAT HESAPLAMA ---
   const calculatePrice = (months: number) => {
     if (!product) return { total: 0, monthly: 0, discountRate: 0, originalTotal: 0 };
@@ -503,14 +510,28 @@ export default function ProductDetail() {
                                     <div className="flex justify-between border-b border-gray-200 pb-3"><span className="text-gray-500 font-medium">Can Dostun</span><span className="font-bold text-gray-900">{petData.name || (savedPets.find(p => p.id === selectedPetId)?.name)}</span></div>
                                     
                                     {/* Ödeme Planı Seçimi */}
-                                    <div className="bg-white p-4 rounded-xl border border-gray-200 mt-4">
-                                        <div className="text-xs font-bold text-gray-400 uppercase mb-3">Ödeme Planı Seç</div>
-                                        <div className="flex gap-2">
-                                            {/* Sadece Üyeler Aylık Ödeyebilir (Veya misafir tek çekim zorunlu) */}
-                                            <button onClick={() => setPaymentType('monthly')} disabled={!isLoggedIn && duration > 1} className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'monthly' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>Her Ay Öde</button>
-                                            <button onClick={() => setPaymentType('upfront')} className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'upfront' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>Tek Çekim (İndirimli)</button>
+                                    {/* 👇 DÜZELTME: Sadece 1 aydan uzun süreler için göster */}
+                                    {duration > 1 && (
+                                        <div className="bg-white p-4 rounded-xl border border-gray-200 mt-4">
+                                            <div className="text-xs font-bold text-gray-400 uppercase mb-3">Ödeme Planı Seç</div>
+                                            <div className="flex gap-2">
+                                                {/* Sadece Üyeler Aylık Ödeyebilir */}
+                                                <button 
+                                                    onClick={() => setPaymentType('monthly')} 
+                                                    disabled={!isLoggedIn && duration > 1} 
+                                                    className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'monthly' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
+                                                >
+                                                    Her Ay Öde
+                                                </button>
+                                                <button 
+                                                    onClick={() => setPaymentType('upfront')} 
+                                                    className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'upfront' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
+                                                >
+                                                    Tek Çekim (İndirimli)
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     <div className="flex justify-between pt-4 items-center">
                                         <span className="text-lg font-bold text-gray-900">{paymentType === 'monthly' ? 'Aylık Tutar' : 'Toplam Tutar'}</span>

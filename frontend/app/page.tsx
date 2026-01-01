@@ -24,9 +24,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
   
-  // YENİ: Yan menü kontrolü (Zara Tarzı)
-  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false); 
-
   // Slider State
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -37,42 +34,35 @@ export default function Home() {
   // Data State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
+  // 👇 YENİ: Kullanıcının aktif siparişi var mı kontrolü
+  const [hasOrders, setHasOrders] = useState(false); 
 
-  // --- SLIDER VERİLERİ (GÜNCELLENDİ: Buton Metinleri Eklendi) ---
+  // --- SLIDER VERİLERİ ---
   const slides = [
     {
         id: 1,
-        badge: "🐾 Mutluluk Kutusu",
-        title: "Can Dostun İçin Sürpriz Dolu Bir Dünya",
-        description: "Her ay kapına gelen özenle seçilmiş oyuncaklar, doğal atıştırmalıklar ve bakım ürünleri. Onun kuyruğunu, senin yüzünü güldürmek için buradayız.",
-        image: "/slider-1.jpg", 
-        btnColor: "bg-green-600 hover:bg-green-700 border-transparent",
-        link: "/product",
-        btnTextGuest: "Hemen Başla 🚀",
-        btnTextUser: "Paketleri İncele 🎁"
+        badge: "🚀 En Popüler Başlangıç",
+        title: "Dostun İçin Mutluluk Kutusu",
+        description: "İçinde ne olduğunu sadece biz biliyoruz, ama ne kadar seveceğini garanti ediyoruz! Her ay kapına gelen sürpriz lezzet ve oyun şöleni.",
+        image: "/slider-1.jpeg", 
+        btnColor: "bg-green-600 hover:bg-green-700 border-green-600",
+        // Linkler artık dinamik hesaplanacak
     },
     {
         id: 2,
-        badge: "✨ Her Ay Yeni Macera",
-        title: "Keşfetmeyi Seven Patiler İçin",
-        description: "Farklı temalarla hazırlanan kutularımızla dostunun merakını her zaman canlı tut. Sıkılmak yok, sadece eğlence var!",
+        badge: "✨ Premium Deneyim",
+        title: "Sıkıcı Oyuncaklara Veda Et",
+        description: "Sıradan bir top yerine, zeka geliştirici ve dayanıklı oyuncaklar gönderiyoruz. Dostunun enerjisini doğru yöne kanalize et.",
         image: "/slider-3.jpg", 
-        btnColor: "bg-orange-600 hover:bg-orange-700 border-transparent",
-        link: "/product",
-        btnTextGuest: "Hemen Başla 🚀",
-        btnTextUser: "Paketleri İncele 🎁"
+        btnColor: "bg-orange-500 hover:bg-orange-600 border-orange-500",
     },
     {
         id: 3,
-        badge: "✅ Veteriner Onaylı",
-        title: "Sağlıklı ve Güvenilir İçerik",
-        description: "Gönderdiğimiz tüm ürünler uzman veterinerler tarafından kontrol edilir. Dostunun sağlığı bizim için her şeyden önemli.",
+        badge: "🛡️ %100 Güvenli",
+        title: "Veteriner Hekim Onaylı",
+        description: "Dostunun sağlığı şakaya gelmez. Kutularımızdaki her ödül maması ve oyuncak, uzman veterinerlerimiz tarafından kontrol edilir.",
         image: "/veteriner-onayli.jpg", 
-        btnColor: "bg-blue-600 hover:bg-blue-700 border-transparent",
-        link: "/about",
-        // 👇 BURADA FARKLI METİN KULLANIYORUZ
-        btnTextGuest: "Bizi Tanı 🛡️",
-        btnTextUser: "Standartlarımızı Gör 🩺"
+        btnColor: "bg-blue-600 hover:bg-blue-700 border-blue-600",
     }
   ];
 
@@ -80,7 +70,7 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
         setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    }, 5000); 
+    }, 7000); 
     return () => clearInterval(interval);
   }, []);
 
@@ -92,10 +82,13 @@ export default function Home() {
     setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
 
+  // --- KULLANICI BİLGİLERİ VE SİPARİŞ KONTROLÜ ---
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
         setIsLoggedIn(true);
+        
+        // 1. Profil Bilgisi
         fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         })
@@ -104,6 +97,20 @@ export default function Home() {
             setUserName(data.name || "Dostum");
         })
         .catch(err => console.log(err));
+
+        // 2. Sipariş Kontrolü (Yeni üye mi yoksa eski mi?)
+        fetch("https://candostumbox-api.onrender.com/orders/my-orders", {
+            headers: { "Authorization": `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(orders => {
+            if (Array.isArray(orders) && orders.length > 0) {
+                setHasOrders(true); // Eski üye (Siparişi var)
+            } else {
+                setHasOrders(false); // Yeni üye (Siparişi yok)
+            }
+        })
+        .catch(() => setHasOrders(false));
     }
 
     const urunleriGetir = async () => {
@@ -120,62 +127,70 @@ export default function Home() {
     urunleriGetir();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    window.location.reload();
-  };
-
-  // Eski scroll fonksiyonu (SSS için hala gerekli olabilir)
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-        setIsSideMenuOpen(false); 
-    }
-  };
-
-  // YENİ: Sayfa Yönlendirme Fonksiyonu
-  const handleNavigation = (path: string) => {
-    router.push(path);
-    setIsSideMenuOpen(false);
-  };
-
-  const handlePaketSec = (urun: Product) => {
-    if (urun.stock <= 0) return;
-    router.push(`/product/${urun.id}`);
-  };
-
   const handleRegisterSuccess = () => {
       setIsLoggedIn(true);      
       setRegisterOpen(false);   
       window.location.reload();
   };
 
-  const visibleProducts = products.filter(p => p.isVisible !== false);
+  // 👇 YENİ: AKILLI BUTON MANTIĞI
+  // Bu fonksiyon, kullanıcının durumuna göre butonun ne yapacağını belirler.
+  const getHeroButtonConfig = (slideId: number) => {
+      // Varsayılan (Misafir)
+      let config = { 
+          text: "Kutunu Seç 🎁", 
+          action: () => router.push('/product') 
+      };
 
-  // YENİ: Hero butonu artık linke yönlendiriyor
-  const handleHeroButtonClick = (link: string) => {
-      if (isLoggedIn) {
-          router.push(link);
-      } else {
-          router.push('/auth/signup'); 
+      if (slideId === 3) {
+           return { text: "Bizi Tanı 🩺", action: () => router.push('/about') };
       }
+
+      if (isLoggedIn) {
+          if (hasOrders) {
+              // Aktif Üye (Siparişi Var) -> Profile gitmeli
+              config = { 
+                  text: "Kutunu Takip Et 📦", 
+                  action: () => router.push('/profile?tab=siparisler')
+              };
+          } else {
+              // Yeni Üye (Siparişi Yok) -> Satın almaya gitmeli
+              config = { 
+                  text: `İlk Paketini Seç ${userName ? userName.split(' ')[0] : ''} 🚀`, 
+                  action: () => router.push('/product') 
+              };
+          }
+      } else {
+          // Misafir -> Ürünlere gitmeli (veya kayıt modalı açabilir)
+          config = {
+               text: "Hemen Başla 🎁",
+               action: () => router.push('/product')
+          };
+      }
+      
+      // Slide 2 özel durumu (Premium)
+      if (slideId === 2) {
+          if (isLoggedIn && hasOrders) {
+               config = { text: "Aboneliği Yükselt 🚀", action: () => router.push('/profile?tab=abonelik') };
+          } else {
+               config = { text: "Planları İncele 🔍", action: () => router.push('/product') };
+          }
+      }
+
+      return config;
   };
 
-  return (
+  return (  
     <main className="min-h-screen bg-[#f8f9fa] text-gray-800 font-sans relative">
       <Toaster position="top-right" />
       
-      {/* --- DUYURU BANDI --- */}
       {showBanner && (
-        <div className="bg-gray-900 text-gray-200 text-xs font-medium py-2 px-4 text-center relative z-50">
+        <div className="bg-gray-900 text-gray-200 text-xs font-medium py-2 px-4 text-center relative z-50 animate-fade-in">
             <span>🎉 YENİ ÜYELERE ÖZEL İLK KUTUDA %20 İNDİRİM! Kod: DOSTUM2025</span>
             <button onClick={() => setShowBanner(false)} className="absolute right-4 top-1/2 transform -translate-y-1/2 hover:text-white">✕</button>
         </div>
       )}
 
-      {/* --- MODALLAR --- */}
       <LoginModal 
         isOpen={isLoginOpen} 
         onClose={() => setLoginOpen(false)} 
@@ -190,58 +205,81 @@ export default function Home() {
         onRegisterSuccess={handleRegisterSuccess}
       />
 
-      {/* --- HERO BANNER (SLIDER) --- */}
-      <div className="relative w-full overflow-hidden">
+      {/* --- HERO BANNER --- */}
+      <div className="relative w-full overflow-hidden group">
         <div 
-            className="flex transition-transform duration-700 ease-in-out h-[600px] md:h-[750px]"
+            className="flex transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] h-[650px] md:h-[800px]"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
-            {slides.map((slide, index) => (
+            {slides.map((slide, index) => {
+                // Her slide için akıllı buton konfigürasyonunu al
+                const btnConfig = getHeroButtonConfig(slide.id);
+
+                return (
                 <div key={slide.id} className="w-full flex-shrink-0 relative h-full">
-                    {/* Placeholder resim yerine kendi resimlerinizi kullanın */}
                     <Image src={slide.image} alt={slide.title} fill className="object-cover" priority={index === 0} />
-                    <div className="absolute inset-0 bg-black/30"></div>
-                    <div className="absolute inset-0 flex items-center justify-center text-center z-10 px-4">
-                        <div className="max-w-4xl space-y-6">
-                            <span className="inline-block py-2 px-6 rounded-full text-sm font-bold tracking-widest uppercase mb-2 bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-sm animate-fade-in-up">
-                                {slide.badge}
-                            </span>
-                            <h1 className="text-4xl md:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-lg animate-fade-in-up delay-100">
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+
+                    <div className="absolute inset-0 flex items-center justify-center text-center z-10 px-4 pb-12 md:pb-0">
+                        <div className="max-w-5xl space-y-6 md:space-y-8">
+                            
+                            <div className="overflow-hidden inline-block rounded-full">
+                                <span className="inline-block py-2 px-6 text-xs md:text-sm font-bold tracking-widest uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg animate-fade-in-up">
+                                    {slide.badge}
+                                </span>
+                            </div>
+
+                            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl animate-fade-in-up delay-100">
                                 {slide.title}
                             </h1>
-                            <p className="text-lg md:text-2xl text-gray-100 max-w-2xl mx-auto leading-relaxed font-medium drop-shadow-md animate-fade-in-up delay-200">
+
+                            <p className="text-lg md:text-2xl text-gray-200 max-w-2xl mx-auto leading-relaxed font-medium drop-shadow-lg animate-fade-in-up delay-200">
                                 {slide.description}
                             </p>
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6 animate-fade-in-up delay-300">
-                                {/* 👇 BUTON METNİ BURADA DİNAMİKLEŞTİ */}
-                                <button onClick={() => handleHeroButtonClick(slide.link)} className={`px-10 py-4 text-white rounded-full font-bold text-lg transition shadow-xl transform hover:-translate-y-1 active:scale-95 flex items-center gap-2 border ${slide.btnColor}`}>
-                                    {isLoggedIn ? slide.btnTextUser : slide.btnTextGuest}
+
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 md:pt-8 animate-fade-in-up delay-300">
+                                {/* 👇 AKILLI BUTON BURADA */}
+                                <button 
+                                    onClick={btnConfig.action} 
+                                    className={`px-8 py-4 md:px-10 md:py-5 text-white rounded-full font-bold text-lg transition-all shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)] transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 border ${slide.btnColor}`}
+                                >
+                                    {btnConfig.text}
                                 </button>
-                                <button onClick={() => handleNavigation('/how-it-works')} className="px-10 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/50 rounded-full font-bold text-lg transition flex items-center gap-2">
-                                    Nasıl Çalışır? 🤔
+                                
+                                <button 
+                                    onClick={() => router.push('/how-it-works')} 
+                                    className="px-8 py-4 md:px-10 md:py-5 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-lg transition-all hover:border-white/60 flex items-center gap-2 group/btn"
+                                >
+                                    Nasıl Çalışır?
+                                    <span className="group-hover/btn:translate-x-1 transition-transform">➔</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-            ))}
+            )})}
         </div>
         
-        {/* Slider Okları (Aynen korundu) */}
-        <button onClick={prevSlide} className="absolute top-1/2 left-4 md:left-8 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 md:p-4 rounded-full shadow-lg transition z-20 focus:outline-none group border border-white/30">
-            <svg className="w-6 h-6 md:w-8 md:h-8 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        {/* Oklar ve Noktalar (Aynı Kaldı) */}
+        <button onClick={prevSlide} className="absolute top-1/2 left-4 md:left-8 transform -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 transition-all hover:scale-110 z-20 focus:outline-none group opacity-0 group-hover:opacity-100 duration-300">
+            <svg className="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <button onClick={nextSlide} className="absolute top-1/2 right-4 md:right-8 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white p-3 md:p-4 rounded-full shadow-lg transition z-20 focus:outline-none group border border-white/30">
-            <svg className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        <button onClick={nextSlide} className="absolute top-1/2 right-4 md:right-8 transform -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 transition-all hover:scale-110 z-20 focus:outline-none group opacity-0 group-hover:opacity-100 duration-300">
+            <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </button>
+
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
             {slides.map((_, index) => (
-                <button key={index} onClick={() => setCurrentSlide(index)} className={`h-3 rounded-full transition-all duration-300 ${currentSlide === index ? 'bg-white w-10' : 'bg-white/50 hover:bg-white/80 w-3'}`}></button>
+                <button 
+                    key={index} 
+                    onClick={() => setCurrentSlide(index)} 
+                    className={`h-2 rounded-full transition-all duration-500 ${currentSlide === index ? 'bg-white w-8 md:w-12' : 'bg-white/40 hover:bg-white/60 w-2 md:w-3'}`}
+                ></button>
             ))}
         </div>
       </div>
 
-      {/* --- ABONELİK SİSTEMİ BİLGİLENDİRME BANNERI (YENİ) --- */}
+      {/* --- ABONELİK SİSTEMİ BİLGİLENDİRME (AYNI) --- */}
       <section className="py-16 bg-white border-b border-gray-100">
           <div className="container mx-auto px-6 text-center">
               <h2 className="text-3xl font-black text-gray-900 mb-8">Nasıl Çalışır?</h2>
@@ -265,7 +303,7 @@ export default function Home() {
           </div>
       </section>
 
-      {/* --- KUTU İÇERİĞİ (KORUNDU) --- */}
+      {/* --- KUTU İÇERİĞİ (AYNI) --- */}
       <section className="py-24 bg-gray-50">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center gap-20">
            <div className="flex-1 relative order-2 md:order-1">
@@ -297,34 +335,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* --- NASIL ÇALIŞIR? (KORUNDU) --- */}
-      <section id="nasil-calisir" className="py-24 bg-white">
-        <div className="container mx-auto px-6 text-center">
-          <span className="text-green-600 font-bold tracking-wider text-sm uppercase mb-2 block">SÜREÇ NASIL İŞLİYOR?</span>
-          <h2 className="text-3xl md:text-5xl font-black text-gray-900 mb-16">Mutluluk Sadece 3 Adım Uzakta</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
-            <div className="hidden md:block absolute top-12 left-1/6 right-1/6 h-1 bg-gray-100 -z-10 rounded-full"></div>
-            <div className="group">
-              <div className="w-24 h-24 bg-white border-4 border-green-50 text-green-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-8 shadow-lg group-hover:scale-110 group-hover:border-green-200 transition-all duration-300 relative z-10">1</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Dostunu Tanıt</h3>
-              <p className="text-gray-500 leading-relaxed px-4">Can Dostunun boyutunu ve özelliklerini seç, ona en uygun kutuyu yapay zeka ile belirleyelim.</p>
-            </div>
-            <div className="group">
-              <div className="w-24 h-24 bg-white border-4 border-green-50 text-green-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-8 shadow-lg group-hover:scale-110 group-hover:border-green-200 transition-all duration-300 relative z-10">2</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Biz Hazırlayalım</h3>
-              <p className="text-gray-500 leading-relaxed px-4">Uzmanlarımız her ay farklı bir tema ile en kaliteli oyuncak ve ödülleri özenle seçsin.</p>
-            </div>
-            <div className="group">
-              <div className="w-24 h-24 bg-white border-4 border-green-50 text-green-600 rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-8 shadow-lg group-hover:scale-110 group-hover:border-green-200 transition-all duration-300 relative z-10">3</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Kapına Gelsin</h3>
-              <p className="text-gray-500 leading-relaxed px-4">Ücretsiz kargo ile kapına gelen kutuyu aç ve dostunun o paha biçilemez sevincine ortak ol!</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- MUTLU KULÜP (KORUNDU) --- */}
+      {/* --- MUTLU KULÜP (AYNI) --- */}
       <section className="py-20 bg-orange-50/50">
         <div className="container mx-auto px-6 text-center">
             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">Mutlu CanDostumBox Kulübü 🐶🐱</h2>
