@@ -10,7 +10,6 @@ interface RegisterModalProps {
   onRegisterSuccess: () => void;
 }
 
-// 1. SABİTLER
 const OTHER_ICONS: Record<string, string> = {
     'Kuş': '🦜', 'Hamster': '🐹', 'Tavşan': '🐰', 'Balık': '🐟'
 };
@@ -29,19 +28,15 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
   const [isOtherOpen, setIsOtherOpen] = useState(false);
   
   const [allergyInput, setAllergyInput] = useState("");
-
   const [userDate, setUserDate] = useState({ day: "", month: "", year: "" });
   const [petDate, setPetDate] = useState({ day: "", month: "", year: "" });
   
   const [formData, setFormData] = useState({
     name: "", email: "", password: "", phone: "",
-    gender: "", 
-    userBirthDate: "", 
-    tcKimlikNo: "",
-    petName: "", petType: "kopek", 
-    petBirthDate: "",  
-    petWeight: "",
-    petBreed: "", petNeutered: "false", 
+    gender: "", userBirthDate: "", tcKimlikNo: "",
+    petName: "", petType: "kopek", petBirthDate: "",  
+    petWeight: "", petBreed: "", 
+    petNeutered: "false", // Radio button için string olarak tutuyoruz ("true"/"false")
     petAllergies: [] as string[], 
     addrTitle: "Ev", addrCity: "", addrDistrict: "", addrNeighborhood: "", 
     addrStreet: "", addrBuilding: "", addrFloor: "", addrApartment: ""
@@ -111,7 +106,6 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
   };
 
   const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
   if (!isOpen) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -128,10 +122,6 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
         }
         if (!isValidEmail(formData.email)) {
             toast.error("Lütfen geçerli bir e-posta adresi girin 📧");
-            return;
-        }
-        if (formData.password.length < 6) {
-            toast.error("Şifreniz en az 6 karakter olmalıdır 🔒");
             return;
         }
     }
@@ -160,11 +150,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
         toast.success("Kayıt başarılı! Yönlendiriliyorsunuz... 🚀");
         if (data.access_token) {
             localStorage.setItem("token", data.access_token);
-            setTimeout(() => {
-                onRegisterSuccess();
-                onClose();
-                setStep(1);
-            }, 1000);
+            setTimeout(() => { onRegisterSuccess(); onClose(); setStep(1); }, 1000);
         } else {
             setTimeout(() => { onSwitchToLogin(); setStep(1); }, 1500);
         }
@@ -176,176 +162,148 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
     }
   };
 
-  // 👇 GÜNCELLENDİ: "text-gray-900" eklenerek yazı rengi siyah yapıldı.
-  const inputStyle = "w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-900 placeholder-gray-500 focus:bg-white focus:border-green-600 focus:ring-2 focus:ring-green-100 outline-none transition font-medium text-sm";
-  
-  const selectStyle = "px-1 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-900 text-sm font-bold outline-none cursor-pointer focus:bg-white focus:border-green-600";
+  // STYLE CONSTANTS
+  const inputStyle = "w-full px-4 py-3.5 rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-green-600 focus:ring-2 focus:ring-green-100 outline-none transition font-medium text-sm shadow-sm";
+  const selectStyle = "w-full px-2 py-3.5 rounded-xl border border-gray-300 bg-white text-gray-900 text-sm font-bold outline-none cursor-pointer focus:border-green-600 shadow-sm";
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose}></div>
-      
-      <div className="bg-white rounded-3xl w-full max-w-2xl relative shadow-2xl z-10 overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up">
+    <div className="fixed inset-0 bg-black/70 z-[999] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-3xl w-full max-w-2xl relative shadow-2xl z-10 flex flex-col my-auto animate-fade-in-up">
         
         {/* HEADER */}
-        <div className="bg-gray-50 p-6 border-b border-gray-200 relative">
-            <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl font-bold">&times;</button>
+        <div className="bg-white p-6 border-b border-gray-100 relative rounded-t-3xl">
+            <button onClick={onClose} className="absolute top-5 right-5 text-gray-400 hover:text-black text-2xl font-bold p-2">✕</button>
             <h2 className="text-xl font-black text-gray-900">
                 {step === 1 && "👤 Senin Bilgilerin"}
                 {step === 2 && "🐾 Dostunun Detayları"}
                 {step === 3 && "📍 Adres Detayları"}
             </h2>
-            <div className="mt-4 h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-600 transition-all duration-500" style={{ width: `${(step / 3) * 100}%` }}></div>
+            <div className="mt-4 h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${(step / 3) * 100}%` }}></div>
             </div>
         </div>
 
         {/* BODY */}
-        <div className="p-8 overflow-y-auto custom-scrollbar">
-            <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+        <div className="p-6 md:p-8">
+            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
                 
                 {/* --- AŞAMA 1 --- */}
                 {step === 1 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {initialData && (
-                            <div className="col-span-2 bg-green-100 text-green-800 p-3 rounded-xl text-sm font-bold border border-green-200 text-center mb-2">
+                            <div className="md:col-span-2 bg-green-50 text-green-800 p-3 rounded-xl text-sm font-bold border border-green-200 text-center">
                                 ✨ {formData.petName} için harika bir kutu hazırladık!
                             </div>
                         )}
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} className={`col-span-2 ${inputStyle}`} placeholder="Ad Soyad *" />
-                        <input type="email" name="email" value={formData.email} onChange={handleChange} className={`col-span-2 ${inputStyle}`} placeholder="E-posta *" />
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className={`md:col-span-2 ${inputStyle}`} placeholder="Ad Soyad *" />
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className={`md:col-span-2 ${inputStyle}`} placeholder="E-posta *" />
                         <input type="password" name="password" value={formData.password} onChange={handleChange} className={inputStyle} placeholder="Şifre *" />
                         <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputStyle} placeholder="Telefon *" />
                         
-                        <div className="col-span-2 border-t border-gray-100 my-2"></div>
-                        <p className="col-span-2 text-xs text-gray-500 font-bold uppercase tracking-wider">Opsiyonel Bilgiler</p>
+                        <div className="md:col-span-2 border-t border-gray-100 my-2"></div>
+                        <p className="md:col-span-2 text-xs text-gray-500 font-bold uppercase tracking-wider">Opsiyonel Bilgiler</p>
 
-                        <select name="gender" value={formData.gender} onChange={handleChange} className={`${inputStyle} bg-white text-gray-900`}>
-                            <option value="">Cinsiyet Seçiniz</option>
-                            <option value="Kadin">Kadın</option>
-                            <option value="Erkek">Erkek</option>
-                            <option value="BelirtmekIstemiyorum">Belirtmek İstemiyorum</option>
-                        </select>
+                        <div className="md:col-span-1">
+                            <select name="gender" value={formData.gender} onChange={handleChange} className={`${inputStyle} appearance-none cursor-pointer`}>
+                                <option value="">Cinsiyet Seçiniz</option>
+                                <option value="Kadin">Kadın</option>
+                                <option value="Erkek">Erkek</option>
+                                <option value="BelirtmekIstemiyorum">Belirtmek İstemiyorum</option>
+                            </select>
+                        </div>
                         
                         {/* KULLANICI DOĞUM TARİHİ */}
-                        <div className="col-span-1 space-y-1">
-                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Doğum Tarihiniz</label>
-                            <div className="grid grid-cols-3 gap-1">
-                                <select value={userDate.day} onChange={e => updateDate('user', 'day', e.target.value)} className={selectStyle}>
-                                    <option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                                <select value={userDate.month} onChange={e => updateDate('user', 'month', e.target.value)} className={selectStyle}>
-                                    <option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}
-                                </select>
-                                <select value={userDate.year} onChange={e => updateDate('user', 'year', e.target.value)} className={selectStyle}>
-                                    <option value="">Yıl</option>{USER_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                                </select>
+                        <div className="md:col-span-1 space-y-1">
+                            <div className="grid grid-cols-3 gap-2">
+                                <select value={userDate.day} onChange={e => updateDate('user', 'day', e.target.value)} className={selectStyle}><option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                <select value={userDate.month} onChange={e => updateDate('user', 'month', e.target.value)} className={selectStyle}><option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}</select>
+                                <select value={userDate.year} onChange={e => updateDate('user', 'year', e.target.value)} className={selectStyle}><option value="">Yıl</option>{USER_YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select>
                             </div>
                         </div>
 
-                        <input type="text" name="tcKimlikNo" value={formData.tcKimlikNo} onChange={handleChange} className={`col-span-2 ${inputStyle}`} placeholder="TC Kimlik No (Opsiyonel)" />
+                        <input type="text" name="tcKimlikNo" value={formData.tcKimlikNo} onChange={handleChange} className={`md:col-span-2 ${inputStyle}`} placeholder="TC Kimlik No (Opsiyonel)" />
                     </div>
                 )}
 
                 {/* --- AŞAMA 2 --- */}
                 {step === 2 && (
-                    <div className="space-y-5">
-                        
+                    <div className="space-y-6">
                         {/* TÜR SEÇİMİ */}
-                        <div className="flex gap-4 mb-4">
-                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kopek'}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>🐶 Köpek</button>
-                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kedi'}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>🐱 Kedi</button>
+                        <div className="flex gap-3">
+                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kopek'}); setIsOtherOpen(false); }} className={`flex-1 py-3.5 rounded-xl font-bold border-2 transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>🐶 Köpek</button>
+                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kedi'}); setIsOtherOpen(false); }} className={`flex-1 py-3.5 rounded-xl font-bold border-2 transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>🐱 Kedi</button>
                              <div className="relative flex-1">
-                                <button type="button" onClick={() => setIsOtherOpen(!isOtherOpen)} className={`w-full h-full py-4 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 text-gray-900 ${(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+                                <button type="button" onClick={() => setIsOtherOpen(!isOtherOpen)} className={`w-full h-full py-3.5 rounded-xl font-bold border-2 transition flex items-center justify-center gap-1 text-gray-900 ${(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}>
                                     <span>{(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? getOtherIcon() : '🦜'}</span> Diğer ▼
                                 </button>
                                 {isOtherOpen && (
-                                    <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden animate-fade-in">
+                                    <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden">
                                         {Object.keys(OTHER_ICONS).map((t) => (
-                                            <button key={t} type="button" onClick={() => { setFormData({...formData, petType: t}); setIsOtherOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"><span>{OTHER_ICONS[t]}</span> {t}</button>
+                                            <button key={t} type="button" onClick={() => { setFormData({...formData, petType: t}); setIsOtherOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-900 transition border-b border-gray-50 last:border-0 flex items-center gap-2"><span>{OTHER_ICONS[t]}</span> {t}</button>
                                         ))}
                                     </div>
                                 )}
                              </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <input type="text" name="petName" value={formData.petName} onChange={handleChange} className={inputStyle} placeholder="Adı *" />
-                            <input type="text" name="petBreed" value={formData.petBreed} onChange={handleChange} className={inputStyle} placeholder="Irkı" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" name="petName" value={formData.petName} onChange={handleChange} className={inputStyle} placeholder="Dostunun Adı *" />
+                            <input type="text" name="petBreed" value={formData.petBreed} onChange={handleChange} className={inputStyle} placeholder="Irkı (Örn: Golden)" />
                             
                             {/* PET DOĞUM TARİHİ */}
-                            <div className="col-span-1 space-y-1">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Doğum Tarihi *</label>
-                                <div className="grid grid-cols-3 gap-1">
-                                    <select value={petDate.day} onChange={e => updateDate('pet', 'day', e.target.value)} className={selectStyle}>
-                                        <option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-                                    </select>
-                                    <select value={petDate.month} onChange={e => updateDate('pet', 'month', e.target.value)} className={selectStyle}>
-                                        <option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}
-                                    </select>
-                                    <select value={petDate.year} onChange={e => updateDate('pet', 'year', e.target.value)} className={selectStyle}>
-                                        <option value="">Yıl</option>{PET_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-                                    </select>
-                                </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <select value={petDate.day} onChange={e => updateDate('pet', 'day', e.target.value)} className={selectStyle}><option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}</select>
+                                <select value={petDate.month} onChange={e => updateDate('pet', 'month', e.target.value)} className={selectStyle}><option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}</select>
+                                <select value={petDate.year} onChange={e => updateDate('pet', 'year', e.target.value)} className={selectStyle}><option value="">Yıl</option>{PET_YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select>
                             </div>
                             
-                            <input type="number" step="0.1" name="petWeight" value={formData.petWeight} onChange={handleChange} className={inputStyle} placeholder="Kilo (kg) *" />
+                            <input type="number" step="0.1" name="petWeight" value={formData.petWeight} onChange={handleChange} className={inputStyle} placeholder="Kilosu (kg) *" />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                             {/* 👇 YENİ CHECKBOX KISMI (MODAL) */}
-                             <label className="flex items-center gap-3 px-4 py-3 bg-gray-100 border border-gray-300 rounded-xl cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={formData.petNeutered === "true"}
-                                    onChange={(e) => setFormData({...formData, petNeutered: e.target.checked ? "true" : "false"})}
-                                    className="w-5 h-5 accent-green-600 rounded"
-                                />
-                                <span className="font-medium text-gray-900 text-sm">
-                                    {formData.petNeutered === "true" ? "✅ Kısırlaştırılmış" : "❌ Kısırlaştırılmamış"}
-                                </span>
-                             </label>
-                             
-                             {/* ALERJİLER */}
-                             <div className="bg-gray-100 p-3 rounded-xl border border-gray-300">
-                                <label className="text-[10px] font-bold text-gray-500 uppercase ml-1 block mb-2">Alerjiler</label>
-                                <div className="flex gap-2 mb-2">
-                                    <input 
-                                        type="text" 
-                                        value={allergyInput} 
-                                        onChange={(e) => setAllergyInput(e.target.value)} 
-                                        className="flex-grow p-2 bg-white rounded-lg text-sm font-medium outline-none border border-gray-200 text-gray-900"
-                                        placeholder="Örn: Tavuk, Tahıl..."
-                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAllergy())}
-                                    />
-                                    <button type="button" onClick={handleAddAllergy} className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700">Ekle +</button>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {formData.petAllergies.length > 0 ? (
-                                        formData.petAllergies.map((allergy, index) => (
-                                            <span key={index} className="bg-white border border-gray-200 text-gray-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
-                                                🚫 {allergy}
-                                                <button type="button" onClick={() => removeAllergy(allergy)} className="text-red-400 hover:text-red-600 font-black ml-1">×</button>
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-xs text-gray-400 italic pl-1">Alerji yok.</span>
-                                    )}
-                                </div>
-                             </div>
+                        {/* KISIRLAŞTIRMA (RADIO BUTTONS) */}
+                        <div>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 block mb-2">Kısırlaştırma Durumu</label>
+                            <div className="flex gap-4">
+                                <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition ${formData.petNeutered === 'true' ? 'border-green-500 bg-green-50 text-green-900' : 'border-gray-200 bg-white text-gray-500'}`}>
+                                    <input type="radio" name="petNeutered" value="true" checked={formData.petNeutered === 'true'} onChange={handleChange} className="hidden" />
+                                    <span className="font-bold text-sm">✅ Evet</span>
+                                </label>
+                                <label className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition ${formData.petNeutered === 'false' ? 'border-red-400 bg-red-50 text-red-900' : 'border-gray-200 bg-white text-gray-500'}`}>
+                                    <input type="radio" name="petNeutered" value="false" checked={formData.petNeutered === 'false'} onChange={handleChange} className="hidden" />
+                                    <span className="font-bold text-sm">❌ Hayır</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* ALERJİLER */}
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Alerjiler (Varsa)</label>
+                            <div className="flex gap-2 mb-3">
+                                <input type="text" value={allergyInput} onChange={(e) => setAllergyInput(e.target.value)} className="flex-grow p-3 bg-white rounded-xl text-sm font-medium outline-none border border-gray-300 text-gray-900 focus:border-green-500" placeholder="Örn: Tavuk, Tahıl..." onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAllergy())} />
+                                <button type="button" onClick={handleAddAllergy} className="bg-green-600 text-white px-4 rounded-xl text-sm font-bold hover:bg-green-700">Ekle</button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {formData.petAllergies.length > 0 ? (
+                                    formData.petAllergies.map((allergy, index) => (
+                                        <span key={index} className="bg-white border border-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm">
+                                            🚫 {allergy} <button type="button" onClick={() => removeAllergy(allergy)} className="text-red-500 hover:text-red-700 font-black">×</button>
+                                        </span>
+                                    ))
+                                ) : <span className="text-xs text-gray-400 italic">Henüz alerji eklenmedi.</span>}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* --- AŞAMA 3 --- */}
                 {step === 3 && (
-                    <div className="grid grid-cols-2 gap-4">
-                        <input type="text" name="addrTitle" value={formData.addrTitle} onChange={handleChange} className={inputStyle} placeholder="Adres Başlığı (Ev)" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" name="addrTitle" value={formData.addrTitle} onChange={handleChange} className={inputStyle} placeholder="Adres Başlığı (Ev, İş)" />
                         <input type="text" name="addrCity" value={formData.addrCity} onChange={handleChange} className={inputStyle} placeholder="Şehir *" />
                         <input type="text" name="addrDistrict" value={formData.addrDistrict} onChange={handleChange} className={inputStyle} placeholder="İlçe *" />
                         <input type="text" name="addrNeighborhood" value={formData.addrNeighborhood} onChange={handleChange} className={inputStyle} placeholder="Mahalle *" />
-                        <input type="text" name="addrStreet" value={formData.addrStreet} onChange={handleChange} className={`col-span-2 ${inputStyle}`} placeholder="Cadde / Sokak *" />
-                        <div className="grid grid-cols-3 gap-2 col-span-2">
+                        <input type="text" name="addrStreet" value={formData.addrStreet} onChange={handleChange} className={`md:col-span-2 ${inputStyle}`} placeholder="Cadde / Sokak *" />
+                        <div className="md:col-span-2 grid grid-cols-3 gap-2">
                             <input type="text" name="addrBuilding" value={formData.addrBuilding} onChange={handleChange} className={inputStyle} placeholder="Bina No" />
                             <input type="text" name="addrFloor" value={formData.addrFloor} onChange={handleChange} className={inputStyle} placeholder="Kat" />
                             <input type="text" name="addrApartment" value={formData.addrApartment} onChange={handleChange} className={inputStyle} placeholder="Daire No" />
@@ -356,13 +314,13 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
         </div>
 
         {/* FOOTER */}
-        <div className="p-6 border-t border-gray-200 flex justify-between bg-gray-50">
-            {step > 1 ? <button onClick={prevStep} className="text-gray-600 font-bold hover:text-black">← Geri</button> : <button onClick={onSwitchToLogin} className="text-green-600 font-bold text-sm hover:underline">Zaten üye misin?</button>}
+        <div className="p-6 border-t border-gray-100 flex justify-between bg-white rounded-b-3xl">
+            {step > 1 ? <button onClick={prevStep} className="text-gray-500 font-bold hover:text-black transition">← Geri</button> : <button onClick={onSwitchToLogin} className="text-green-600 font-bold text-sm hover:underline">Zaten üye misin?</button>}
             
             {step < 3 ? (
-                <button onClick={nextStep} className="bg-black text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition shadow-lg">Devam Et →</button>
+                <button onClick={nextStep} className="bg-gray-900 text-white px-8 py-3.5 rounded-xl font-bold hover:bg-black transition shadow-lg">Devam Et →</button>
             ) : ( 
-                <button onClick={handleRegister} disabled={loading} className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 transition flex gap-2 shadow-lg shadow-green-200">
+                <button onClick={handleRegister} disabled={loading} className="bg-green-600 text-white px-8 py-3.5 rounded-xl font-bold hover:bg-green-700 transition flex gap-2 shadow-lg shadow-green-200">
                     {loading && <span className="animate-spin">↻</span>} Tamamla & Kayıt Ol
                 </button>
             )}
