@@ -149,17 +149,25 @@ export default function CheckoutPage() {
   };
 
   // 👇 GÜNCELLENEN ÖDEME FONKSİYONU (PAYTR)
+  // 👇 GÜNCELLENEN HANDLE PAYMENT
   const handlePayment = async () => {
       setLoading(true);
       const token = localStorage.getItem("token");
       
-      // PayTR İçin Gerekli Veriyi Hazırla
+      // Güvenlik: Fiyat null ise işlemi durdur
+      if(verifiedTotal === null) {
+          toast.error("Fiyat hesaplanıyor, lütfen bekleyin...");
+          setLoading(false);
+          return;
+      }
+
+      // Backend'e gidecek veri
+      // Dikkat: items array'ini sadeleştirdik, fiyatı verifiedTotal yaptık.
       let payload: any = {
-          price: verifiedTotal, // Güvenli fiyatı gönderiyoruz
-          items: items.map(item => ({
-              productName: verifiedItem?.productName || "Kutu",
-              price: verifiedItem?.price || 100
-          }))
+          price: verifiedTotal, // Örn: 297.00
+          items: [], // Backend artık burayı önemsemiyor, kendi oluşturuyor
+          user: {},
+          address: {}
       };
 
       if (token) {
@@ -168,13 +176,14 @@ export default function CheckoutPage() {
               setLoading(false);
               return;
           }
-          // Seçili adresi bulup gönderelim (Backend adresi ID'den de bulabilir ama PayTR için açık adres lazım)
           const addr = addresses.find(a => a.id === selectedAddressId);
-          payload.address = { fullAddress: addr?.fullAddress || "Adres" };
-          payload.user = { email: "user@candostum.com" }; // Backend token'dan alacak ama boş gitmesin
+          // Backend'deki user verisini kullanacak ama yedek olsun
+          payload.address = { fullAddress: addr?.fullAddress || "Adres Bilgisi Yok" };
+          payload.user = { email: "user@candostum.com", phone: "05555555555" }; 
       } else {
-          if (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone || !guestData.city || !guestData.fullAddress) {
-              toast.error("Lütfen tüm adres ve iletişim bilgilerini doldurun.");
+          // Misafir Kontrolleri
+          if (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone || !guestData.fullAddress) {
+              toast.error("Lütfen tüm zorunlu alanları doldurun.");
               setLoading(false);
               return;
           }
@@ -188,7 +197,6 @@ export default function CheckoutPage() {
       }
 
       try {
-          // 1. PayTR Token İste
           const response = await fetch("https://candostumbox-api.onrender.com/payment/start", {
               method: "POST",
               headers: { 
@@ -201,24 +209,24 @@ export default function CheckoutPage() {
           const result = await response.json();
           
           if (result.status === 'success') {
-              // 2. Token Geldi -> iFrame Aç
               setIframeToken(result.token);
-              // Sayfayı iFrame'e kaydır
               setTimeout(() => {
                   document.getElementById('paytr-iframe')?.scrollIntoView({ behavior: 'smooth' });
               }, 100);
+              toast.success("Ödeme ekranı yüklendi 👇");
           } else {
-              toast.error("Ödeme başlatılamadı: " + result.message);
+              // PayTR'den gelen gerçek hatayı göster
+              toast.error("Hata: " + result.message);
+              console.error("PayTR Hatası:", result);
           }
 
       } catch (error: any) {
           toast.error("Sunucu hatası oluştu.");
-          console.error(error);
       } finally {
           setLoading(false);
       }
   };
-
+  
   if (items.length === 0) return null;
 
   return (
