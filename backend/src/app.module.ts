@@ -11,6 +11,7 @@ import { OrdersModule } from './orders/orders.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module'; 
 import { AddressesModule } from './addresses/addresses.module'; 
 import { AuthModule } from './auth/auth.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AuthModule } from './auth/auth.module';
     SubscriptionsModule,
     AddressesModule,
     AuthModule,
+    PaymentModule,
   ],
   controllers: [],
   providers: [],

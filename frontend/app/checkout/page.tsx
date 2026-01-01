@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
+import Script from "next/script"; // PayTR Scripti için
 import { useCart } from "@/context/CartContext";
 
 // Modallar
@@ -37,6 +38,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [iframeToken, setIframeToken] = useState<string | null>(null); // PAYTR TOKEN
   
   const [isGuest, setIsGuest] = useState(false);
   const [guestData, setGuestData] = useState<GuestForm>({
@@ -44,16 +46,15 @@ export default function CheckoutPage() {
       city: "", district: "", fullAddress: "", title: "Misafir Adresi"
   });
 
-  // 👇 GÜVENLİK: API'den Hesaplanmış Gerçek Fiyatlar
-  const [verifiedTotal, setVerifiedTotal] = useState<number | null>(null); // Null ise hesaplanıyor
-  const [verifiedItem, setVerifiedItem] = useState<any>(null); // Doğrulanmış ürün bilgisi
+  const [verifiedTotal, setVerifiedTotal] = useState<number | null>(null); 
+  const [verifiedItem, setVerifiedItem] = useState<any>(null); 
 
   // Modallar
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
 
-  // --- 1. SAYFA YÜKLENİNCE: ADRESLERİ ÇEK VE FİYATI DOĞRULA ---
+  // --- SAYFA YÜKLENİNCE ---
   useEffect(() => {
     const initPage = async () => {
         const token = localStorage.getItem("token");
@@ -79,12 +80,9 @@ export default function CheckoutPage() {
             setIsGuest(true);
         }
 
-        // 2. FİYAT DOĞRULAMA (GÜVENLİK) 🛡️
-        // Sepetteki fiyatı değil, API'den gelen güncel fiyatı ve indirimi hesapla
+        // 2. FİYAT DOĞRULAMA
         try {
-            const item = items[0]; // Şimdilik tek ürün mantığı
-            
-            // A) Ürün ve İndirim Kurallarını Çek
+            const item = items[0]; 
             const [productRes, discountsRes] = await Promise.all([
                 fetch(`https://candostumbox-api.onrender.com/products/${item.productId}`),
                 fetch(`https://candostumbox-api.onrender.com/discounts`)
@@ -93,7 +91,6 @@ export default function CheckoutPage() {
             const product = await productRes.json();
             const discounts = await discountsRes.json();
 
-            // B) Hesaplama Yap
             const unitPrice = Number(product.price);
             const duration = Number(item.duration);
             
@@ -101,17 +98,12 @@ export default function CheckoutPage() {
             let discountRate = 0;
 
             if (item.paymentType === 'monthly') {
-                // Aylık ödemede o ayın ücreti alınır (İndirim yok)
                 calculatedTotal = unitPrice; 
             } else {
-                // Peşin Ödeme (Upfront)
-                const rawTotal = unitPrice * duration; // Örn: 300 * 12 = 3600
-                
-                // İndirim kuralını bul
+                const rawTotal = unitPrice * duration; 
                 const rule = discounts.find((d: any) => Number(d.durationMonths) === duration);
                 if (rule) {
                     discountRate = Number(rule.discountPercentage);
-                    // İndirim uygula: 3600 - (3600 * 0.20)
                     calculatedTotal = rawTotal - (rawTotal * (discountRate / 100));
                 } else {
                     calculatedTotal = rawTotal;
@@ -121,8 +113,8 @@ export default function CheckoutPage() {
             setVerifiedTotal(calculatedTotal);
             setVerifiedItem({
                 ...item,
-                productName: product.name, // İsim de API'den gelsin
-                rawPrice: item.paymentType === 'monthly' ? unitPrice : (unitPrice * duration), // İndirimsiz halini göstermek için
+                productName: product.name,
+                rawPrice: item.paymentType === 'monthly' ? unitPrice : (unitPrice * duration),
                 discountRate: discountRate
             });
 
@@ -156,13 +148,19 @@ export default function CheckoutPage() {
       setGuestData({ ...guestData, [e.target.name]: e.target.value });
   };
 
+  // 👇 GÜNCELLENEN ÖDEME FONKSİYONU (PAYTR)
   const handlePayment = async () => {
       setLoading(true);
       const token = localStorage.getItem("token");
-      let payload: any = {};
-
-      // Backend'e FİYAT GÖNDERMİYORUZ. Sadece ürün ID ve Süre gönderiyoruz.
-      // Backend kendi veritabanından hesaplayıp çekecek. Bu en güvenli yoldur.
+      
+      // PayTR İçin Gerekli Veriyi Hazırla
+      let payload: any = {
+          price: verifiedTotal, // Güvenli fiyatı gönderiyoruz
+          items: items.map(item => ({
+              productName: verifiedItem?.productName || "Kutu",
+              price: verifiedItem?.price || 100
+          }))
+      };
 
       if (token) {
           if (!selectedAddressId) {
@@ -170,60 +168,52 @@ export default function CheckoutPage() {
               setLoading(false);
               return;
           }
-          payload = {
-              addressId: selectedAddressId,
-              paymentType: items[0].paymentType,
-              items: items.map(item => ({
-                  productId: item.productId,
-                  quantity: 1,
-                  duration: item.duration,
-                  deliveryPeriod: item.deliveryPeriod, // Backend'de entity'de varsa
-                  // subscriptionId: ... (Gerekirse)
-              }))
-          };
+          // Seçili adresi bulup gönderelim (Backend adresi ID'den de bulabilir ama PayTR için açık adres lazım)
+          const addr = addresses.find(a => a.id === selectedAddressId);
+          payload.address = { fullAddress: addr?.fullAddress || "Adres" };
+          payload.user = { email: "user@candostum.com" }; // Backend token'dan alacak ama boş gitmesin
       } else {
           if (!guestData.firstName || !guestData.lastName || !guestData.email || !guestData.phone || !guestData.city || !guestData.fullAddress) {
               toast.error("Lütfen tüm adres ve iletişim bilgilerini doldurun.");
               setLoading(false);
               return;
           }
-          payload = {
-              isGuest: true,
-              guestInfo: guestData,
-              paymentType: items[0].paymentType,
-              items: items.map(item => ({
-                  productId: item.productId,
-                  quantity: 1,
-                  duration: item.duration,
-                  deliveryPeriod: item.deliveryPeriod
-              }))
+          payload.address = { fullAddress: guestData.fullAddress };
+          payload.user = { 
+              email: guestData.email,
+              firstName: guestData.firstName,
+              lastName: guestData.lastName,
+              phone: guestData.phone
           };
       }
 
       try {
-          const headers: any = { "Content-Type": "application/json" };
-          if (token) headers["Authorization"] = `Bearer ${token}`;
-
-          const response = await fetch("https://candostumbox-api.onrender.com/orders", {
+          // 1. PayTR Token İste
+          const response = await fetch("https://candostumbox-api.onrender.com/payment/start", {
               method: "POST",
-              headers: headers,
+              headers: { 
+                  "Content-Type": "application/json",
+                  ...(token && { "Authorization": `Bearer ${token}` })
+              },
               body: JSON.stringify(payload)
           });
 
           const result = await response.json();
-          if (!response.ok) throw new Error(result.message || "Sipariş oluşturulamadı.");
-
-          toast.success("Siparişiniz başarıyla alındı! 🎉");
-          clearCart(); 
-
-          setTimeout(() => {
-              if (token) router.push('/profile?tab=siparisler');
-              else router.push('/'); 
-          }, 2000);
+          
+          if (result.status === 'success') {
+              // 2. Token Geldi -> iFrame Aç
+              setIframeToken(result.token);
+              // Sayfayı iFrame'e kaydır
+              setTimeout(() => {
+                  document.getElementById('paytr-iframe')?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+          } else {
+              toast.error("Ödeme başlatılamadı: " + result.message);
+          }
 
       } catch (error: any) {
-          const msg = Array.isArray(error.message) ? error.message[0] : error.message;
-          toast.error(msg || "Hata oluştu.");
+          toast.error("Sunucu hatası oluştu.");
+          console.error(error);
       } finally {
           setLoading(false);
       }
@@ -235,7 +225,6 @@ export default function CheckoutPage() {
     <main className="min-h-screen bg-[#f8f9fa] font-sans">
       <Toaster position="top-right" />
       
-      {/* Modallar */}
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
       <AddAddressModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} onSuccess={handleAddressSuccess} />
@@ -243,9 +232,9 @@ export default function CheckoutPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             
-            {/* SOL TARAFLAR (Adres vb.) */}
+            {/* SOL TARAFLAR */}
             <div className="lg:col-span-8 space-y-8">
-                {/* ADRES KARTI */}
+                {/* ADRES KARTI (Aynı Kaldı) */}
                 <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-2xl font-black text-gray-900">Teslimat Bilgileri 📍</h2>
@@ -283,7 +272,6 @@ export default function CheckoutPage() {
                                             <div className="font-bold text-gray-900 mb-2 text-lg">{addr.title}</div>
                                             <div className="text-sm text-gray-600 leading-relaxed min-h-[40px]">{addr.fullAddress}</div>
                                         </div>
-                                        {(addr.district || addr.city) && <div className="text-xs text-gray-400 mt-4 font-bold uppercase pt-4 border-t border-gray-200/50">{addr.district} / {addr.city}</div>}
                                     </div>
                                 ))}
                             </div>
@@ -296,12 +284,35 @@ export default function CheckoutPage() {
                     )}
                 </div>
 
-                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100">
-                    <h2 className="text-2xl font-black text-gray-900 mb-6">Kart Bilgileri 💳</h2>
-                    <div className="mt-8 flex items-center gap-3 p-4 bg-green-50 border border-green-100 rounded-xl">
-                        <div className="text-2xl">🔒</div>
-                        <p className="text-xs text-green-700 font-medium">Test Modu Aktif: Ödeme otomatik olarak onaylanacaktır.</p>
-                    </div>
+                {/* 👇 ÖDEME ALANI (PAYTR IFRAME) */}
+                <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100" id="paytr-iframe">
+                    <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                        Ödeme 💳 
+                        {iframeToken && <span className="text-sm font-normal text-green-600 bg-green-50 px-2 py-1 rounded-lg">Güvenli Bağlantı</span>}
+                    </h2>
+                    
+                    {iframeToken ? (
+                        <div className="w-full min-h-[600px] border border-gray-100 rounded-xl overflow-hidden">
+                             <iframe
+                                src={`https://www.paytr.com/odeme/guvenli/${iframeToken}`}
+                                id="paytriframe"
+                                style={{ width: '100%', height: '600px', border: 'none' }}
+                            ></iframe>
+                            <Script src="https://www.paytr.com/js/iframeResizer.min.js" onLoad={() => {
+                                // @ts-ignore
+                                if(window.iFrameResize) window.iFrameResize({}, '#paytriframe');
+                            }} />
+                        </div>
+                    ) : (
+                        <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 text-center">
+                            <p className="text-gray-500 mb-4">Ödeme adımına geçmek için sağdaki "Ödemeye Geç" butonuna tıklayınız.</p>
+                            <div className="flex justify-center gap-2 opacity-50">
+                                <span className="bg-white p-2 rounded border">Visa</span>
+                                <span className="bg-white p-2 rounded border">MasterCard</span>
+                                <span className="bg-white p-2 rounded border">Troy</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -328,16 +339,9 @@ export default function CheckoutPage() {
                                         </span>
                                     )}
                                 </div>
-
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-500">
-                                        <span>Paket Tutarı</span>
-                                        <span className="font-medium line-through">₺{verifiedItem?.rawPrice?.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-dashed border-gray-200">
-                                        <span>Ödenecek Tutar</span>
-                                        <span>₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
-                                    </div>
+                                <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-dashed border-gray-200">
+                                    <span>Ödenecek Tutar</span>
+                                    <span>₺{verifiedTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </div>
@@ -354,15 +358,17 @@ export default function CheckoutPage() {
                         </div>
                     </div>
 
-                    <button 
-                        onClick={handlePayment} 
-                        disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
-                        className={`w-full py-5 rounded-2xl font-bold text-lg transition shadow-lg transform active:scale-95 flex items-center justify-center gap-3 mt-8
-                            ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}
-                        `}
-                    >
-                        {loading ? 'İşleniyor...' : (isGuest ? 'Misafir Olarak Tamamla 👉' : 'Siparişi Tamamla ✅')}
-                    </button>
+                    {!iframeToken && (
+                        <button 
+                            onClick={handlePayment} 
+                            disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
+                            className={`w-full py-5 rounded-2xl font-bold text-lg transition shadow-lg transform active:scale-95 flex items-center justify-center gap-3 mt-8
+                                ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}
+                            `}
+                        >
+                            {loading ? 'Yükleniyor...' : 'Güvenli Ödemeye Geç 👉'}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
