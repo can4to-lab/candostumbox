@@ -5,6 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import { useCart } from "@/context/CartContext";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
+import UpsellModal from "@/components/UpsellModal";
 
 const API_URL = "https://candostumbox-api.onrender.com";
 
@@ -40,6 +41,15 @@ const OTHER_ICONS: Record<string, string> = {
     'Balık': '🐟'
 };
 
+const MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+];
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 25 }, (_, i) => CURRENT_YEAR - i);
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+
 export default function ProductDetail() {
   const params = useParams();
   const id = params?.id;
@@ -67,7 +77,7 @@ export default function ProductDetail() {
   const [isNewPetMode, setIsNewPetMode] = useState(false); 
 
   // MODAL STATE
-  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [showUpsellModal, setShowUpsellModal] = useState(false);
 
   const [petData, setPetData] = useState({
     type: "kopek",
@@ -82,12 +92,12 @@ export default function ProductDetail() {
     allergyInput: ""
   });
   
+  const [dateParts, setDateParts] = useState({ day: "", month: "", year: "" });
   const [isOtherOpen, setIsOtherOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
         try {
-            // 1. Ürün Verisi
             if (id) {
                 const prodRes = await fetch(`${API_URL}/products/${id}`);
                 if (prodRes.ok) {
@@ -96,25 +106,20 @@ export default function ProductDetail() {
                 }
             }
 
-            // 2. İndirim Kuralları
             const discRes = await fetch(`${API_URL}/discounts`);
             if (discRes.ok) {
                 const discData = await discRes.json();
                 setDiscountRules(discData);
             }
 
-            // 3. Kullanıcı Bilgisi & Petler
             const token = localStorage.getItem("token");
             if (token) {
                 setIsLoggedIn(true);
-                
-                // Profil Çek
                 fetch(`${API_URL}/auth/profile`, { headers: { "Authorization": `Bearer ${token}` } })
                 .then(res => res.json())
                 .then(data => setUserName(data.name || "Dostum"))
                 .catch(() => localStorage.removeItem("token")); 
 
-                // Petleri Çek
                 const petsRes = await fetch(`${API_URL}/users/pets`, { headers: { "Authorization": `Bearer ${token}` } });
                 if (petsRes.ok) {
                     const data = await petsRes.json();
@@ -124,7 +129,7 @@ export default function ProductDetail() {
                     else setIsNewPetMode(true);
                 }
             } else {
-                setIsNewPetMode(true); // Misafir ise yeni pet modu
+                setIsNewPetMode(true); 
             }
 
         } catch (error) {
@@ -136,26 +141,36 @@ export default function ProductDetail() {
 
     fetchData();
   }, [id]);
-// ... diğer useEffect'lerin yanına ekle
-  
-  // 1 Ay seçilirse otomatik ödeme tipini 'upfront' (peşin) yap
+
   useEffect(() => {
       if (duration === 1) {
           setPaymentType('upfront');
       }
   }, [duration]);
-  // --- DİNAMİK FİYAT HESAPLAMA ---
+
+  // Tarih Dropdown Listener
+  useEffect(() => {
+    if (dateParts.day && dateParts.month && dateParts.year) {
+        const monthIndex = MONTHS.indexOf(dateParts.month) + 1;
+        const formattedMonth = monthIndex < 10 ? `0${monthIndex}` : monthIndex;
+        const formattedDay = Number(dateParts.day) < 10 ? `0${dateParts.day}` : dateParts.day;
+        
+        setPetData(prev => ({
+            ...prev,
+            birthDate: `${dateParts.year}-${formattedMonth}-${formattedDay}`
+        }));
+    }
+  }, [dateParts]);
+
   const calculatePrice = (months: number) => {
     if (!product) return { total: 0, monthly: 0, discountRate: 0, originalTotal: 0 };
     
     const basePrice = Number(product.price);
     const originalTotal = basePrice * months;
 
-    // İndirim Kuralını Bul
     const rule = discountRules.find(d => d.durationMonths === months);
     const discountRate = rule ? Number(rule.discountPercentage) : 0;
 
-    // İndirim Uygula
     const discountAmount = originalTotal * (discountRate / 100);
     const total = originalTotal - discountAmount;
     
@@ -165,16 +180,6 @@ export default function ProductDetail() {
         discountRate: discountRate,
         originalTotal: originalTotal
     };
-  };
-
-  const handleAddAllergy = () => {
-      if (petData.allergyInput.trim() && !petData.allergies.includes(petData.allergyInput.trim())) {
-          setPetData({...petData, allergies: [...petData.allergies, petData.allergyInput.trim()], allergyInput: ""});
-      }
-  };
-
-  const removeAllergy = (allergy: string) => {
-      setPetData({...petData, allergies: petData.allergies.filter(a => a !== allergy)});
   };
 
   const getOtherIcon = () => {
@@ -196,14 +201,31 @@ export default function ProductDetail() {
           isNeutered: pet.isNeutered || false,
           allergies: pet.allergies || []
       });
+      if(pet.birthDate) {
+          const d = new Date(pet.birthDate);
+          if(!isNaN(d.getTime())) {
+              setDateParts({
+                  day: String(d.getDate()),
+                  month: MONTHS[d.getMonth()],
+                  year: String(d.getFullYear())
+              });
+          }
+      }
+  };
+
+  const handleAddAllergy = () => {
+      if (petData.allergyInput.trim() && !petData.allergies.includes(petData.allergyInput.trim())) {
+          setPetData({...petData, allergies: [...petData.allergies, petData.allergyInput.trim()], allergyInput: ""});
+      }
+  };
+
+  const removeAllergy = (allergy: string) => {
+      setPetData({...petData, allergies: petData.allergies.filter(a => a !== allergy)});
   };
 
   const saveNewPet = async () => {
       const token = localStorage.getItem("token");
-      if (!token) {
-          // Misafirler pet kaydetmez, direkt devam eder.
-          return true; 
-      }
+      if (!token) return true; 
       try {
           const res = await fetch(`${API_URL}/users/pets`, {
               method: "POST",
@@ -233,33 +255,66 @@ export default function ProductDetail() {
       }
   };
 
-  // --- MİSAFİR HANDLERS ---
-  const handleGuestRegister = () => {
-      setShowGuestModal(false);
-      setRegisterOpen(true);
-  };
-
-  const handleGuestDowngrade = () => {
-      setShowGuestModal(false);
+  const handleDowngrade = () => {
+      setShowUpsellModal(false);
       setDuration(1);
       setPaymentType('upfront');
-      toast("Üye girişi yapılmadığı için '1 Aylık Deneme Paketi' seçildi.", {
+      setStep(2); 
+      toast("Üyeliksiz devam ettiğiniz için '1 Aylık Deneme Paketi' seçildi.", {
           icon: 'ℹ️',
           style: { border: '1px solid #3b82f6', color: '#1e40af' },
           duration: 4000
       });
-      setStep(3);
   };
 
-// --- STEP NAVİGASYON ---
+  const handleAcceptUpsell = () => {
+      setShowUpsellModal(false);
+      setRegisterOpen(true);
+  };
+
+  const handleAuthSuccess = async () => {
+      setLoginOpen(false);
+      setRegisterOpen(false);
+      const token = localStorage.getItem("token");
+      
+      if (token) {
+          setIsLoggedIn(true);
+          toast.success("Giriş yapıldı, indirimli fiyatınız korundu! 🎉");
+
+          try {
+              fetch(`${API_URL}/auth/profile`, { headers: { "Authorization": `Bearer ${token}` } })
+                  .then(res => res.json())
+                  .then(data => setUserName(data.name || "Dostum"));
+
+              const petsRes = await fetch(`${API_URL}/users/pets`, { headers: { "Authorization": `Bearer ${token}` } });
+              if (petsRes.ok) {
+                  const data = await petsRes.json();
+                  const pets = Array.isArray(data) ? data : (data.pets || []);
+                  setSavedPets(pets);
+                  
+                  if (pets.length > 0) {
+                      setSelectedPetId(pets[0].id);
+                      setIsNewPetMode(false);
+                  } else {
+                      setIsNewPetMode(true);
+                  }
+              }
+          } catch (e) { console.error("Veri yenileme hatası", e); }
+
+          if (step === 1) setStep(2);
+      }
+  };
+
   const handleNextStep = async () => {
-      // 1. STEP: SÜRE SEÇİMİ -> PET SEÇİMİ
       if (step === 1) {
+          const token = localStorage.getItem("token");
+          if (!token && duration > 1) {
+              setShowUpsellModal(true);
+              return; 
+          }
           setStep(2);
       } 
-      // 2. STEP: PET SEÇİMİ -> KONTROL -> ÖZET
       else if (step === 2) {
-          // A) Validasyon
           if (isNewPetMode || savedPets.length === 0) {
               if (!petData.name || !petData.breed || !petData.weight) {
                   toast.error("Lütfen dostunun bilgilerini eksiksiz doldur.");
@@ -274,33 +329,18 @@ export default function ProductDetail() {
               return;
           }
 
-          // B) Misafir / Üye Kontrolü
           const token = localStorage.getItem("token");
-
-          if (token) {
-              // ÜYE: Peti kaydet (varsa) ve devam et
-              if (isNewPetMode) {
-                  const isSaved = await saveNewPet();
-                  if (!isSaved) return; 
-              }
-              setStep(3); 
-          } else {
-              // MİSAFİR: Süre Kontrolü
-              if (duration > 1) {
-                  setShowGuestModal(true); // Durdur!
-              } else {
-                  setStep(3); // 1 Ay ise devam et
-              }
+          if (token && isNewPetMode) {
+              const isSaved = await saveNewPet();
+              if (!isSaved) return; 
           }
+          setStep(3); 
       } 
-      // 3. STEP: SEPETE EKLE
       else {
           if (!product) return;
-          
           const priceInfo = calculatePrice(duration);
           const finalPrice = paymentType === 'monthly' ? Number(product.price) : priceInfo.total;
 
-          // Pet ismini güvenli şekilde alalım
           const safePetName = isNewPetMode 
               ? petData.name 
               : savedPets.find(p => p.id === selectedPetId)?.name;
@@ -312,21 +352,14 @@ export default function ProductDetail() {
               image: product.image,
               duration: duration,
               paymentType: paymentType,
-              
-              // 1. DÜZELTME: ID Sayı olmalı
               petId: selectedPetId || 0, 
-              
-              // 2. DÜZELTME: İsim asla 'undefined' olmamalı, boşsa "" gönder
               petName: safePetName || "", 
-              
               deliveryPeriod: petData.shippingDate
           };
 
           addToCart(cartItem);
           toast.success("Ödeme sayfasına yönlendiriliyorsunuz... 🚀");
-          setTimeout(() => {
-              router.push('/checkout');
-          }, 500);
+          setTimeout(() => { router.push('/checkout'); }, 500);
       }
   };
 
@@ -348,46 +381,19 @@ export default function ProductDetail() {
   );
 
   const currentPriceInfo = calculatePrice(duration);
+  const potentialSavings = (currentPriceInfo.originalTotal - currentPriceInfo.total).toFixed(0);
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] font-sans">
       <Toaster position="top-right" />
-      <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
-      <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
-
-      {/* 👇 MİSAFİR DOWNGRADE MODALI */}
-      {showGuestModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-            <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl relative border border-gray-100 transform transition-all scale-100">
-                <button onClick={() => setShowGuestModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-gray-900 transition text-xl font-bold">✕</button>
-                <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">🔒</div>
-                    <h3 className="text-2xl font-black text-gray-900 mb-3">İndirimi Kaçırma!</h3>
-                    <p className="text-gray-500 text-sm leading-relaxed px-2">
-                        Seçtiğin <span className="font-bold text-gray-900">{duration} Aylık</span> pakette <span className="text-green-600 font-bold">%{currentPriceInfo.discountRate} indirim</span> var. Bu avantaj sadece üyelerimiz içindir.
-                    </p>
-                </div>
-                <div className="space-y-3">
-                    <button onClick={handleGuestRegister} className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg shadow-green-200 flex items-center justify-center gap-2 group">
-                        <span>🚀</span> Üye Ol ve %{currentPriceInfo.discountRate} İndirimi Kap
-                    </button>
-                    <div className="relative flex items-center py-2">
-                        <div className="flex-grow border-t border-gray-100"></div><span className="flex-shrink-0 mx-4 text-xs font-bold text-gray-400 uppercase">Veya</span><div className="flex-grow border-t border-gray-100"></div>
-                    </div>
-                    <button onClick={handleGuestDowngrade} className="w-full py-4 bg-gray-50 hover:bg-gray-100 text-gray-600 font-bold rounded-xl transition flex items-center justify-center gap-2 border border-gray-200">
-                        <span>📦</span> Üye Olmadan "Deneme Paketi" Al
-                    </button>
-                    <p className="text-[10px] text-center text-gray-400 mt-2">*Deneme paketi tek seferliktir ve indirim içermez.</p>
-                </div>
-            </div>
-        </div>
-      )}
+      <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={handleAuthSuccess} />
+      <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={handleAuthSuccess} />
+      <UpsellModal isOpen={showUpsellModal} onClose={handleDowngrade} onAccept={handleAcceptUpsell} savingsAmount={Number(potentialSavings)} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <button onClick={() => router.back()} className="mb-6 text-gray-500 font-bold hover:text-green-600 transition flex items-center gap-2">← Listeye Dön</button>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            {/* SOL: GÖRSEL & BİLGİ */}
             <div className="lg:col-span-4 space-y-6">
                 <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-gray-100 text-center relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
@@ -401,10 +407,8 @@ export default function ProductDetail() {
                 </div>
             </div>
 
-            {/* SAĞ: SİHİRBAZ */}
             <div className="lg:col-span-8">
                 <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
-                    {/* ADIM GÖSTERGESİ */}
                     <div className="bg-gray-50 px-8 py-6 border-b border-gray-100 flex justify-between items-center">
                         <div className={`flex items-center gap-3 ${step >= 1 ? 'text-green-600' : 'text-gray-300'}`}><span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm ${step >= 1 ? 'border-green-600 bg-green-50' : 'border-gray-300'}`}>1</span><span className="font-bold hidden sm:block text-sm uppercase tracking-wider">Süre</span></div>
                         <div className={`h-0.5 w-12 ${step >= 2 ? 'bg-green-300' : 'bg-gray-200'}`}></div>
@@ -415,30 +419,19 @@ export default function ProductDetail() {
 
                     <div className="p-8 md:p-12 flex-grow flex flex-col justify-center">
                         
-                        {/* --- ADIM 1: SÜRE SEÇİMİ --- */}
                         {step === 1 && (
                             <div className="animate-fade-in space-y-8">
                                 <div><h2 className="text-3xl font-black text-gray-900 mb-2">Abonelik Süresi 🗓️</h2><p className="text-gray-500">Ne kadar uzun süreli dostluk, o kadar avantaj!</p></div>
-                                
-                                {/* 👇 DÜZELTME: grid-cols-5 yapıldı ve 9 eklendi */}
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                     {[1, 3, 6, 9, 12].map((m) => {
                                         const info = calculatePrice(m);
                                         const isSelected = duration === m;
                                         return (
-                                            <button 
-                                                key={m} 
-                                                onClick={() => setDuration(m)} 
-                                                className={`p-4 rounded-2xl border-2 transition-all duration-300 relative group flex flex-col justify-between h-44 ${isSelected ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200' : 'border-gray-100 hover:border-green-200 hover:bg-gray-50'}`}
-                                            >
-                                                {/* Etiketler */}
+                                            <button key={m} onClick={() => setDuration(m)} className={`p-4 rounded-2xl border-2 transition-all duration-300 relative group flex flex-col justify-between h-44 ${isSelected ? 'border-green-500 bg-green-50 shadow-lg scale-105 ring-2 ring-green-200' : 'border-gray-100 hover:border-green-200 hover:bg-gray-50'}`}>
                                                 {m === 1 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-400 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md whitespace-nowrap">DENEME</div>}
                                                 {info.discountRate > 0 && <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-orange-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-md whitespace-nowrap">%{info.discountRate} İNDİRİM</div>}
-
                                                 <div className="text-3xl font-black text-gray-900 mt-2">{m}</div>
                                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">AYLIK</div>
-                                                
-                                                {/* Fiyat Gösterimi */}
                                                 <div className="mb-1">
                                                     {info.discountRate > 0 && <div className="text-[10px] text-red-400 line-through decoration-red-400 font-bold">₺{info.originalTotal.toFixed(0)}</div>}
                                                     <div className="text-sm font-black text-green-700">₺{info.total.toFixed(0)}</div>
@@ -447,12 +440,10 @@ export default function ProductDetail() {
                                         );
                                     })}
                                 </div>
-                                
                                 <div className="flex justify-end pt-8"><button onClick={handleNextStep} className="bg-gray-900 text-white px-12 py-4 rounded-xl font-bold hover:bg-black transition shadow-lg transform active:scale-95 flex items-center gap-2">Devam Et <span className="text-xl">👉</span></button></div>
                             </div>
                         )}
 
-                        {/* --- ADIM 2: PET SEÇİMİ --- */}
                         {step === 2 && (
                             <div className="animate-fade-in space-y-8">
                                 <div><h2 className="text-3xl font-black text-gray-900 mb-2">Bu Kutu Kimin İçin? 🐾</h2><p className="text-gray-500">Kayıtlı dostlarından birini seç veya yeni bir tane ekle.</p></div>
@@ -469,11 +460,11 @@ export default function ProductDetail() {
                                     </div>
                                 )}
                                 
-                                <button onClick={() => { setIsNewPetMode(true); setSelectedPetId(null); setPetData({ type: "kopek", otherType: "", name: "", breed: "", weight: "", birthDate: "", isNeutered: false, shippingDate: "1-5", allergies: [], allergyInput: "" }); }} className={`w-full p-4 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold hover:border-green-500 hover:text-green-600 transition flex items-center justify-center gap-2 ${isNewPetMode ? 'border-green-500 bg-green-50 text-green-700' : ''}`}><span>+</span> {savedPets.length > 0 ? 'Farklı Bir Dost Ekle' : 'Yeni Bir Dost Ekle'}</button>
+                                <button onClick={() => { setIsNewPetMode(true); setSelectedPetId(null); setPetData({ type: "kopek", otherType: "", name: "", breed: "", weight: "", birthDate: "", isNeutered: false, shippingDate: "1-5", allergies: [], allergyInput: "" }); setDateParts({day:"",month:"",year:""}); }} className={`w-full p-4 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold hover:border-green-500 hover:text-green-600 transition flex items-center justify-center gap-2 ${isNewPetMode ? 'border-green-500 bg-green-50 text-green-700' : ''}`}><span>+</span> {savedPets.length > 0 ? 'Farklı Bir Dost Ekle' : 'Yeni Bir Dost Ekle'}</button>
                                 
                                 {(isNewPetMode || savedPets.length === 0) && (
                                     <div className="animate-slide-down border-t border-gray-100 pt-6">
-                                        {/* PET FORM (Kısaltıldı, orijinal kodundaki inputlar aynen buraya gelecek) */}
+                                        
                                         <div className="flex gap-4 justify-center mb-6">
                                             <button onClick={() => { setPetData({...petData, type: 'kopek', otherType: ''}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${petData.type === 'kopek' ? 'border-green-500 bg-white text-green-700' : 'border-gray-200 bg-white text-gray-400'}`}>🐶 Köpek</button>
                                             <button onClick={() => { setPetData({...petData, type: 'kedi', otherType: ''}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${petData.type === 'kedi' ? 'border-green-500 bg-white text-green-700' : 'border-gray-200 bg-white text-gray-400'}`}>🐱 Kedi</button>
@@ -482,13 +473,67 @@ export default function ProductDetail() {
                                                 {isOtherOpen && (<div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden">{['Kuş', 'Hamster', 'Tavşan', 'Balık'].map((t) => (<button key={t} onClick={() => {setPetData({...petData, type: 'diger', otherType: t}); setIsOtherOpen(false);}} className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"><span>{OTHER_ICONS[t]}</span> {t}</button>))}</div>)}
                                             </div>
                                         </div>
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                             <input type="text" value={petData.name} onChange={e => setPetData({...petData, name: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" placeholder="İsim (Örn: Pamuk)" />
                                             <input type="text" value={petData.breed} onChange={e => setPetData({...petData, breed: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" placeholder="Irk (Örn: Golden)" />
                                             <input type="number" value={petData.weight} onChange={e => setPetData({...petData, weight: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" placeholder="Kilo (kg)" />
-                                            <input type="date" value={petData.birthDate} onChange={e => setPetData({...petData, birthDate: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" />
+                                            
+                                            <div className="space-y-1">
+                                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Doğum Tarihi</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <select value={dateParts.day} onChange={e => setDateParts({...dateParts, day: e.target.value})} className="p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition cursor-pointer">
+                                                        <option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                                                    </select>
+                                                    <select value={dateParts.month} onChange={e => setDateParts({...dateParts, month: e.target.value})} className="p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition cursor-pointer">
+                                                        <option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                                                    </select>
+                                                    <select value={dateParts.year} onChange={e => setDateParts({...dateParts, year: e.target.value})} className="p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition cursor-pointer">
+                                                        <option value="">Yıl</option>{YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
                                         </div>
-                                        {/* Kargo & Alerji Inputları Buraya Gelecek */}
+                                        
+                                        <div className="mb-6">
+                                            {/* 👇 YENİ CHECKBOX KISMI */}
+                                            <label className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-green-500 transition mb-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={petData.isNeutered}
+                                                    onChange={(e) => setPetData({...petData, isNeutered: e.target.checked})}
+                                                    className="w-5 h-5 accent-green-600 rounded"
+                                                />
+                                                <span className="font-bold text-gray-900">
+                                                    {petData.isNeutered ? "✅ Kısırlaştırılmış" : "❌ Kısırlaştırılmamış"}
+                                                </span>
+                                            </label>
+
+                                            <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-2 block">Alerjiler (Varsa)</label>
+                                            <div className="flex gap-2 mb-3">
+                                                <input 
+                                                    type="text" 
+                                                    value={petData.allergyInput} 
+                                                    onChange={e => setPetData({...petData, allergyInput: e.target.value})} 
+                                                    className="flex-grow p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition" 
+                                                    placeholder="Örn: Tavuk, Tahıl..." 
+                                                    onKeyDown={(e) => e.key === 'Enter' && handleAddAllergy()}
+                                                />
+                                                <button onClick={handleAddAllergy} className="bg-green-100 hover:bg-green-200 text-green-700 font-bold px-6 rounded-xl transition">Ekle +</button>
+                                            </div>
+                                            {petData.allergies.length > 0 ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {petData.allergies.map((allergy, index) => (
+                                                        <span key={index} className="bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 animate-fade-in">
+                                                            🚫 {allergy}
+                                                            <button onClick={() => removeAllergy(allergy)} className="hover:text-red-800 bg-red-100 w-5 h-5 rounded-full flex items-center justify-center text-xs">✕</button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-xs text-gray-400 pl-1">Henüz alerji eklenmedi.</p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 
@@ -499,7 +544,6 @@ export default function ProductDetail() {
                             </div>
                         )}
 
-                        {/* --- ADIM 3: ÖZET --- */}
                         {step === 3 && (
                             <div className="animate-fade-in text-center space-y-8">
                                 <div><div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center text-5xl mx-auto mb-6 shadow-sm">🎉</div><h2 className="text-3xl font-black text-gray-900 mb-2">Harika Seçim!</h2><p className="text-gray-500">Siparişini oluşturmadan önce son bir kez kontrol et.</p></div>
@@ -509,26 +553,12 @@ export default function ProductDetail() {
                                     <div className="flex justify-between border-b border-gray-200 pb-3"><span className="text-gray-500 font-medium">Süre</span><span className="font-bold text-gray-900">{duration} Ay</span></div>
                                     <div className="flex justify-between border-b border-gray-200 pb-3"><span className="text-gray-500 font-medium">Can Dostun</span><span className="font-bold text-gray-900">{petData.name || (savedPets.find(p => p.id === selectedPetId)?.name)}</span></div>
                                     
-                                    {/* Ödeme Planı Seçimi */}
-                                    {/* 👇 DÜZELTME: Sadece 1 aydan uzun süreler için göster */}
                                     {duration > 1 && (
                                         <div className="bg-white p-4 rounded-xl border border-gray-200 mt-4">
                                             <div className="text-xs font-bold text-gray-400 uppercase mb-3">Ödeme Planı Seç</div>
                                             <div className="flex gap-2">
-                                                {/* Sadece Üyeler Aylık Ödeyebilir */}
-                                                <button 
-                                                    onClick={() => setPaymentType('monthly')} 
-                                                    disabled={!isLoggedIn && duration > 1} 
-                                                    className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'monthly' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
-                                                >
-                                                    Her Ay Öde
-                                                </button>
-                                                <button 
-                                                    onClick={() => setPaymentType('upfront')} 
-                                                    className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'upfront' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}
-                                                >
-                                                    Tek Çekim (İndirimli)
-                                                </button>
+                                                <button onClick={() => setPaymentType('monthly')} disabled={!isLoggedIn && duration > 1} className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'monthly' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>Her Ay Öde</button>
+                                                <button onClick={() => setPaymentType('upfront')} className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm border-2 transition ${paymentType === 'upfront' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-100 text-gray-500 hover:bg-gray-50'}`}>Tek Çekim (İndirimli)</button>
                                             </div>
                                         </div>
                                     )}
@@ -548,7 +578,6 @@ export default function ProductDetail() {
                                 </div>
                             </div>
                         )}
-
                     </div>
                 </div>
             </div>

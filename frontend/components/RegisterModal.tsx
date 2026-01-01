@@ -10,26 +10,39 @@ interface RegisterModalProps {
   onRegisterSuccess: () => void;
 }
 
-// 👇 1. İKONLARI BURAYA EKLEDİK
+// 1. SABİTLER
 const OTHER_ICONS: Record<string, string> = {
-    'Kuş': '🦜',
-    'Hamster': '🐹',
-    'Tavşan': '🐰',
-    'Balık': '🐟'
+    'Kuş': '🦜', 'Hamster': '🐹', 'Tavşan': '🐰', 'Balık': '🐟'
 };
+const MONTHS = [
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+];
+const CURRENT_YEAR = new Date().getFullYear();
+const USER_YEARS = Array.from({ length: 100 }, (_, i) => CURRENT_YEAR - i); 
+const PET_YEARS = Array.from({ length: 30 }, (_, i) => CURRENT_YEAR - i);   
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initialData, onRegisterSuccess }: RegisterModalProps) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  
-  // 👇 2. DROPDOWN İÇİN STATE EKLEDİK
   const [isOtherOpen, setIsOtherOpen] = useState(false);
+  
+  const [allergyInput, setAllergyInput] = useState("");
+
+  const [userDate, setUserDate] = useState({ day: "", month: "", year: "" });
+  const [petDate, setPetDate] = useState({ day: "", month: "", year: "" });
   
   const [formData, setFormData] = useState({
     name: "", email: "", password: "", phone: "",
-    gender: "", userBirthDate: "", tcKimlikNo: "",
-    petName: "", petType: "kopek", petBirthDate: "", petWeight: "",
-    petBreed: "", petNeutered: "false", petAllergies: "", 
+    gender: "", 
+    userBirthDate: "", 
+    tcKimlikNo: "",
+    petName: "", petType: "kopek", 
+    petBirthDate: "",  
+    petWeight: "",
+    petBreed: "", petNeutered: "false", 
+    petAllergies: [] as string[], 
     addrTitle: "Ev", addrCity: "", addrDistrict: "", addrNeighborhood: "", 
     addrStreet: "", addrBuilding: "", addrFloor: "", addrApartment: ""
   });
@@ -44,14 +57,60 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
             petWeight: initialData.petWeight || "",
             petBreed: initialData.petBreed || "",
             petNeutered: initialData.petNeutered || "false",
+            petAllergies: Array.isArray(initialData.allergies) ? initialData.allergies : [],
         }));
+        
+        if (initialData.petBirthDate) {
+            const d = new Date(initialData.petBirthDate);
+            if(!isNaN(d.getTime())) {
+                setPetDate({
+                    day: String(d.getDate()),
+                    month: MONTHS[d.getMonth()],
+                    year: String(d.getFullYear())
+                });
+            }
+        }
     }
   }, [initialData, isOpen]);
 
-  const isValidEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
+  const updateDate = (type: 'user' | 'pet', part: 'day' | 'month' | 'year', value: string) => {
+      const stateSetter = type === 'user' ? setUserDate : setPetDate;
+      const currentState = type === 'user' ? userDate : petDate;
+      
+      const newState = { ...currentState, [part]: value };
+      stateSetter(newState);
+
+      if (newState.day && newState.month && newState.year) {
+          const monthIndex = MONTHS.indexOf(newState.month) + 1;
+          const formattedMonth = monthIndex < 10 ? `0${monthIndex}` : monthIndex;
+          const formattedDay = Number(newState.day) < 10 ? `0${newState.day}` : newState.day;
+          const dateString = `${newState.year}-${formattedMonth}-${formattedDay}`;
+          
+          setFormData(prev => ({
+              ...prev,
+              [type === 'user' ? 'userBirthDate' : 'petBirthDate']: dateString
+          }));
+      }
   };
+
+  const handleAddAllergy = () => {
+      if (allergyInput.trim() && !formData.petAllergies.includes(allergyInput.trim())) {
+          setFormData({
+              ...formData,
+              petAllergies: [...formData.petAllergies, allergyInput.trim()]
+          });
+          setAllergyInput("");
+      }
+  };
+
+  const removeAllergy = (tag: string) => {
+      setFormData({
+          ...formData,
+          petAllergies: formData.petAllergies.filter(t => t !== tag)
+      });
+  };
+
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   if (!isOpen) return null;
 
@@ -59,14 +118,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 👇 3. YARDIMCI FONKSİYON: Seçili diğer hayvanın ikonunu bulur
-  const getOtherIcon = () => {
-      // Eğer seçili tip, bizim diğer ikonlar listemizde varsa onu döndür
-      if (OTHER_ICONS[formData.petType]) {
-          return OTHER_ICONS[formData.petType];
-      }
-      return '🦜'; // Varsayılan ikon
-  };
+  const getOtherIcon = () => OTHER_ICONS[formData.petType] || '🦜';
 
   const nextStep = () => {
     if (step === 1) {
@@ -84,7 +136,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
         }
     }
     if (step === 2 && (!formData.petName || !formData.petBirthDate || !formData.petWeight)) {
-        toast.error("Dostunun temel bilgilerini girmelisin 🐾");
+        toast.error("Dostunun temel bilgilerini (Ad, Tarih, Kilo) girmelisin 🐾");
         return;
     }
     setStep(step + 1);
@@ -124,7 +176,10 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
     }
   };
 
-  const inputStyle = "w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-100 text-black placeholder-gray-500 focus:bg-white focus:border-green-600 focus:ring-2 focus:ring-green-100 outline-none transition font-medium text-sm";
+  // 👇 GÜNCELLENDİ: "text-gray-900" eklenerek yazı rengi siyah yapıldı.
+  const inputStyle = "w-full px-4 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-900 placeholder-gray-500 focus:bg-white focus:border-green-600 focus:ring-2 focus:ring-green-100 outline-none transition font-medium text-sm";
+  
+  const selectStyle = "px-1 py-3 rounded-xl border border-gray-300 bg-gray-100 text-gray-900 text-sm font-bold outline-none cursor-pointer focus:bg-white focus:border-green-600";
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -135,7 +190,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
         {/* HEADER */}
         <div className="bg-gray-50 p-6 border-b border-gray-200 relative">
             <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black text-2xl font-bold">&times;</button>
-            <h2 className="text-xl font-black text-black">
+            <h2 className="text-xl font-black text-gray-900">
                 {step === 1 && "👤 Senin Bilgilerin"}
                 {step === 2 && "🐾 Dostunun Detayları"}
                 {step === 3 && "📍 Adres Detayları"}
@@ -147,7 +202,7 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
 
         {/* BODY */}
         <div className="p-8 overflow-y-auto custom-scrollbar">
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
                 
                 {/* --- AŞAMA 1 --- */}
                 {step === 1 && (
@@ -165,69 +220,49 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
                         <div className="col-span-2 border-t border-gray-100 my-2"></div>
                         <p className="col-span-2 text-xs text-gray-500 font-bold uppercase tracking-wider">Opsiyonel Bilgiler</p>
 
-                        <select name="gender" value={formData.gender} onChange={handleChange} className={`${inputStyle} bg-white`}>
+                        <select name="gender" value={formData.gender} onChange={handleChange} className={`${inputStyle} bg-white text-gray-900`}>
                             <option value="">Cinsiyet Seçiniz</option>
                             <option value="Kadin">Kadın</option>
                             <option value="Erkek">Erkek</option>
                             <option value="BelirtmekIstemiyorum">Belirtmek İstemiyorum</option>
                         </select>
-                        <input type="date" name="userBirthDate" value={formData.userBirthDate} onChange={handleChange} className={`${inputStyle} text-gray-500`} />
+                        
+                        {/* KULLANICI DOĞUM TARİHİ */}
+                        <div className="col-span-1 space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Doğum Tarihiniz</label>
+                            <div className="grid grid-cols-3 gap-1">
+                                <select value={userDate.day} onChange={e => updateDate('user', 'day', e.target.value)} className={selectStyle}>
+                                    <option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                                </select>
+                                <select value={userDate.month} onChange={e => updateDate('user', 'month', e.target.value)} className={selectStyle}>
+                                    <option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}
+                                </select>
+                                <select value={userDate.year} onChange={e => updateDate('user', 'year', e.target.value)} className={selectStyle}>
+                                    <option value="">Yıl</option>{USER_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
                         <input type="text" name="tcKimlikNo" value={formData.tcKimlikNo} onChange={handleChange} className={`col-span-2 ${inputStyle}`} placeholder="TC Kimlik No (Opsiyonel)" />
                     </div>
                 )}
 
-                {/* --- AŞAMA 2 (GÜNCELLENEN KISIM) --- */}
+                {/* --- AŞAMA 2 --- */}
                 {step === 2 && (
                     <div className="space-y-5">
                         
-                        {/* 👇 TÜR SEÇİMİ BUTONLARI */}
+                        {/* TÜR SEÇİMİ */}
                         <div className="flex gap-4 mb-4">
-                             {/* KÖPEK BUTONU */}
-                             <button 
-                                type="button"
-                                onClick={() => { setFormData({...formData, petType: 'kopek'}); setIsOtherOpen(false); }}
-                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
-                             >
-                                🐶 Köpek
-                             </button>
-
-                             {/* KEDİ BUTONU */}
-                             <button 
-                                type="button"
-                                onClick={() => { setFormData({...formData, petType: 'kedi'}); setIsOtherOpen(false); }}
-                                className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
-                             >
-                                🐱 Kedi
-                             </button>
-
-                             {/* DİĞER (DROPDOWN) BUTONU */}
+                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kopek'}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kopek' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>🐶 Köpek</button>
+                             <button type="button" onClick={() => { setFormData({...formData, petType: 'kedi'}); setIsOtherOpen(false); }} className={`flex-1 py-4 rounded-xl font-bold border-2 transition ${formData.petType==='kedi' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>🐱 Kedi</button>
                              <div className="relative flex-1">
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsOtherOpen(!isOtherOpen)} 
-                                    className={`w-full h-full py-4 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 ${
-                                        (formData.petType !== 'kopek' && formData.petType !== 'kedi') 
-                                        ? 'border-green-500 bg-green-50 text-green-800' 
-                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
-                                    }`}
-                                >
+                                <button type="button" onClick={() => setIsOtherOpen(!isOtherOpen)} className={`w-full h-full py-4 rounded-xl font-bold border-2 transition flex items-center justify-center gap-2 text-gray-900 ${(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
                                     <span>{(formData.petType !== 'kopek' && formData.petType !== 'kedi') ? getOtherIcon() : '🦜'}</span> Diğer ▼
                                 </button>
-                                
                                 {isOtherOpen && (
                                     <div className="absolute top-full left-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden animate-fade-in">
                                         {Object.keys(OTHER_ICONS).map((t) => (
-                                            <button 
-                                                key={t} 
-                                                type="button"
-                                                onClick={() => {
-                                                    setFormData({...formData, petType: t}); 
-                                                    setIsOtherOpen(false);
-                                                }} 
-                                                className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"
-                                            >
-                                                <span>{OTHER_ICONS[t]}</span> {t}
-                                            </button>
+                                            <button key={t} type="button" onClick={() => { setFormData({...formData, petType: t}); setIsOtherOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-medium text-gray-600 transition border-b border-gray-50 last:border-0 flex items-center gap-2"><span>{OTHER_ICONS[t]}</span> {t}</button>
                                         ))}
                                     </div>
                                 )}
@@ -237,15 +272,67 @@ export default function RegisterModal({ isOpen, onClose, onSwitchToLogin, initia
                         <div className="grid grid-cols-2 gap-4">
                             <input type="text" name="petName" value={formData.petName} onChange={handleChange} className={inputStyle} placeholder="Adı *" />
                             <input type="text" name="petBreed" value={formData.petBreed} onChange={handleChange} className={inputStyle} placeholder="Irkı" />
-                            <input type="date" name="petBirthDate" value={formData.petBirthDate} onChange={handleChange} className={`${inputStyle} text-gray-500`} />
+                            
+                            {/* PET DOĞUM TARİHİ */}
+                            <div className="col-span-1 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase ml-1">Doğum Tarihi *</label>
+                                <div className="grid grid-cols-3 gap-1">
+                                    <select value={petDate.day} onChange={e => updateDate('pet', 'day', e.target.value)} className={selectStyle}>
+                                        <option value="">Gün</option>{DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                    <select value={petDate.month} onChange={e => updateDate('pet', 'month', e.target.value)} className={selectStyle}>
+                                        <option value="">Ay</option>{MONTHS.map(m => <option key={m} value={m}>{m.substring(0,3)}</option>)}
+                                    </select>
+                                    <select value={petDate.year} onChange={e => updateDate('pet', 'year', e.target.value)} className={selectStyle}>
+                                        <option value="">Yıl</option>{PET_YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
                             <input type="number" step="0.1" name="petWeight" value={formData.petWeight} onChange={handleChange} className={inputStyle} placeholder="Kilo (kg) *" />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                             <select name="petNeutered" value={formData.petNeutered} onChange={handleChange} className={`${inputStyle} bg-white`}>
-                                <option value="false">Kısırlaştırılmamış</option>
-                                <option value="true">Kısırlaştırılmış</option>
-                             </select>
-                             <input type="text" name="petAllergies" value={formData.petAllergies} onChange={handleChange} className={inputStyle} placeholder="Alerjiler" />
+
+                        <div className="grid grid-cols-1 gap-4">
+                             {/* 👇 YENİ CHECKBOX KISMI (MODAL) */}
+                             <label className="flex items-center gap-3 px-4 py-3 bg-gray-100 border border-gray-300 rounded-xl cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={formData.petNeutered === "true"}
+                                    onChange={(e) => setFormData({...formData, petNeutered: e.target.checked ? "true" : "false"})}
+                                    className="w-5 h-5 accent-green-600 rounded"
+                                />
+                                <span className="font-medium text-gray-900 text-sm">
+                                    {formData.petNeutered === "true" ? "✅ Kısırlaştırılmış" : "❌ Kısırlaştırılmamış"}
+                                </span>
+                             </label>
+                             
+                             {/* ALERJİLER */}
+                             <div className="bg-gray-100 p-3 rounded-xl border border-gray-300">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase ml-1 block mb-2">Alerjiler</label>
+                                <div className="flex gap-2 mb-2">
+                                    <input 
+                                        type="text" 
+                                        value={allergyInput} 
+                                        onChange={(e) => setAllergyInput(e.target.value)} 
+                                        className="flex-grow p-2 bg-white rounded-lg text-sm font-medium outline-none border border-gray-200 text-gray-900"
+                                        placeholder="Örn: Tavuk, Tahıl..."
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddAllergy())}
+                                    />
+                                    <button type="button" onClick={handleAddAllergy} className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700">Ekle +</button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.petAllergies.length > 0 ? (
+                                        formData.petAllergies.map((allergy, index) => (
+                                            <span key={index} className="bg-white border border-gray-200 text-gray-700 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
+                                                🚫 {allergy}
+                                                <button type="button" onClick={() => removeAllergy(allergy)} className="text-red-400 hover:text-red-600 font-black ml-1">×</button>
+                                            </span>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic pl-1">Alerji yok.</span>
+                                    )}
+                                </div>
+                             </div>
                         </div>
                     </div>
                 )}
