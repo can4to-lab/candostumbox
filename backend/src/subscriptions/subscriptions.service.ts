@@ -40,15 +40,49 @@ export class SubscriptionsService {
     return sub;
   }
 
-  async cancel(id: string, userId: string, reason: string) {
-    const sub = await this.findOne(id);
-    if (sub.user.id !== userId) throw new ForbiddenException('Yetkisiz işlem.');
-    if (sub.status !== SubscriptionStatus.ACTIVE) throw new ForbiddenException('Zaten aktif değil.');
+  // backend/src/subscriptions/subscriptions.service.ts
 
+async cancel(id: string, userId: string, reason: string) {
+    // 1. Aboneliği ve Fiyat Hesabı için Ürünü getir
+    const sub = await this.subRepository.findOne({ 
+        where: { id },
+        relations: ['user', 'product'] // Ürün fiyatına erişmek için relations şart
+    });
+
+    if (!sub) throw new NotFoundException('Abonelik bulunamadı.');
+    
+    // Güvenlik: Başkasının aboneliğini iptal edemez
+    // (Not: ID tipleri number/string karışıklığına dikkat, string ise doğrudan kıyasla)
+    if (String(sub.user.id) !== String(userId)) {
+        throw new ForbiddenException('Bu işlem için yetkiniz yok.');
+    }
+
+    if (sub.status !== SubscriptionStatus.ACTIVE) {
+        throw new ForbiddenException('Bu abonelik zaten aktif değil.');
+    }
+
+    // 2. İADE MATEMATİĞİ (REFUND LOGIC) 💰
+    // Formül: (Toplam Tutar / Toplam Ay) * Kalan Ay
+    // Not: Gerçekte 'Order' tablosundan ödenen net tutarı çekmek daha iyidir ama ürün fiyatı da iş görür.
+    const pricePerMonth = Number(sub.product.price) / (sub.totalMonths || 1);
+    const refundAmount = sub.remainingMonths * pricePerMonth;
+
+    // 3. Durumu Güncelle
     sub.status = SubscriptionStatus.CANCELLED;
-    sub.cancellationReason = reason;
-    return await this.subRepository.save(sub);
-  }
+    sub.cancellationReason = reason || 'Kullanıcı isteğiyle iptal';
+    
+    // Veritabanına kaydet
+    await this.subRepository.save(sub);
+
+    // 4. Frontend'e Bilgi Dön
+    return {
+        success: true,
+        message: 'Abonelik başarıyla iptal edildi.',
+        refundAmount: refundAmount,
+        remainingMonths: sub.remainingMonths,
+        info: `İptal işlemi onaylandı. Kullanılmayan ${sub.remainingMonths} ay için ₺${refundAmount.toFixed(2)} tutarında iade süreci başlatılmıştır.`
+    };
+}
 
   // 👇 OTOMATİK GÖREV (CRON JOB)
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)

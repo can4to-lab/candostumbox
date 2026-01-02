@@ -3,14 +3,12 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
-// --- BİLEŞEN IMPORTLARI (Senin Yapın Korundu) ---
+// --- BİLEŞEN IMPORTLARI ---
 import AddPetModal from "../components/modals/AddPetModal";
 import EditPetModal from "../components/modals/EditPetModal";
 import AddAddressModal from "../components/modals/AddAddressModal";
 import EditAddressModal from "../components/modals/EditAddressModal";
-import ConfirmationModal from "../components/modals/ConfirmationModal"; // 👈 YENİ EKLENDİ
-
-import MySubscriptions from "../components/profile/MySubscriptions"; 
+import ConfirmationModal from "../components/modals/ConfirmationModal";
 
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
@@ -46,9 +44,15 @@ function ProfileContent() {
   const [isEditAddressOpen, setEditAddressOpen] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
 
-  // 👇 YENİ: SİLME ONAY MODALI STATE'LERİ
+  // SİLME ONAY MODALI STATE'LERİ
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmData, setConfirmData] = useState<{ type: 'address' | 'pet', id: number } | null>(null);
+
+  // --- ABONELİK STATE'LERİ (YENİ EKLENDİ) ---
+  const [subs, setSubs] = useState<any[]>([]);
+  const [subsLoading, setSubsLoading] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false); // İptal modalı için
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({ 
@@ -56,16 +60,6 @@ function ProfileContent() {
   });
 
   const [passData, setPassData] = useState({ current: "", new: "", confirm: "" });
-
-  const calculateAge = (dateString: string) => {
-      if(!dateString) return "Bilinmiyor";
-      const today = new Date();
-      const birthDate = new Date(dateString);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
-      return age;
-  }
 
   const getPetIcon = (type: string) => {
     if (type === 'kopek') return '🐶';
@@ -119,6 +113,64 @@ function ProfileContent() {
 
   useEffect(() => { fetchProfile(); }, []);
 
+  // --- ABONELİK VERİLERİNİ ÇEKME (YENİ) ---
+  const fetchSubs = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setSubsLoading(true);
+    try {
+      const res = await fetch("https://candostumbox-api.onrender.com/subscriptions", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSubs(data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSubsLoading(false);
+    }
+  };
+
+  // Abonelik sekmesine geçince verileri çek
+  useEffect(() => {
+    if (activeTab === "abonelik") {
+        fetchSubs();
+    }
+  }, [activeTab]);
+
+  // --- ABONELİK İPTAL İŞLEMİ (YENİ) ---
+  const handleCancelSubscription = async () => {
+    if (!selectedSubId) return;
+    const token = localStorage.getItem("token");
+    const toastId = toast.loading("İptal işlemi yapılıyor...");
+
+    try {
+      const res = await fetch(`https://candostumbox-api.onrender.com/subscriptions/${selectedSubId}/cancel`, {
+        method: "PATCH",
+        headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason: "Kullanıcı panelinden iptal" })
+      });
+      
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(data.info || "Abonelik iptal edildi.", { id: toastId, duration: 5000 });
+        setCancelModalOpen(false);
+        fetchSubs(); // Listeyi yenile
+      } else {
+        toast.error(data.message || "Hata oluştu.", { id: toastId });
+      }
+    } catch (e) {
+      toast.error("Sunucu hatası.", { id: toastId });
+    }
+  };
+
+
   // --- İŞLEMLER ---
   const handleUpdateProfile = async () => {
       const token = localStorage.getItem("token");
@@ -150,7 +202,6 @@ function ProfileContent() {
       } catch (error) { toast.error("Sunucu hatası.", { id: toastId }); }
   };
 
-  // 👇 YENİ SİLME MANTIĞI (CONFIRM MODAL İÇİN)
   const requestDelete = (type: 'address' | 'pet', id: number) => {
       setConfirmData({ type, id });
       setConfirmOpen(true);
@@ -162,7 +213,7 @@ function ProfileContent() {
     const { type, id } = confirmData;
     const url = type === 'address' 
         ? `https://candostumbox-api.onrender.com/users/addresses/${id}`
-        : `https://candostumbox-api.onrender.com/users/pets/${id}`; // veya /pets/${id} backend yapına göre
+        : `https://candostumbox-api.onrender.com/users/pets/${id}`; 
 
     try {
         const res = await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
@@ -222,7 +273,7 @@ function ProfileContent() {
     <div className="min-h-screen bg-[#fcfcfc] font-sans flex flex-col justify-between">
       <Toaster position="top-right" />
 
-      {/* --- SİLME ONAY MODALI (YENİ) --- */}
+      {/* --- SİLME ONAY MODALI --- */}
       <ConfirmationModal 
         isOpen={confirmOpen}
         onClose={() => setConfirmOpen(false)}
@@ -233,7 +284,7 @@ function ProfileContent() {
         confirmText="Evet, Sil"
       />
 
-      <div className="flex-grow pt-24 pb-20"> {/* Header payı artırıldı */}
+      <div className="flex-grow pt-24 pb-20"> 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
             <div className="flex justify-between items-end mb-8 border-b border-gray-200 pb-4">
@@ -243,7 +294,7 @@ function ProfileContent() {
                 </div>
             </div>
 
-            {/* --- MOBİL MENÜ (Üstte kaydırmalı) --- */}
+            {/* --- MOBİL MENÜ --- */}
             <div className="lg:hidden mb-8 overflow-x-auto pb-2 scrollbar-hide">
                 <div className="flex gap-2">
                     {menuItems.map((item) => (
@@ -294,42 +345,257 @@ function ProfileContent() {
                 {/* SAĞ İÇERİK */}
                 <div className="lg:col-span-9">
                     
-                    {activeTab === "abonelik" && <MySubscriptions />}
+                    {/* --- ABONELİK SEKMESİ (YENİLENMİŞ) --- */}
+                    {activeTab === "abonelik" && (
+                        <div className="space-y-8 animate-fade-in">
+                            
+                            {/* GÜVEN MESAJI */}
+                            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
+                                <span className="text-2xl">🛡️</span>
+                                <div>
+                                    <h4 className="font-bold text-blue-900 text-sm">Abonelik Güvencesi</h4>
+                                    <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                                        Memnun kalmazsanız dilediğiniz an iptal edebilirsiniz. Kullanmadığınız ayların ücreti, <span className="font-bold">Cayma Hakkı</span> kapsamında kartınıza iade edilir.
+                                    </p>
+                                </div>
+                            </div>
 
-                    {activeTab === "siparisler" && (
-                        <div className="space-y-6 animate-fade-in">
-                             {/* ... Sipariş Listesi (Aynı kaldı) ... */}
-                             {user?.orders?.length > 0 ? (
-                                user.orders.map((order: any) => (
-                                    <div key={order.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                                        {/* Özet ve İçerik */}
-                                        <div className="flex flex-col md:flex-row justify-between mb-4 border-b border-gray-50 pb-4">
-                                            <span className="font-bold text-gray-900">{new Date(order.createdAt).toLocaleDateString('tr-TR')}</span>
-                                            <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600 font-bold">{order.status}</span>
-                                        </div>
-                                        {order.items?.map((item: any) => (
-                                            <div key={item.id} className="flex gap-4 mb-2">
-                                                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl">📦</div>
-                                                <div>
-                                                    <div className="font-bold text-gray-900">{item.product?.name}</div>
-                                                    <div className="text-sm text-gray-500">{item.quantity} Adet</div>
+                            {subsLoading ? (
+                                <div className="text-center py-10 text-gray-400">Paketler yükleniyor...</div>
+                            ) : subs.length > 0 ? (
+                                subs.map((sub) => {
+                                    // --- Görsel Hesaplamalar ---
+                                    const total = sub.totalMonths || 1;
+                                    const remaining = sub.remainingMonths || 0;
+                                    const completed = total - remaining;
+                                    const progressPercent = Math.min(100, Math.max(0, (completed / total) * 100));
+                                    const isActive = sub.status === 'active' || sub.status === 'ACTIVE';
+
+                                    return (
+                                        <div key={sub.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                            
+                                            {/* 1. ÜST BİLGİ */}
+                                            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white rounded-full border border-gray-200 flex items-center justify-center text-xl shadow-sm">
+                                                        {sub.pet?.type === 'kopek' ? '🐶' : sub.pet?.type === 'kedi' ? '🐱' : '🐦'}
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-bold text-gray-900 text-sm">{sub.pet?.name || "Can Dostum"} Paketi</h3>
+                                                        <p className="text-xs text-gray-500">Başlangıç: {new Date(sub.startDate).toLocaleDateString('tr-TR')}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                                                    isActive ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-100'
+                                                }`}>
+                                                    {isActive ? '🟢 Aktif' : '🔴 İptal Edildi'}
+                                                </span>
+                                            </div>
+
+                                            {/* 2. GÖVDE */}
+                                            <div className="p-6">
+                                                <div className="flex flex-col md:flex-row gap-8">
+                                                    
+                                                    {/* SOL: İLERLEME VE DETAYLAR */}
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-end mb-2">
+                                                            <span className="text-base font-bold text-gray-800">{sub.product?.name}</span>
+                                                            <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-100">
+                                                                {total} Aylık Plan
+                                                            </span>
+                                                        </div>
+
+                                                        {/* PROGRESS BAR */}
+                                                        <div className="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden border border-gray-200 relative">
+                                                            <div 
+                                                                className={`h-full rounded-full transition-all duration-1000 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} 
+                                                                style={{ width: `${progressPercent}%` }}
+                                                            ></div>
+                                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-600 drop-shadow-sm uppercase tracking-wider">
+                                                                %{Math.round(progressPercent)} Tamamlandı
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="flex justify-between text-xs text-gray-500 mb-6">
+                                                            <span>{completed}. Ay Bitti</span>
+                                                            <span>Kalan: {remaining} Ay</span>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                                <span className="block text-xs text-gray-400 font-bold uppercase mb-1">📦 Sıradaki Kutu</span>
+                                                                <span className="text-sm font-bold text-gray-900">
+                                                                    {isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                                <span className="block text-xs text-gray-400 font-bold uppercase mb-1">💳 Yenileme Tarihi</span>
+                                                                <span className="text-sm font-bold text-gray-900">
+                                                                    {isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* SAĞ: AKSİYON BUTONLARI */}
+                                                    <div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
+                                                        {isActive ? (
+                                                            <>
+                                                                <button onClick={() => toast("Bu özellik çok yakında! Müşteri hizmetlerinden destek alabilirsiniz.", {icon:'🚧'})} className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                                                                    <span>⚡</span> Paketi Yükselt
+                                                                </button>
+                                                                
+                                                                <button onClick={() => toast("Çok yakında tek tıkla uzatabileceksiniz!", {icon:'📅'})} className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition">
+                                                                    Süreyi Uzat (+3 Ay)
+                                                                </button>
+                                                                
+                                                                <button 
+                                                                    onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }}
+                                                                    className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2"
+                                                                >
+                                                                    Aboneliği İptal Et
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
+                                                                <p className="text-sm text-gray-500 mb-3 font-medium">Sizi özleyeceğiz 😔</p>
+                                                                <button onClick={() => router.push('/')} className="text-green-600 font-bold hover:underline text-sm border border-green-200 bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition">
+                                                                    Tekrar Abone Ol
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                        <div className="mt-4 pt-4 border-t border-gray-100 text-right">
-                                            <span className="text-xl font-black text-gray-900">₺{Number(order.totalPrice).toFixed(2)}</span>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             ) : (
-                                <div className="text-center py-12 text-gray-400 font-bold border-2 border-dashed border-gray-200 rounded-2xl">Henüz siparişin yok.</div>
+                                <div className="text-center py-16 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
+                                    <div className="text-6xl mb-4 grayscale opacity-50">📅</div>
+                                    <h3 className="text-xl font-bold text-gray-900">Aktif aboneliğin yok</h3>
+                                    <p className="text-gray-500 mt-2 mb-6">Her ay kapına mutluluk gelmesini istemez misin?</p>
+                                    <button onClick={() => router.push('/')} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105 inline-block">
+                                        Paketleri İncele
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "siparisler" && (
+                        <div className="space-y-8 animate-fade-in">
+                            {user?.orders?.length > 0 ? (
+                                user.orders.map((order: any) => {
+                                    const orderDate = new Date(order.createdAt);
+                                    const deliveryDate = new Date(orderDate);
+                                    deliveryDate.setDate(deliveryDate.getDate() + 3);
+
+                                    const isPaid = order.status === 'PAID' || order.status === 'success';
+                                    const isShipped = order.status === 'SHIPPED';
+                                    const isDelivered = order.status === 'DELIVERED';
+
+                                    return (
+                                        <div key={order.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300">
+                                            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between gap-4 text-sm">
+                                                <div className="flex gap-8">
+                                                    <div>
+                                                        <span className="block text-xs font-bold text-gray-500 uppercase">Sipariş Tarihi</span>
+                                                        <span className="font-medium text-gray-900">{orderDate.toLocaleDateString('tr-TR')}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-xs font-bold text-gray-500 uppercase">Toplam Tutar</span>
+                                                        <span className="font-bold text-gray-900">₺{Number(order.totalPrice).toFixed(2)}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="block text-xs font-bold text-gray-500 uppercase">Alıcı</span>
+                                                        <span className="font-medium text-gray-900">{user?.name || user?.firstName}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="block text-xs font-bold text-gray-500 uppercase">Sipariş No</span>
+                                                    <span className="font-mono text-gray-700">#{order.id.toString().slice(0, 8)}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-6">
+                                                <div className="flex flex-col lg:flex-row gap-8">
+                                                    <div className="flex-1 space-y-6">
+                                                        <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
+                                                            <span className="text-green-600">✓</span> 
+                                                            {isDelivered ? "Teslim Edildi" : `Tahmini Teslimat: ${deliveryDate.toLocaleDateString('tr-TR')}`}
+                                                        </h3>
+
+                                                        {order.items?.map((item: any) => (
+                                                            <div key={item.id} className="flex gap-4 group">
+                                                                <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-2xl group-hover:bg-gray-200 transition">📦</div>
+                                                                <div className="flex-1">
+                                                                    <div className="flex justify-between">
+                                                                        <h4 className="font-bold text-gray-900 text-base">{item.product?.name}</h4>
+                                                                        <span className="font-bold text-gray-900">₺{item.priceAtPurchase || item.product?.price}</span>
+                                                                    </div>
+                                                                    <p className="text-sm text-gray-500 line-clamp-2 mt-1">{item.product?.description}</p>
+                                                                    <div className="mt-2">
+                                                                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold border border-gray-200">
+                                                                            Adet: {item.quantity}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    <div className="lg:w-1/3 lg:border-l border-gray-100 lg:pl-8 pt-6 lg:pt-0">
+                                                        <div className="mb-4">
+                                                            <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-sm transition transform hover:-translate-y-0.5">Kargom Nerede?</button>
+                                                        </div>
+                                                        <div className="relative pl-4 space-y-6 border-l-2 border-gray-200 ml-2">
+                                                            <div className="relative">
+                                                                <div className="absolute -left-[21px] top-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white ring-1 ring-green-500"></div>
+                                                                <p className="text-sm font-bold text-gray-900">Sipariş Alındı</p>
+                                                                <p className="text-xs text-gray-500">{orderDate.toLocaleDateString('tr-TR')}</p>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ring-1 ${isPaid ? 'bg-blue-500 ring-blue-500' : 'bg-gray-300 ring-gray-300'}`}></div>
+                                                                <p className={`text-sm font-bold ${isPaid ? 'text-gray-900' : 'text-gray-400'}`}>Hazırlanıyor</p>
+                                                                <p className="text-xs text-gray-500">{isPaid ? 'Paketiniz hazırlanıyor' : ''}</p>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ring-1 ${isShipped ? 'bg-blue-500 ring-blue-500' : 'bg-gray-300 ring-gray-300'}`}></div>
+                                                                <p className={`text-sm font-bold ${isShipped ? 'text-gray-900' : 'text-gray-400'}`}>Kargoya Verildi</p>
+                                                            </div>
+                                                            <div className="relative">
+                                                                <div className={`absolute -left-[21px] top-1 w-4 h-4 rounded-full border-2 border-white ring-1 ${isDelivered ? 'bg-green-500 ring-green-500' : 'bg-gray-300 ring-gray-300'}`}></div>
+                                                                <p className={`text-sm font-bold ${isDelivered ? 'text-green-600' : 'text-gray-400'}`}>Teslim Edildi</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+                                                 <button className="text-xs text-blue-600 hover:underline font-bold">Fatura Görüntüle</button>
+                                                 <span className="mx-2 text-gray-300">|</span>
+                                                 <button className="text-xs text-blue-600 hover:underline font-bold">Sorun Bildir</button>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="text-center py-16 bg-white border-2 border-dashed border-gray-200 rounded-2xl">
+                                    <div className="text-6xl mb-4">🛒</div>
+                                    <h3 className="text-xl font-bold text-gray-900">Henüz sipariş vermedin</h3>
+                                    <p className="text-gray-500 mt-2 mb-6">Can dostun için ilk sürpriz kutusunu oluşturmaya ne dersin?</p>
+                                    <button onClick={() => router.push('/')} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition">
+                                        Hemen Alışverişe Başla
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
 
                     {activeTab === "bilgiler" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 md:p-8 shadow-sm animate-fade-in">
-                             {/* Form Alanları (Mobil Uyumlu) */}
                              <div className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div><label className="text-xs font-bold text-gray-500 mb-1 block">Ad</label><input value={formData.firstName} onChange={e=>setFormData({...formData, firstName: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold text-gray-900" /></div>
@@ -357,7 +623,6 @@ function ProfileContent() {
                                         
                                         <div className="flex gap-2 mt-4 pt-4 border-t border-gray-50">
                                             <button onClick={() => openEditPetModal(pet)} className="flex-1 bg-gray-50 text-gray-600 py-2 rounded-lg text-xs font-bold">Düzenle</button>
-                                            {/* 👇 GÜNCELLEME: requestDelete kullanıldı */}
                                             <button onClick={() => requestDelete('pet', pet.id)} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold">Sil</button>
                                         </div>
                                     </div>
@@ -372,7 +637,6 @@ function ProfileContent() {
 
                     {activeTab === "sifre" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm max-w-lg animate-fade-in">
-                            {/* Şifre Alanları */}
                             <div className="space-y-4">
                                 <input type="password" placeholder="Mevcut Şifre" value={passData.current} onChange={e=>setPassData({...passData, current: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
                                 <input type="password" placeholder="Yeni Şifre" value={passData.new} onChange={e=>setPassData({...passData, new: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl font-bold" />
@@ -392,7 +656,6 @@ function ProfileContent() {
                                         <div className="text-xs text-gray-400 mt-2">{addr.district} / {addr.city}</div>
                                         <div className="flex gap-3 mt-4 pt-4 border-t border-gray-50 justify-end">
                                             <button onClick={() => openEditAddressModal(addr)} className="text-gray-500 text-xs font-bold">DÜZENLE</button>
-                                            {/* 👇 GÜNCELLEME: requestDelete kullanıldı */}
                                             <button onClick={() => requestDelete('address', addr.id)} className="text-red-500 text-xs font-bold">SİL</button>
                                         </div>
                                     </div>
@@ -432,6 +695,43 @@ function ProfileContent() {
       <EditPetModal isOpen={isEditPetOpen} onClose={() => setEditPetOpen(false)} onSuccess={fetchProfile} petData={selectedPet} /> 
       <AddAddressModal isOpen={isAddAddressOpen} onClose={() => setAddAddressOpen(false)} onSuccess={fetchProfile} />
       <EditAddressModal isOpen={isEditAddressOpen} onClose={() => setEditAddressOpen(false)} onSuccess={fetchProfile} addressData={selectedAddress} />
+      
+      {/* --- CAYMA HAKKI / İPTAL MODALI (YENİ EKLENDİ) --- */}
+      {cancelModalOpen && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative transform transition-all scale-100">
+                <button onClick={() => setCancelModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition">✕</button>
+                
+                <div className="text-center mb-6 pt-2">
+                    <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-4 border-white shadow-lg">
+                        💔
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900">Ayrılıyor muyuz?</h3>
+                    <p className="text-gray-500 mt-2 text-sm px-4">
+                        Aboneliğini iptal edersen, bir sonraki aydan itibaren kutu gönderimi durdurulacaktır.
+                    </p>
+                </div>
+
+                <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-6 text-sm text-orange-800 flex gap-3 items-start text-left">
+                    <span className="text-xl">💰</span>
+                    <div>
+                        <strong className="block mb-1">Para İadesi Hakkında:</strong>
+                        Cayma hakkınız gereği, kullanmadığınız aylara ait tutar hesaplanarak 3-7 iş günü içinde kartınıza iade edilecektir.
+                    </div>
+                </div>
+
+                <div className="flex gap-3">
+                    <button onClick={() => setCancelModalOpen(false)} className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
+                        Vazgeçtim
+                    </button>
+                    <button onClick={handleCancelSubscription} className="flex-1 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg hover:shadow-red-200 transition transform hover:scale-105 active:scale-95">
+                        Evet, İptal Et
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }

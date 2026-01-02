@@ -29,10 +29,11 @@ export class SubscriptionsController {
       @Body('reason') reason: string,
       @Request() req
   ) {
+    // ID kontrolü (Casus logdan gördüğün yapıya göre)
     const userId = req.user?.id || req.user?.userId || req.user?.sub;
     
     if (!userId) {
-        throw new UnauthorizedException("Kullanıcı kimliği (ID) bulunamadı!");
+        throw new UnauthorizedException("Kullanıcı kimliği doğrulanamadı.");
     }
 
     return this.subscriptionsService.cancel(id, userId, reason);
