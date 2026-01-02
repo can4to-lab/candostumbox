@@ -29,7 +29,7 @@ export class PaymentService {
     const user_ip = ip || '85.85.85.85'; 
 
     // URL'ler
-    const merchant_ok_url = 'https://candostumbox-l2dy.onrender.com/profile?tab=siparisler&status=success';
+    const merchant_ok_url = 'https://candostumbox-l2dy.onrender.com/payment/success';
     const merchant_fail_url = 'https://candostumbox-l2dy.onrender.com/checkout?status=fail';
 
     // 2. SEPET MANTIĞI (GARANTİ YÖNTEM) 🛡️

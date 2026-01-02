@@ -39,9 +39,9 @@ export default function Footer() {
                 <div>
                     <h4 className="font-bold text-white mb-6">Yasal</h4>
                     <ul className="space-y-3 text-sm text-gray-400">
-                        <li><Link href="#" className="hover:text-green-400 transition">Kullanım Koşulları</Link></li>
-                        <li><Link href="#" className="hover:text-green-400 transition">Gizlilik Politikası</Link></li>
-                        <li><Link href="#" className="hover:text-green-400 transition">Mesafeli Satış Sözleşmesi</Link></li>
+                        <li><Link href="/kullanim-kosullari" className="hover:text-green-400 transition">Kullanım Koşulları</Link></li>
+                        <li><Link href="/gizlilik-politikasi" className="hover:text-green-400 transition">Gizlilik Politikası</Link></li>
+                        <li><Link href="/mesafeli-satis-sozlesmesi" className="hover:text-green-400 transition">Mesafeli Satış Sözleşmesi</Link></li>
                     </ul>
                 </div>
 

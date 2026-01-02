@@ -3,13 +3,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import Script from "next/script"; 
-import Image from "next/image"; // Logo kullanımı için
+import Image from "next/image"; 
 import { useCart } from "@/context/CartContext";
 
 // Modallar
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import AddAddressModal from "../components/modals/AddAddressModal";
+import AgreementsModal from "@/components/AgreementsModal"; // 👈 YENİ EKLENDİ
 
 // İkonlar (SVG)
 const UserIcon = () => <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -48,6 +49,10 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [iframeToken, setIframeToken] = useState<string | null>(null); 
   
+  // 👇 YENİ: SÖZLEŞME STATE'LERİ
+  const [agreementsAccepted, setAgreementsAccepted] = useState(false);
+  const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
+
   const [isGuest, setIsGuest] = useState(false);
   const [guestData, setGuestData] = useState<GuestForm>({
       firstName: "", lastName: "", email: "", phone: "",
@@ -157,6 +162,15 @@ export default function CheckoutPage() {
   };
 
   const handlePayment = async () => {
+      // 👇 YENİ: SÖZLEŞME KONTROLÜ (PAYTR İÇİN ŞART)
+      if (!agreementsAccepted) {
+          toast.error("Lütfen Mesafeli Satış Sözleşmesi'ni okuyup onaylayınız.", {
+              icon: '📜',
+              duration: 4000
+          });
+          return;
+      }
+
       setLoading(true);
       const token = localStorage.getItem("token");
       
@@ -236,6 +250,9 @@ export default function CheckoutPage() {
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
       <AddAddressModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} onSuccess={handleAddressSuccess} />
+      
+      {/* 👇 YENİ: SÖZLEŞME MODALI */}
+      <AgreementsModal isOpen={isAgreementModalOpen} onClose={() => setIsAgreementModalOpen(false)} />
 
       {/* HEADER ALANI */}
       <div className="bg-white border-b border-gray-200 py-6 mb-8 shadow-sm">
@@ -272,33 +289,33 @@ export default function CheckoutPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none group-focus-within:text-green-500 transition"><UserIcon /></div>
-                                    <input name="firstName" placeholder="Adınız" value={guestData.firstName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                    <input name="firstName" placeholder="Adınız" value={guestData.firstName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
                                 </div>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><UserIcon /></div>
-                                    <input name="lastName" placeholder="Soyadınız" value={guestData.lastName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                    <input name="lastName" placeholder="Soyadınız" value={guestData.lastName} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
                                 </div>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><MailIcon /></div>
-                                    <input name="email" type="email" placeholder="E-posta Adresiniz" value={guestData.email} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                    <input name="email" type="email" placeholder="E-posta Adresiniz" value={guestData.email} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
                                 </div>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><PhoneIcon /></div>
-                                    <input name="phone" type="tel" placeholder="Telefon (5XX...)" value={guestData.phone} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                    <input name="phone" type="tel" placeholder="Telefon (5XX...)" value={guestData.phone} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <input name="city" placeholder="İl" value={guestData.city} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
-                                <input name="district" placeholder="İlçe" value={guestData.district} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium" />
+                                <input name="city" placeholder="İl" value={guestData.city} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
+                                <input name="district" placeholder="İlçe" value={guestData.district} onChange={handleGuestChange} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium text-gray-900" />
                             </div>
 
                             <div className="relative">
                                 <div className="absolute top-3.5 left-3 pointer-events-none"><MapIcon /></div>
-                                <textarea name="fullAddress" placeholder="Açık Adres (Mahalle, Sokak, Bina No, Kapı No...)" rows={3} value={guestData.fullAddress} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium resize-none" />
+                                <textarea name="fullAddress" placeholder="Açık Adres (Mahalle, Sokak, Bina No, Kapı No...)" rows={3} value={guestData.fullAddress} onChange={handleGuestChange} className="w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:bg-white transition outline-none font-medium resize-none text-gray-900" />
                             </div>
                         </div>
                     ) : (
@@ -364,11 +381,10 @@ export default function CheckoutPage() {
                                 Ödemeniz PayTR altyapısı ile 256-bit SSL şifreleme kullanılarak korunmaktadır. Kart bilgileriniz tarafımızca saklanmaz.
                             </p>
                             
-                            {/* Banka Logoları (Görsel Güven) */}
                             <div className="flex gap-4 opacity-50 grayscale hover:grayscale-0 transition duration-500">
-                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Visa</span>
-                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Mastercard</span>
-                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold">Troy</span>
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold text-gray-500">Visa</span>
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold text-gray-500">Mastercard</span>
+                                <span className="bg-white border px-2 py-1 rounded text-xs font-bold text-gray-500">Troy</span>
                             </div>
                         </div>
                     )}
@@ -378,7 +394,6 @@ export default function CheckoutPage() {
             {/* SAĞ KOLON: SİPARİŞ ÖZETİ (STICKY) */}
             <div className="lg:col-span-4">
                 <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 sticky top-6 overflow-hidden">
-                    {/* Arka Plan Dekoru */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-full blur-3xl -mr-16 -mt-16"></div>
 
                     <h3 className="text-xl font-black text-gray-900 mb-6 relative z-10">Sipariş Özeti 🛍️</h3>
@@ -438,23 +453,49 @@ export default function CheckoutPage() {
                     )}
 
                     {!iframeToken && (
-                        <button 
-                            onClick={handlePayment} 
-                            disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
-                            className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg transform active:scale-95 flex items-center justify-center gap-3 relative z-10 group
-                                ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) 
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
-                                    : 'bg-gray-900 text-white hover:bg-black hover:shadow-xl hover:shadow-gray-400/20'}
-                            `}
-                        >
-                            {loading ? (
-                                <span className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Yükleniyor...</span>
-                            ) : (
-                                <>
-                                    Güvenli Ödemeye Geç <span className="group-hover:translate-x-1 transition">👉</span>
-                                </>
-                            )}
-                        </button>
+                        <>
+                            {/* 👇 YENİ: SÖZLEŞME ONAY KUTUSU */}
+                            <div className="flex items-start gap-3 mb-4 relative z-10 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                <input
+                                    type="checkbox"
+                                    id="agreements"
+                                    checked={agreementsAccepted}
+                                    onChange={(e) => setAgreementsAccepted(e.target.checked)}
+                                    className="mt-1 w-5 h-5 text-green-600 rounded focus:ring-green-500 border-gray-300 cursor-pointer accent-green-600"
+                                />
+                                <label htmlFor="agreements" className="text-xs text-gray-600 cursor-pointer select-none leading-relaxed">
+                                    <span 
+                                        className="font-bold text-gray-900 hover:underline hover:text-green-600 transition"
+                                        onClick={(e) => { e.preventDefault(); setIsAgreementModalOpen(true); }} 
+                                    >
+                                        Mesafeli Satış Sözleşmesi
+                                    </span>
+                                    'ni ve 
+                                    <span className="font-bold text-gray-900 hover:underline ml-1">
+                                        Ön Bilgilendirme Formu
+                                    </span>
+                                    'nu okudum, onaylıyorum.
+                                </label>
+                            </div>
+
+                            <button 
+                                onClick={handlePayment} 
+                                disabled={loading || verifiedTotal === null || (!isGuest && addresses.length === 0)} 
+                                className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg transform active:scale-95 flex items-center justify-center gap-3 relative z-10 group
+                                    ${loading || verifiedTotal === null || (!isGuest && addresses.length === 0) 
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none' 
+                                        : 'bg-gray-900 text-white hover:bg-black hover:shadow-xl hover:shadow-gray-400/20'}
+                                `}
+                            >
+                                {loading ? (
+                                    <span className="flex items-center gap-2"><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Yükleniyor...</span>
+                                ) : (
+                                    <>
+                                        Güvenli Ödemeye Geç <span className="group-hover:translate-x-1 transition">👉</span>
+                                    </>
+                                )}
+                            </button>
+                        </>
                     )}
                     
                     <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
