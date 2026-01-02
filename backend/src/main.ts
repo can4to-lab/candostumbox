@@ -9,22 +9,26 @@ async function bootstrap() {
   console.log('🔍 KONTROL EDİLİYOR -> DATABASE_URL:', process.env.DATABASE_URL);
   
   // 1. GÜVENLİK DUVARI (Helmet)
-  // HTTP başlıklarını düzenleyerek bilinen web açıklarını kapatır.
   app.use(helmet());
 
-  // 2. İLETİŞİM İZNİ (CORS)
-  // Sadece senin Frontend sitenin (localhost:3000 veya ilerdeki domainin) erişmesine izin verir.
+  // 2. İLETİŞİM İZNİ (CORS) - GÜNCELLENDİ 🛠️
+  // Sadece senin yeni domainine ve localhost'a izin veriyoruz.
   app.enableCors({
-    origin: '*', // Şimdilik geliştirme aşamasında herkese açalım, canlıya geçerken buraya site adını yazacağız.
+    origin: [
+      'https://www.candostumbox.com',            // Yeni Domainin (Ana)
+      'https://candostumbox.com',                // www olmadan
+      'https://candostumbox-l2dy.onrender.com',  // Eski Render adresi (Yedek)
+      'http://localhost:3000'                    // Geliştirme ortamı
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true, // Çerezler vb. için gerekli olabilir
   });
 
-  // 3. VERİ KONTROLÜ (Validation Pipe)
-  // Gelen verileri DTO kurallarına göre otomatik kontrol eder.
+  // 3. VERİ KONTROLÜ
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // DTO'da tanımlanmamış fazladan veri gelirse otomatik siler (Temizlik).
-      forbidNonWhitelisted: true, // Fazladan veri gelirse hata fırlatır (Güvenlik).
+      whitelist: true, 
+      forbidNonWhitelisted: true, 
     }),
   );
 
