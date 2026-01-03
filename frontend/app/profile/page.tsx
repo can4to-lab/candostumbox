@@ -48,10 +48,10 @@ function ProfileContent() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmData, setConfirmData] = useState<{ type: 'address' | 'pet', id: number } | null>(null);
 
-  // --- ABONELİK STATE'LERİ (YENİ EKLENDİ) ---
+  // --- ABONELİK STATE'LERİ ---
   const [subs, setSubs] = useState<any[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
-  const [cancelModalOpen, setCancelModalOpen] = useState(false); // İptal modalı için
+  const [cancelModalOpen, setCancelModalOpen] = useState(false); 
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
 
   // Form State
@@ -61,16 +61,60 @@ function ProfileContent() {
 
   const [passData, setPassData] = useState({ current: "", new: "", confirm: "" });
 
-  const getPetIcon = (type: string) => {
-    if (type === 'kopek') return '🐶';
-    if (type === 'kedi') return '🐱';
-    return OTHER_ICONS[type] || '🐾';
+  // --- 🛠️ YARDIMCI FONKSİYONLAR (YENİ EKLENDİ) ---
+
+  // 1. Yaş Hesaplama
+  const calculateAge = (birthDate: string) => {
+    if (!birthDate) return 0;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
   };
 
-  const getPetBg = (type: string) => {
-    if (type === 'kopek') return 'bg-orange-100 text-orange-600';
-    if (type === 'kedi') return 'bg-blue-100 text-blue-600';
-    return 'bg-green-100 text-green-600';
+  // 2. Burç Hesaplama 🦁
+  const getZodiacSign = (dateString: string) => {
+    if (!dateString) return { sign: "Bilinmiyor", icon: "⭐" };
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+
+    if ((month == 1 && day <= 20) || (month == 12 && day >= 22)) return { sign: "Oğlak", icon: "♑" };
+    if ((month == 1 && day >= 21) || (month == 2 && day <= 18)) return { sign: "Kova", icon: "♒" };
+    if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return { sign: "Balık", icon: "♓" };
+    if ((month == 3 && day >= 21) || (month == 4 && day <= 19)) return { sign: "Koç", icon: "♈" };
+    if ((month == 4 && day >= 20) || (month == 5 && day <= 20)) return { sign: "Boğa", icon: "♉" };
+    if ((month == 5 && day >= 21) || (month == 6 && day <= 20)) return { sign: "İkizler", icon: "♊" };
+    if ((month == 6 && day >= 21) || (month == 7 && day <= 22)) return { sign: "Yengeç", icon: "♋" };
+    if ((month == 7 && day >= 23) || (month == 8 && day <= 22)) return { sign: "Aslan", icon: "♌" };
+    if ((month == 8 && day >= 23) || (month == 9 && day <= 22)) return { sign: "Başak", icon: "♍" };
+    if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return { sign: "Terazi", icon: "♎" };
+    if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return { sign: "Akrep", icon: "♏" };
+    if ((month == 11 && day >= 22) || (month == 12 && day >= 21)) return { sign: "Yay", icon: "♐" };
+    return { sign: "Bilinmiyor", icon: "⭐" };
+  };
+
+  // 3. İnsan Yaşı Hesaplama (Tahmini) 🧮
+  const getHumanAge = (birthDate: string, type: string) => {
+      if (!birthDate) return null;
+      const age = calculateAge(birthDate); 
+      let multiplier = 7; // Standart köpek/kedi çarpanı
+      if (type === 'Kuş') multiplier = 5; 
+      return age * multiplier;
+  };
+
+  // 4. Kart Tasarımı (Renklendirme) 🎨
+  const getPetTheme = (type: string) => {
+      switch(type) {
+          case 'kopek': return { bg: 'from-orange-400 to-amber-500', light: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', icon: '🐶' };
+          case 'kedi': return { bg: 'from-blue-400 to-indigo-500', light: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-100', icon: '🐱' };
+          case 'Kuş': return { bg: 'from-green-400 to-emerald-500', light: 'bg-green-50', text: 'text-green-600', border: 'border-green-100', icon: '🦜' };
+          default: return { bg: 'from-gray-400 to-gray-500', light: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-100', icon: OTHER_ICONS[type] || '🐾' };
+      }
   };
 
   // --- VERİ ÇEKME ---
@@ -113,7 +157,7 @@ function ProfileContent() {
 
   useEffect(() => { fetchProfile(); }, []);
 
-  // --- ABONELİK VERİLERİNİ ÇEKME (YENİ) ---
+  // --- ABONELİK VERİLERİNİ ÇEKME ---
   const fetchSubs = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -133,14 +177,13 @@ function ProfileContent() {
     }
   };
 
-  // Abonelik sekmesine geçince verileri çek
   useEffect(() => {
     if (activeTab === "abonelik") {
         fetchSubs();
     }
   }, [activeTab]);
 
-  // --- ABONELİK İPTAL İŞLEMİ (YENİ) ---
+  // --- ABONELİK İPTAL ---
   const handleCancelSubscription = async () => {
     if (!selectedSubId) return;
     const token = localStorage.getItem("token");
@@ -161,7 +204,7 @@ function ProfileContent() {
       if (res.ok) {
         toast.success(data.info || "Abonelik iptal edildi.", { id: toastId, duration: 5000 });
         setCancelModalOpen(false);
-        fetchSubs(); // Listeyi yenile
+        fetchSubs(); 
       } else {
         toast.error(data.message || "Hata oluştu.", { id: toastId });
       }
@@ -169,7 +212,6 @@ function ProfileContent() {
       toast.error("Sunucu hatası.", { id: toastId });
     }
   };
-
 
   // --- İŞLEMLER ---
   const handleUpdateProfile = async () => {
@@ -345,11 +387,9 @@ function ProfileContent() {
                 {/* SAĞ İÇERİK */}
                 <div className="lg:col-span-9">
                     
-                    {/* --- ABONELİK SEKMESİ (YENİLENMİŞ) --- */}
+                    {/* --- ABONELİK SEKMESİ --- */}
                     {activeTab === "abonelik" && (
                         <div className="space-y-8 animate-fade-in">
-                            
-                            {/* GÜVEN MESAJI */}
                             <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start gap-3">
                                 <span className="text-2xl">🛡️</span>
                                 <div>
@@ -364,7 +404,6 @@ function ProfileContent() {
                                 <div className="text-center py-10 text-gray-400">Paketler yükleniyor...</div>
                             ) : subs.length > 0 ? (
                                 subs.map((sub) => {
-                                    // --- Görsel Hesaplamalar ---
                                     const total = sub.totalMonths || 1;
                                     const remaining = sub.remainingMonths || 0;
                                     const completed = total - remaining;
@@ -373,8 +412,6 @@ function ProfileContent() {
 
                                     return (
                                         <div key={sub.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                            
-                                            {/* 1. ÜST BİLGİ */}
                                             <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-10 h-10 bg-white rounded-full border border-gray-200 flex items-center justify-center text-xl shadow-sm">
@@ -385,84 +422,49 @@ function ProfileContent() {
                                                         <p className="text-xs text-gray-500">Başlangıç: {new Date(sub.startDate).toLocaleDateString('tr-TR')}</p>
                                                     </div>
                                                 </div>
-                                                
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
                                                     isActive ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-100'
                                                 }`}>
                                                     {isActive ? '🟢 Aktif' : '🔴 İptal Edildi'}
                                                 </span>
                                             </div>
-
-                                            {/* 2. GÖVDE */}
                                             <div className="p-6">
                                                 <div className="flex flex-col md:flex-row gap-8">
-                                                    
-                                                    {/* SOL: İLERLEME VE DETAYLAR */}
                                                     <div className="flex-1">
                                                         <div className="flex justify-between items-end mb-2">
                                                             <span className="text-base font-bold text-gray-800">{sub.product?.name}</span>
-                                                            <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-100">
-                                                                {total} Aylık Plan
-                                                            </span>
+                                                            <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded border border-purple-100">{total} Aylık Plan</span>
                                                         </div>
-
-                                                        {/* PROGRESS BAR */}
                                                         <div className="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden border border-gray-200 relative">
-                                                            <div 
-                                                                className={`h-full rounded-full transition-all duration-1000 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} 
-                                                                style={{ width: `${progressPercent}%` }}
-                                                            ></div>
-                                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-600 drop-shadow-sm uppercase tracking-wider">
-                                                                %{Math.round(progressPercent)} Tamamlandı
-                                                            </span>
+                                                            <div className={`h-full rounded-full transition-all duration-1000 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} style={{ width: `${progressPercent}%` }}></div>
+                                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-gray-600 drop-shadow-sm uppercase tracking-wider">%{Math.round(progressPercent)} Tamamlandı</span>
                                                         </div>
-                                                        
                                                         <div className="flex justify-between text-xs text-gray-500 mb-6">
                                                             <span>{completed}. Ay Bitti</span>
                                                             <span>Kalan: {remaining} Ay</span>
                                                         </div>
-
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                                                 <span className="block text-xs text-gray-400 font-bold uppercase mb-1">📦 Sıradaki Kutu</span>
-                                                                <span className="text-sm font-bold text-gray-900">
-                                                                    {isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}
-                                                                </span>
+                                                                <span className="text-sm font-bold text-gray-900">{isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}</span>
                                                             </div>
                                                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                                                 <span className="block text-xs text-gray-400 font-bold uppercase mb-1">💳 Yenileme Tarihi</span>
-                                                                <span className="text-sm font-bold text-gray-900">
-                                                                    {isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}
-                                                                </span>
+                                                                <span className="text-sm font-bold text-gray-900">{isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
-
-                                                    {/* SAĞ: AKSİYON BUTONLARI */}
                                                     <div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
                                                         {isActive ? (
                                                             <>
-                                                                <button onClick={() => toast("Bu özellik çok yakında! Müşteri hizmetlerinden destek alabilirsiniz.", {icon:'🚧'})} className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2">
-                                                                    <span>⚡</span> Paketi Yükselt
-                                                                </button>
-                                                                
-                                                                <button onClick={() => toast("Çok yakında tek tıkla uzatabileceksiniz!", {icon:'📅'})} className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition">
-                                                                    Süreyi Uzat (+3 Ay)
-                                                                </button>
-                                                                
-                                                                <button 
-                                                                    onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }}
-                                                                    className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2"
-                                                                >
-                                                                    Aboneliği İptal Et
-                                                                </button>
+                                                                <button onClick={() => toast("Bu özellik çok yakında! Müşteri hizmetlerinden destek alabilirsiniz.", {icon:'🚧'})} className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"><span>⚡</span> Paketi Yükselt</button>
+                                                                <button onClick={() => toast("Çok yakında tek tıkla uzatabileceksiniz!", {icon:'📅'})} className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition">Süreyi Uzat (+3 Ay)</button>
+                                                                <button onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }} className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2">Aboneliği İptal Et</button>
                                                             </>
                                                         ) : (
                                                             <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
                                                                 <p className="text-sm text-gray-500 mb-3 font-medium">Sizi özleyeceğiz 😔</p>
-                                                                <button onClick={() => router.push('/')} className="text-green-600 font-bold hover:underline text-sm border border-green-200 bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition">
-                                                                    Tekrar Abone Ol
-                                                                </button>
+                                                                <button onClick={() => router.push('/')} className="text-green-600 font-bold hover:underline text-sm border border-green-200 bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition">Tekrar Abone Ol</button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -476,14 +478,13 @@ function ProfileContent() {
                                     <div className="text-6xl mb-4 grayscale opacity-50">📅</div>
                                     <h3 className="text-xl font-bold text-gray-900">Aktif aboneliğin yok</h3>
                                     <p className="text-gray-500 mt-2 mb-6">Her ay kapına mutluluk gelmesini istemez misin?</p>
-                                    <button onClick={() => router.push('/')} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105 inline-block">
-                                        Paketleri İncele
-                                    </button>
+                                    <button onClick={() => router.push('/')} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105 inline-block">Paketleri İncele</button>
                                 </div>
                             )}
                         </div>
                     )}
 
+                    {/* --- SİPARİŞLER SEKMESİ --- */}
                     {activeTab === "siparisler" && (
                         <div className="space-y-8 animate-fade-in">
                             {user?.orders?.length > 0 ? (
@@ -612,24 +613,136 @@ function ProfileContent() {
                         </div>
                     )}
 
+                    {/* --- CAN DOSTLARIM SEKMESİ (YENİLENMİŞ TASARIM) --- */}
                     {activeTab === "pets" && (
-                        <div className="space-y-6 animate-fade-in">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {user?.pets?.map((pet: any) => (
-                                    <div key={pet.id} className="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm relative">
-                                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-3xl mb-4 ${getPetBg(pet.type)}`}>{getPetIcon(pet.type)}</div>
-                                        <h4 className="font-bold text-gray-900 text-lg">{pet.name}</h4>
-                                        <p className="text-sm text-gray-500">{pet.breed || "Bilinmiyor"} • {pet.weight} kg</p>
-                                        
-                                        <div className="flex gap-2 mt-4 pt-4 border-t border-gray-50">
-                                            <button onClick={() => openEditPetModal(pet)} className="flex-1 bg-gray-50 text-gray-600 py-2 rounded-lg text-xs font-bold">Düzenle</button>
-                                            <button onClick={() => requestDelete('pet', pet.id)} className="flex-1 bg-red-50 text-red-600 py-2 rounded-lg text-xs font-bold">Sil</button>
+                        <div className="space-y-8 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {user?.pets?.map((pet: any) => {
+                                    const theme = getPetTheme(pet.type);
+                                    const zodiac = getZodiacSign(pet.birthDate);
+                                    const age = calculateAge(pet.birthDate);
+                                    const humanAge = getHumanAge(pet.birthDate, pet.type);
+
+                                    return (
+                                        <div key={pet.id} className={`group relative bg-white border ${theme.border} rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden`}>
+                                            
+                                            {/* RENKLİ ÜST BAŞLIK */}
+                                            <div className={`h-24 bg-gradient-to-r ${theme.bg} relative`}>
+                                                <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full border border-white/30">
+                                                    #{pet.id.toString().slice(0,4)}
+                                                </div>
+                                            </div>
+
+                                            {/* AVATAR (YUVARLAK) */}
+                                            <div className="absolute top-12 left-6">
+                                                <div className="w-24 h-24 bg-white p-1.5 rounded-full shadow-lg">
+                                                    <div className={`w-full h-full ${theme.light} rounded-full flex items-center justify-center text-5xl`}>
+                                                        {theme.icon}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* KART İÇERİĞİ */}
+                                            <div className="pt-16 px-6 pb-6">
+                                                
+                                                {/* İsim ve Tür */}
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <h4 className="font-black text-2xl text-gray-900 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-gray-900 group-hover:to-gray-600 transition-all">
+                                                            {pet.name}
+                                                        </h4>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${theme.light} ${theme.text} uppercase tracking-wide`}>
+                                                            {pet.breed || "Bilinmiyor"}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {/* Düzenle Butonu (Gizli, hoverda çıkar) */}
+                                                    <button 
+                                                        onClick={() => openEditPetModal(pet)}
+                                                        className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"
+                                                        title="Düzenle"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                </div>
+
+                                                {/* Bilgi Izgarası (Grid) */}
+                                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                                        <span className="text-xs text-gray-400 font-bold block mb-1">YAŞ</span>
+                                                        <div className="font-bold text-gray-800 flex items-center gap-1">
+                                                            🎂 {age} Yaşında
+                                                        </div>
+                                                        {humanAge && (
+                                                            <div className="text-[10px] text-gray-500 mt-1">
+                                                                (İnsan yaşıyla: {humanAge})
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                                        <span className="text-xs text-gray-400 font-bold block mb-1">AĞIRLIK</span>
+                                                        <div className="font-bold text-gray-800">
+                                                            ⚖️ {pet.weight} kg
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-500 mt-1">
+                                                            {pet.gender === 'male' ? 'Erkek ♂' : 'Dişi ♀'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 col-span-2 flex items-center justify-between">
+                                                        <div>
+                                                            <span className="text-xs text-gray-400 font-bold block">BURCU</span>
+                                                            <span className="font-bold text-gray-800">{zodiac.sign}</span>
+                                                        </div>
+                                                        <div className="text-3xl grayscale group-hover:grayscale-0 transition-all duration-500">
+                                                            {zodiac.icon}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Alt Butonlar */}
+                                                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                                                    <button 
+    onClick={() => {
+        // 1. Bu hayvana ait aktif bir abonelik var mı kontrol et
+        const hasActiveSub = subs.find(s => s.pet?.id === pet.id && s.status === 'active');
+        
+        if (hasActiveSub) {
+            // Varsa: Abonelik sekmesini aç ve o aboneliği göster
+            setActiveTab("abonelik");
+            toast("Abonelik detaylarına yönlendiriliyorsunuz...", { icon: '🚀' });
+        } else {
+            // Yoksa: Satın almaya (Anasayfaya) yönlendir
+            toast.success(`${pet.name} için harika bir kutu seçelim!`);
+            router.push("/");
+        }
+    }}
+    className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition shadow-lg shadow-gray-200"
+>
+    {subs.find(s => s.pet?.id === pet.id && s.status === 'active') ? '⚙️ Paketi Yönet' : '🎁 Paket Satın Al'}
+</button>
+                                                    <button 
+                                                        onClick={() => requestDelete('pet', pet.id)}
+                                                        className="px-4 py-2.5 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition"
+                                                    >
+                                                        Sil 🗑️
+                                                    </button>
+                                                </div>
+
+                                            </div>
                                         </div>
+                                    );
+                                })}
+
+                                {/* YENİ DOST EKLE KARTI */}
+                                <button 
+                                    onClick={() => setAddPetOpen(true)} 
+                                    className="group relative h-full min-h-[320px] bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center hover:border-green-400 hover:bg-green-50/30 transition-all duration-300"
+                                >
+                                    <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-4xl mb-4 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-green-100 transition-all duration-300">
+                                        +
                                     </div>
-                                ))}
-                                <button onClick={() => setAddPetOpen(true)} className="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center text-gray-400 hover:border-green-500 hover:text-green-600 transition min-h-[220px]">
-                                    <span className="text-4xl mb-2">+</span>
-                                    <span className="font-bold">Yeni Dost Ekle</span>
+                                    <h4 className="font-bold text-gray-400 group-hover:text-green-600 text-lg transition-colors">Yeni Dost Ekle</h4>
+                                    <p className="text-xs text-gray-400 mt-2 px-8 text-center group-hover:text-green-600/70">Ailemize yeni bir üye mi katıldı? Hemen profilini oluşturalım!</p>
                                 </button>
                             </div>
                         </div>
@@ -696,7 +809,7 @@ function ProfileContent() {
       <AddAddressModal isOpen={isAddAddressOpen} onClose={() => setAddAddressOpen(false)} onSuccess={fetchProfile} />
       <EditAddressModal isOpen={isEditAddressOpen} onClose={() => setEditAddressOpen(false)} onSuccess={fetchProfile} addressData={selectedAddress} />
       
-      {/* --- CAYMA HAKKI / İPTAL MODALI (YENİ EKLENDİ) --- */}
+      {/* --- CAYMA HAKKI / İPTAL MODALI --- */}
       {cancelModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative transform transition-all scale-100">
