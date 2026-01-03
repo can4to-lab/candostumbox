@@ -711,9 +711,9 @@ function ProfileContent() {
             setActiveTab("abonelik");
             toast("Abonelik detaylarına yönlendiriliyorsunuz...", { icon: '🚀' });
         } else {
-            // Yoksa: Satın almaya (Anasayfaya) yönlendir
+            // Yoksa: Satın almaya (paket seçmeye) yönlendir
             toast.success(`${pet.name} için harika bir kutu seçelim!`);
-            router.push("/");
+            router.push("/product");
         }
     }}
     className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition shadow-lg shadow-gray-200"
