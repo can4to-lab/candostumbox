@@ -308,7 +308,7 @@ export default function Home() {
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center gap-20">
            <div className="flex-1 relative order-2 md:order-1">
               <div className="absolute inset-0 bg-blue-200 rounded-full blur-3xl opacity-20 transform -rotate-12"></div>
-              <img src="https://images.unsplash.com/photo-1597843786271-105221b033c4?q=80&w=1000&auto=format&fit=crop" alt="Kutu İçeriği Örnek" className="relative z-10 rounded-[3rem] shadow-2xl transform hover:scale-105 transition-transform duration-500 border-8 border-white" />
+              <img src="/kutu_icerik.png" alt="Kutu İçeriği Örnek" className="relative z-10 rounded-[3rem] shadow-2xl transform hover:scale-105 transition-transform duration-500 border-8 border-white" />
            </div>
            <div className="flex-1 space-y-8 order-1 md:order-2">
               <div>
