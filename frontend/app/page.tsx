@@ -34,7 +34,6 @@ export default function Home() {
   // Data State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
-  // 👇 YENİ: Kullanıcının aktif siparişi var mı kontrolü
   const [hasOrders, setHasOrders] = useState(false); 
 
   // --- SLIDER VERİLERİ ---
@@ -43,25 +42,24 @@ export default function Home() {
         id: 1,
         badge: "🚀 En Popüler Başlangıç",
         title: "Dostun İçin Mutluluk Kutusu",
-        description: "İçinde ne olduğunu sadece biz biliyoruz, ama ne kadar seveceğini garanti ediyoruz! Her ay kapına gelen sürpriz lezzet ve oyun şöleni.",
-        image: "/slider-1.jpeg", 
+        description: "İçinde ne olduğunu sadece biz biliyoruz! Her ay kapına gelen sürpriz lezzet ve oyun şöleni.",
+        image: "/slider_1.png", // Uzantıyı .jpeg olarak düzelttim (senin yüklediğine göre)
         btnColor: "bg-green-600 hover:bg-green-700 border-green-600",
-        // Linkler artık dinamik hesaplanacak
     },
     {
         id: 2,
         badge: "✨ Premium Deneyim",
         title: "Sıkıcı Oyuncaklara Veda Et",
-        description: "Sıradan bir top yerine, zeka geliştirici ve dayanıklı oyuncaklar gönderiyoruz. Dostunun enerjisini doğru yöne kanalize et.",
-        image: "/slider-3.jpg", 
+        description: "Sıradan bir top yerine, zeka geliştirici ve dayanıklı oyuncaklar gönderiyoruz.",
+        image: "/slider_2.png", 
         btnColor: "bg-orange-500 hover:bg-orange-600 border-orange-500",
     },
     {
         id: 3,
         badge: "🛡️ %100 Güvenli",
         title: "Veteriner Hekim Onaylı",
-        description: "Dostunun sağlığı şakaya gelmez. Kutularımızdaki her ödül maması ve oyuncak, uzman veterinerlerimiz tarafından kontrol edilir.",
-        image: "/veteriner-onayli.jpg", 
+        description: "Dostunun sağlığı şakaya gelmez. Kutularımızdaki her ürün uzman veterinerlerimizce kontrol edilir.",
+        image: "/slider_3.png", 
         btnColor: "bg-blue-600 hover:bg-blue-700 border-blue-600",
     }
   ];
@@ -88,7 +86,6 @@ export default function Home() {
     if (token) {
         setIsLoggedIn(true);
         
-        // 1. Profil Bilgisi
         fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         })
@@ -98,16 +95,15 @@ export default function Home() {
         })
         .catch(err => console.log(err));
 
-        // 2. Sipariş Kontrolü (Yeni üye mi yoksa eski mi?)
         fetch("https://candostumbox-api.onrender.com/orders/my-orders", {
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => res.json())
         .then(orders => {
             if (Array.isArray(orders) && orders.length > 0) {
-                setHasOrders(true); // Eski üye (Siparişi var)
+                setHasOrders(true); 
             } else {
-                setHasOrders(false); // Yeni üye (Siparişi yok)
+                setHasOrders(false); 
             }
         })
         .catch(() => setHasOrders(false));
@@ -133,10 +129,7 @@ export default function Home() {
       window.location.reload();
   };
 
-  // 👇 YENİ: AKILLI BUTON MANTIĞI
-  // Bu fonksiyon, kullanıcının durumuna göre butonun ne yapacağını belirler.
   const getHeroButtonConfig = (slideId: number) => {
-      // Varsayılan (Misafir)
       let config = { 
           text: "Kutunu Seç 🎁", 
           action: () => router.push('/product') 
@@ -148,27 +141,23 @@ export default function Home() {
 
       if (isLoggedIn) {
           if (hasOrders) {
-              // Aktif Üye (Siparişi Var) -> Profile gitmeli
               config = { 
                   text: "Kutunu Takip Et 📦", 
                   action: () => router.push('/profile?tab=siparisler')
               };
           } else {
-              // Yeni Üye (Siparişi Yok) -> Satın almaya gitmeli
               config = { 
                   text: `İlk Paketini Seç ${userName ? userName.split(' ')[0] : ''} 🚀`, 
                   action: () => router.push('/product') 
               };
           }
       } else {
-          // Misafir -> Ürünlere gitmeli (veya kayıt modalı açabilir)
           config = {
                text: "Hemen Başla 🎁",
                action: () => router.push('/product')
           };
       }
       
-      // Slide 2 özel durumu (Premium)
       if (slideId === 2) {
           if (isLoggedIn && hasOrders) {
                config = { text: "Aboneliği Yükselt 🚀", action: () => router.push('/profile?tab=abonelik') };
@@ -205,53 +194,67 @@ export default function Home() {
         onRegisterSuccess={handleRegisterSuccess}
       />
 
-      {/* --- HERO BANNER --- */}
+      {/* --- HERO BANNER (GÜNCELLENDİ) --- */}
       <div className="relative w-full overflow-hidden group">
         <div 
-            className="flex transition-transform duration-700 ease-[cubic-bezier(0.25,0.1,0.25,1)] h-[650px] md:h-[800px]"
+            className="flex transition-transform duration-1000 ease-out h-[600px] md:h-[750px]"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
             {slides.map((slide, index) => {
-                // Her slide için akıllı buton konfigürasyonunu al
                 const btnConfig = getHeroButtonConfig(slide.id);
 
                 return (
                 <div key={slide.id} className="w-full flex-shrink-0 relative h-full">
-                    <Image src={slide.image} alt={slide.title} fill className="object-cover" priority={index === 0} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent"></div>
+                    
+                    {/* Görsel: Ortalı ve Kaplayan */}
+                    <Image 
+                        src={slide.image} 
+                        alt={slide.title} 
+                        fill 
+                        className="object-cover object-center" 
+                        priority={index === 0} 
+                    />
+                    
+                    {/* Gradyan Katmanı: SADECE SOL TARAFI KOYULAŞTIRIR */}
+                    {/* Mobilde alttan, Desktopta soldan karartma */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent md:bg-gradient-to-r md:from-black/80 md:via-black/40 md:to-transparent"></div>
 
-                    <div className="absolute inset-0 flex items-center justify-center text-center z-10 px-4 pb-12 md:pb-0">
-                        <div className="max-w-5xl space-y-6 md:space-y-8">
+                    {/* İçerik Alanı: SOLA HİZALI */}
+                    <div className="absolute inset-0 flex items-end justify-center md:items-center md:justify-start z-10 px-6 pb-20 md:pb-0 md:pl-24 lg:pl-32">
+                        <div className="max-w-2xl space-y-6 text-center md:text-left">
                             
+                            {/* Badge */}
                             <div className="overflow-hidden inline-block rounded-full">
-                                <span className="inline-block py-2 px-6 text-xs md:text-sm font-bold tracking-widest uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg animate-fade-in-up">
+                                <span className="inline-block py-2 px-4 text-xs font-bold tracking-widest uppercase bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-lg animate-fade-in-up">
                                     {slide.badge}
                                 </span>
                             </div>
 
-                            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl animate-fade-in-up delay-100">
+                            {/* Başlık (Boyutu Mobilde Küçültüldü) */}
+                            <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-xl animate-fade-in-up delay-100">
                                 {slide.title}
                             </h1>
 
-                            <p className="text-lg md:text-2xl text-gray-200 max-w-2xl mx-auto leading-relaxed font-medium drop-shadow-lg animate-fade-in-up delay-200">
+                            {/* Açıklama (Mobilde Gizlenebilir veya Küçültülebilir) */}
+                            <p className="text-base md:text-xl text-gray-100/90 leading-relaxed font-medium drop-shadow-md max-w-lg mx-auto md:mx-0 animate-fade-in-up delay-200">
                                 {slide.description}
                             </p>
 
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 md:pt-8 animate-fade-in-up delay-300">
-                                {/* 👇 AKILLI BUTON BURADA */}
+                            {/* Butonlar */}
+                            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-4 animate-fade-in-up delay-300">
                                 <button 
                                     onClick={btnConfig.action} 
-                                    className={`px-8 py-4 md:px-10 md:py-5 text-white rounded-full font-bold text-lg transition-all shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)] transform hover:-translate-y-1 active:scale-95 flex items-center gap-3 border ${slide.btnColor}`}
+                                    className={`w-full sm:w-auto px-8 py-4 text-white rounded-full font-bold text-lg transition-all shadow-xl hover:scale-105 active:scale-95 flex items-center justify-center gap-3 border ${slide.btnColor}`}
                                 >
                                     {btnConfig.text}
                                 </button>
                                 
                                 <button 
                                     onClick={() => router.push('/how-it-works')} 
-                                    className="px-8 py-4 md:px-10 md:py-5 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-lg transition-all hover:border-white/60 flex items-center gap-2 group/btn"
+                                    className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-lg transition-all hover:border-white/60 flex items-center justify-center gap-2"
                                 >
                                     Nasıl Çalışır?
-                                    <span className="group-hover/btn:translate-x-1 transition-transform">➔</span>
+                                    <span>➔</span>
                                 </button>
                             </div>
                         </div>
@@ -260,20 +263,21 @@ export default function Home() {
             )})}
         </div>
         
-        {/* Oklar ve Noktalar (Aynı Kaldı) */}
-        <button onClick={prevSlide} className="absolute top-1/2 left-4 md:left-8 transform -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 transition-all hover:scale-110 z-20 focus:outline-none group opacity-0 group-hover:opacity-100 duration-300">
-            <svg className="w-6 h-6 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        {/* Oklar */}
+        <button onClick={prevSlide} className="hidden md:flex absolute top-1/2 left-8 transform -translate-y-1/2 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-full border border-white/20 transition-all z-20">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <button onClick={nextSlide} className="absolute top-1/2 right-4 md:right-8 transform -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-black/20 hover:bg-black/40 backdrop-blur-md text-white rounded-full border border-white/10 transition-all hover:scale-110 z-20 focus:outline-none group opacity-0 group-hover:opacity-100 duration-300">
-            <svg className="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        <button onClick={nextSlide} className="hidden md:flex absolute top-1/2 right-8 transform -translate-y-1/2 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-full border border-white/20 transition-all z-20">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </button>
 
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">
+        {/* Noktalar */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
             {slides.map((_, index) => (
                 <button 
                     key={index} 
                     onClick={() => setCurrentSlide(index)} 
-                    className={`h-2 rounded-full transition-all duration-500 ${currentSlide === index ? 'bg-white w-8 md:w-12' : 'bg-white/40 hover:bg-white/60 w-2 md:w-3'}`}
+                    className={`h-1.5 rounded-full transition-all duration-500 ${currentSlide === index ? 'bg-white w-8' : 'bg-white/40 w-2 hover:bg-white/60'}`}
                 ></button>
             ))}
         </div>
