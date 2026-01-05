@@ -40,6 +40,8 @@ import { ReviewsModule } from './reviews/reviews.module';
     AddressesModule,
     AuthModule,
     PaymentModule,
+    ReviewsModule,
+    
   ],
   controllers: [],
   providers: [],
