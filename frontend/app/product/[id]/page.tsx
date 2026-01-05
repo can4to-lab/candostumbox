@@ -9,9 +9,9 @@ import UpsellModal from "@/components/UpsellModal";
 
 const API_URL = "https://candostumbox-api.onrender.com";
 
-// --- INTERFACELER (GÜNCELLENDİ: ID'ler string oldu) ---
+// --- INTERFACELER ---
 interface Product { 
-    id: string; // UUID olduğu için string
+    id: string; 
     name: string; 
     price: number; 
     description: string; 
@@ -50,50 +50,66 @@ const YEARS = Array.from({ length: 25 }, (_, i) => CURRENT_YEAR - i);
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 // --- YARDIMCI BİLEŞEN: TAKSİT TABLOSU ---
-const InstallmentTable = ({ price }: { price: number }) => (
-  <div className="overflow-x-auto border border-gray-100 rounded-xl mt-4">
-    <div className="bg-blue-50 p-4 text-sm text-blue-800 mb-4 rounded-lg flex items-center gap-2 m-4">
-       <span>💡</span>
-       <strong>Bilgi:</strong> Aşağıdaki taksit seçenekleri, ödemenin tamamını peşin yaptığınızda geçerlidir.
-    </div>
-    <table className="w-full text-sm text-left text-gray-600">
-      <thead className="bg-gray-50 text-gray-900 font-bold uppercase text-xs">
-        <tr>
-          <th className="px-6 py-4">Taksit Sayısı</th>
-          <th className="px-6 py-4">Aylık Ödeme</th>
-          <th className="px-6 py-4">Toplam Tutar</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
-        <tr>
-          <td className="px-6 py-4 font-bold text-gray-900">Tek Çekim</td>
-          <td className="px-6 py-4">₺{price.toFixed(2)}</td>
-          <td className="px-6 py-4 font-bold">₺{price.toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td className="px-6 py-4">3 Taksit</td>
-          <td className="px-6 py-4">₺{(price / 3 * 1.035).toFixed(2)}</td>
-          <td className="px-6 py-4">₺{(price * 1.035).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td className="px-6 py-4">6 Taksit</td>
-          <td className="px-6 py-4">₺{(price / 6 * 1.065).toFixed(2)}</td>
-          <td className="px-6 py-4">₺{(price * 1.065).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td className="px-6 py-4">9 Taksit</td>
-          <td className="px-6 py-4">₺{(price / 9 * 1.095).toFixed(2)}</td>
-          <td className="px-6 py-4">₺{(price * 1.095).toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td className="px-6 py-4">12 Taksit</td>
-          <td className="px-6 py-4">₺{(price / 12 * 1.125).toFixed(2)}</td>
-          <td className="px-6 py-4">₺{(price * 1.125).toFixed(2)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-);
+const InstallmentTable = ({ price, isVisible }: { price: number; isVisible: boolean }) => {
+  if (!isVisible) {
+      return (
+          <div className="bg-orange-50 border border-orange-100 p-8 rounded-xl text-center animate-fade-in mt-4">
+              <div className="text-4xl mb-3">💳</div>
+              <h4 className="font-bold text-gray-900 mb-2 text-lg">Taksit İmkanı</h4>
+              <p className="text-gray-600 text-sm leading-relaxed max-w-md mx-auto">
+                  Taksit seçenekleri banka anlaşmaları gereği sadece <strong>3, 6, 9 veya 12 aylık Peşin Ödeme (Tek Çekim)</strong> planlarında geçerlidir.
+                  <br /><br />
+                  Taksitleri görmek için lütfen yukarıdan uzun dönemli bir paket seçiniz.
+              </p>
+          </div>
+      );
+  }
+
+  return (
+      <div className="overflow-x-auto border border-gray-100 rounded-xl mt-4 animate-fade-in">
+        <div className="bg-blue-50 p-4 text-sm text-blue-800 mb-4 rounded-lg flex items-center gap-2 m-4">
+           <span>💡</span>
+           <strong>Bilgi:</strong> Aşağıdaki taksit seçenekleri, ödemenin tamamını peşin yaptığınızda geçerlidir.
+        </div>
+        <table className="w-full text-sm text-left text-gray-600">
+          <thead className="bg-gray-50 text-gray-900 font-bold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-4">Taksit Sayısı</th>
+              <th className="px-6 py-4">Aylık Ödeme</th>
+              <th className="px-6 py-4">Toplam Tutar</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
+            <tr>
+              <td className="px-6 py-4 font-bold text-gray-900">Tek Çekim</td>
+              <td className="px-6 py-4">₺{price.toFixed(2)}</td>
+              <td className="px-6 py-4 font-bold">₺{price.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-4">3 Taksit</td>
+              <td className="px-6 py-4">₺{(price / 3 * 1.035).toFixed(2)}</td>
+              <td className="px-6 py-4">₺{(price * 1.035).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-4">6 Taksit</td>
+              <td className="px-6 py-4">₺{(price / 6 * 1.065).toFixed(2)}</td>
+              <td className="px-6 py-4">₺{(price * 1.065).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-4">9 Taksit</td>
+              <td className="px-6 py-4">₺{(price / 9 * 1.095).toFixed(2)}</td>
+              <td className="px-6 py-4">₺{(price * 1.095).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-4">12 Taksit</td>
+              <td className="px-6 py-4">₺{(price / 12 * 1.125).toFixed(2)}</td>
+              <td className="px-6 py-4">₺{(price * 1.125).toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+  );
+};
 
 // --- YARDIMCI BİLEŞEN: GERÇEK YORUMLAR ---
 const ReviewsSection = ({ productId }: { productId: string }) => {
@@ -135,7 +151,7 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    productId: productId, // string UUID gönderiyoruz
+                    productId: productId,
                     rating: rating,
                     comment: newComment
                 })
@@ -162,7 +178,6 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
 
     return (
         <div className="space-y-8 animate-fade-in">
-            {/* İSTATİSTİK VE FORM */}
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 bg-gray-50 p-6 rounded-2xl border border-gray-100">
                 <div className="text-center min-w-[120px]">
                     <div className="text-5xl font-black text-gray-900">{averageRating}</div>
@@ -197,7 +212,6 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
                 </div>
             </div>
             
-            {/* YORUM LİSTESİ */}
             {loading ? (
                 <div className="text-center text-gray-400 py-4">Yorumlar yükleniyor...</div>
             ) : reviews.length === 0 ? (
@@ -239,7 +253,6 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
 
 export default function ProductDetail() {
   const params = useParams();
-  // params.id string gelir
   const id = params?.id as string; 
   const router = useRouter();
   const { addToCart } = useCart();
@@ -396,9 +409,9 @@ export default function ProductDetail() {
           const priceInfo = calculatePrice(duration);
           const finalPrice = paymentType === 'monthly' ? Number(product.price) : priceInfo.total;
           const safePetName = isNewPetMode ? petData.name : savedPets.find(p => p.id === selectedPetId)?.name;
-          // ID'leri number'a cast etmeye çalışmıyoruz artık, backend ne verdiyse o.
+          
           addToCart({ 
-              productId: product.id as any, // Context number bekliyorsa any ile geçiyoruz (Context güncellenebilir)
+              productId: product.id as any,
               productName: product.name, 
               price: finalPrice, 
               image: product.image, 
@@ -559,23 +572,103 @@ export default function ProductDetail() {
 
                         {step === 3 && (
                             <div className="animate-fade-in text-center space-y-6">
-                                <h2 className="text-2xl font-black text-gray-900">Özet 🎉</h2>
-                                <div className="bg-gray-50 p-6 rounded-2xl text-left space-y-3">
-                                    <div className="flex justify-between font-bold text-gray-900"><span>Paket</span><span>{product.name}</span></div>
-                                    <div className="flex justify-between font-bold text-gray-900"><span>Süre</span><span>{duration} Ay</span></div>
-                                    <div className="flex justify-between font-bold text-gray-900"><span>Dostun</span><span>{petData.name || (savedPets.find(p => p.id === selectedPetId)?.name)}</span></div>
-                                </div>
+                                <h2 className="text-2xl font-black text-gray-900">Özet & Ödeme 🧾</h2>
                                 
+                                {/* 1. ÖDEME YÖNTEMİ SEÇİMİ (EN ÜSTE ALINDI) */}
                                 {duration > 1 && (
-                                    <div className="flex gap-2">
-                                        <button onClick={() => setPaymentType('monthly')} disabled={!isLoggedIn} className={`flex-1 py-3 rounded-xl font-bold border-2 ${paymentType === 'monthly' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200'}`}>Her Ay Öde</button>
-                                        <button onClick={() => setPaymentType('upfront')} className={`flex-1 py-3 rounded-xl font-bold border-2 ${paymentType === 'upfront' ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-200'}`}>Tek Çekim</button>
+                                    <div className="bg-blue-50 p-4 rounded-2xl mb-4 border border-blue-100">
+                                        <p className="text-left text-sm font-bold text-blue-900 mb-3 ml-1">Ödeme Tercihi Seçiniz:</p>
+                                        <div className="flex gap-3">
+                                            <button 
+                                                onClick={() => setPaymentType('monthly')} 
+                                                disabled={!isLoggedIn} 
+                                                className={`flex-1 py-4 px-2 rounded-xl font-bold text-sm border-2 transition-all shadow-sm flex flex-col items-center justify-center gap-1
+                                                    ${paymentType === 'monthly' 
+                                                        ? 'border-green-500 bg-white text-green-700 ring-2 ring-green-200' 
+                                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                                    }
+                                                `}
+                                            >
+                                                <span>Her Ay Öde 📅</span>
+                                                <span className="text-xs font-normal opacity-80">(Otomatik Çekim)</span>
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => setPaymentType('upfront')} 
+                                                className={`flex-1 py-4 px-2 rounded-xl font-bold text-sm border-2 transition-all shadow-sm flex flex-col items-center justify-center gap-1
+                                                    ${paymentType === 'upfront' 
+                                                        ? 'border-green-500 bg-white text-green-700 ring-2 ring-green-200' 
+                                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                                                    }
+                                                `}
+                                            >
+                                                <span>Tek Seferde Öde 💳</span>
+                                                <span className="text-xs font-normal opacity-80">(Taksit İmkanı Var)</span>
+                                            </button>
+                                        </div>
+                                        {!isLoggedIn && (
+                                            <p className="text-xs text-red-500 mt-2 text-left ml-1">* Aylık ödeme için giriş yapmalısınız.</p>
+                                        )}
                                     </div>
                                 )}
 
-                                <div className="text-3xl font-black text-green-600">₺{paymentType === 'monthly' ? Number(product.price).toFixed(2) : currentPriceInfo.total.toFixed(2)}</div>
-                                <button onClick={handleNextStep} className="bg-green-600 text-white w-full py-4 rounded-xl font-bold shadow-lg">Ödemeye Geç 💳</button>
-                                <button onClick={() => setStep(2)} className="text-gray-400 font-bold mt-4">Düzenle</button>
+                                {/* 2. ÖZET KUTUSU (İÇERİK EKLENDİ) */}
+                                <div className="bg-gray-50 p-6 rounded-2xl text-left space-y-4 border border-gray-200">
+                                    <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+                                        <span className="text-gray-500 font-medium">Paket</span>
+                                        <span className="font-bold text-gray-900 text-lg">{product.name}</span>
+                                    </div>
+                                    
+                                    {/* Kutu İçeriği Özeti */}
+                                    {product.features && product.features.length > 0 && (
+                                        <div className="py-3">
+                                            <span className="text-xs font-bold text-gray-400 uppercase block mb-2">Paket İçeriği</span>
+                                            <ul className="grid grid-cols-2 gap-2">
+                                                {product.features.slice(0, 4).map((f, i) => (
+                                                    <li key={i} className="text-xs text-gray-600 flex items-center gap-1">
+                                                        <span className="text-green-500">✓</span> {f}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-gray-500 font-medium">Süre</span>
+                                        <span className="font-bold text-gray-900">{duration} Ay</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-4 border-b border-gray-200">
+                                        <span className="text-gray-500 font-medium">Dostumuz</span>
+                                        <span className="font-bold text-gray-900 bg-white px-2 py-1 rounded border border-gray-200">
+                                            {petData.name || (savedPets.find(p => p.id === selectedPetId)?.name)}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-end pt-2">
+                                        <div>
+                                            <span className="block text-xs text-gray-400 font-bold uppercase mb-1">Toplam Tutar</span>
+                                            <span className="text-3xl font-black text-gray-900 tracking-tight">
+                                                ₺{paymentType === 'monthly' ? Number(product.price).toFixed(2) : currentPriceInfo.total.toFixed(2)}
+                                            </span>
+                                        </div>
+                                        <div className="text-right">
+                                            {paymentType === 'monthly' ? (
+                                                <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded">Her Ay Çekilir</span>
+                                            ) : (
+                                                <span className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded">Tek Çekim</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onClick={handleNextStep} className="bg-gray-900 text-white w-full py-4 rounded-xl font-bold shadow-xl hover:bg-black transition transform active:scale-95 flex items-center justify-center gap-2">
+                                    <span>Ödemeye Geç</span>
+                                    <span>➔</span>
+                                </button>
+                                
+                                <button onClick={() => setStep(2)} className="text-gray-400 font-bold text-sm hover:text-gray-600 transition">
+                                    Bilgileri Düzenle
+                                </button>
                             </div>
                         )}
                     </div>
@@ -585,9 +678,7 @@ export default function ProductDetail() {
                 <div className="mt-8 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
                     <div className="flex border-b border-gray-100">
                         <button onClick={() => setActiveTab('desc')} className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'desc' ? 'border-b-4 border-green-500 text-green-600 bg-green-50/50' : 'text-gray-500 hover:bg-gray-50'}`}>📦 Kutu İçeriği</button>
-                        {(duration > 1 && paymentType === 'upfront') && (
-                            <button onClick={() => setActiveTab('installment')} className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'installment' ? 'border-b-4 border-green-500 text-green-600 bg-green-50/50' : 'text-gray-500 hover:bg-gray-50'}`}>💳 Taksit Seçenekleri</button>
-                        )}
+                        <button onClick={() => setActiveTab('installment')} className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'installment' ? 'border-b-4 border-green-500 text-green-600 bg-green-50/50' : 'text-gray-500 hover:bg-gray-50'}`}>💳 Taksit Seçenekleri</button>
                         <button onClick={() => setActiveTab('reviews')} className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'reviews' ? 'border-b-4 border-green-500 text-green-600 bg-green-50/50' : 'text-gray-500 hover:bg-gray-50'}`}>⭐ Yorumlar</button>
                     </div>
 
@@ -614,7 +705,10 @@ export default function ProductDetail() {
 
                         {activeTab === 'installment' && (
                             <div className="animate-fade-in">
-                                <InstallmentTable price={currentPriceInfo.total} />
+                                <InstallmentTable 
+                                    price={currentPriceInfo.total} 
+                                    isVisible={duration > 1 && paymentType === 'upfront'} 
+                                />
                             </div>
                         )}
 

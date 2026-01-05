@@ -13,8 +13,9 @@ interface Product {
   price: number;
   description: string;
   stock: number;
-  features: string[]; // Veritabanına eklediğimiz özellikler
-  isVisible: boolean; 
+  features: string[]; 
+  isVisible: boolean;
+  order: number; // 👈 HATA ÇÖZÜMÜ BURADA: Bunu ekledik.
 }
 
 export default function PaketlerPage() {
@@ -23,21 +24,12 @@ export default function PaketlerPage() {
   // --- STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
 
   // Auth State
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
-
-  const scrollToSection = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
-        setIsSideMenuOpen(false); 
-    }
-  };
 
   // --- VERİ ÇEKME ---
   useEffect(() => {
@@ -58,7 +50,11 @@ export default function PaketlerPage() {
       try {
         const res = await fetch("https://candostumbox-api.onrender.com/products");
         const data = await res.json();
-        setProducts(Array.isArray(data) ? data : []);
+        // Sıralama (Order varsa ona göre, yoksa fiyata göre)
+        const sortedProducts = Array.isArray(data) 
+            ? data.sort((a:any, b:any) => (a.order || 0) - (b.order || 0)) 
+            : [];
+        setProducts(sortedProducts);
       } catch (error) {
         console.error("Paketler yüklenemedi:", error);
       } finally {
@@ -68,138 +64,194 @@ export default function PaketlerPage() {
     fetchProducts();
   }, []);
 
-  // --- FONKSİYONLAR ---
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    window.location.reload();
-  };
-
-  const handleNavigation = (path: string) => {
-    router.push(path);
-    setIsSideMenuOpen(false);
-  };
-
   const handleSelectPackage = (id: number) => {
       router.push(`/product/${id}`);
   };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] font-sans">
+    <main className="min-h-screen bg-[#f8f9fa] font-sans pb-20">
       <Toaster position="top-right" />
 
       {/* --- MODALLAR --- */}
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
 
-    
+      {/* ================================================================== */}
+      {/* 📦 HEADER BÖLÜMÜ 📦 */}
+      {/* ================================================================== */}
+      <div className="pt-20 pb-12 bg-white border-b border-gray-100">
+        <div className="container mx-auto px-4 text-center">
+            <span className="inline-block py-1 px-3 rounded-full bg-green-50 text-green-600 font-bold text-xs tracking-wider uppercase mb-4 animate-fade-in-up">
+                MUTLULUK KUTULARI
+            </span>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 mb-6 tracking-tight animate-fade-in-up delay-100 leading-tight">
+                Dostun İçin <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-500">En İyisini</span> Seç
+            </h1>
+            <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto leading-relaxed animate-fade-in-up delay-200">
+                Her bütçeye uygun paketlerimizle düzenli mutluluk kapında.
+            </p>
 
-      {/* ================================================================== */}
-      {/* 📦 PAKETLER İÇERİĞİ 📦 */}
-      {/* ================================================================== */}
-      <div className="py-16 md:py-24">
-        <div className="container mx-auto px-4 md:px-6">
-            
-            {/* BAŞLIK */}
-            <div className="text-center max-w-3xl mx-auto mb-20">
-                <span className="text-green-600 font-bold tracking-wider text-sm uppercase mb-2 block animate-fade-in-up">MUTLULUK KUTULARI</span>
-                <h1 className="text-4xl md:text-6xl font-black text-gray-900 mb-6 tracking-tight animate-fade-in-up delay-100">
-                    Dostun İçin En İyisini Seç
-                </h1>
-                <p className="text-xl text-gray-500 font-medium leading-relaxed animate-fade-in-up delay-200">
-                    Her bütçeye ve ihtiyaca uygun paketlerimizle her ay düzenli mutluluk kapında. Taahhüt yok, istediğin zaman iptal et.
-                </p>
+            {/* GÜVEN BARI (ICONS) */}
+            <div className="flex flex-wrap justify-center gap-4 md:gap-8 mt-8 animate-fade-in-up delay-300">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                    <span>🚚</span> Ücretsiz Kargo
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                    <span>💳</span> 12 Taksit İmkanı
+                </div>
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
+                    <span>🔄</span> İstediğin Zaman İptal
+                </div>
             </div>
+        </div>
+      </div>
 
+      {/* ================================================================== */}
+      {/* 📦 PAKETLER LİSTESİ 📦 */}
+      {/* ================================================================== */}
+      <div className="py-16 container mx-auto px-4 md:px-6">
+            
             {/* YÜKLENİYOR... */}
             {loading && (
                 <div className="flex justify-center items-center h-64">
-                    <div className="text-green-500 text-xl font-bold animate-pulse flex items-center gap-2">
-                        <span className="text-3xl">🎁</span> Paketler yükleniyor...
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+                        <span className="text-gray-500 font-bold">Paketler hazırlanıyor...</span>
                     </div>
                 </div>
             )}
 
-            {/* PAKET LİSTESİ */}
+            {/* PAKETLER GRID */}
             {!loading && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-                    {products.map((product, index) => {
-                        const isPopular = product.name.toLowerCase().includes('premium'); // Örn: PremiumBox popüler olsun
+                    {products.map((product) => {
+                        // "Premium" kelimesi geçen veya fiyatı yüksek olanı popüler yapabiliriz (Örnek mantık)
+                        // order === 2 olanı da popüler yapabiliriz senin sıralamana göre
+                        const isPopular = product.name.toLowerCase().includes('premium') || product.name.toLowerCase().includes('süper') || product.order === 2;
                         const hasStock = product.stock > 0;
 
                         return (
                             <div 
                                 key={product.id} 
-                                className={`relative bg-white rounded-[2.5rem] p-8 flex flex-col transition-all duration-500 group
+                                className={`relative flex flex-col transition-all duration-500 group rounded-[2rem] overflow-hidden
+                                    ${!hasStock ? 'grayscale opacity-70' : ''}
                                     ${isPopular 
-                                        ? 'border-2 border-green-500 shadow-2xl scale-105 z-10 ring-4 ring-green-50/50' 
-                                        : 'border border-gray-100 shadow-xl hover:shadow-2xl hover:-translate-y-2' 
+                                        ? 'bg-white border-2 border-green-500 shadow-2xl scale-100 lg:scale-105 z-10' 
+                                        : 'bg-white border border-gray-100 shadow-xl hover:shadow-2xl hover:-translate-y-2' 
                                     }
                                 `}
                             >
                                 {/* Popüler Etiketi */}
-                                {isPopular && (
-                                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold px-6 py-2 rounded-full shadow-lg tracking-widest uppercase">
+                                {isPopular && hasStock && (
+                                    <div className="absolute top-0 w-full bg-green-500 text-white text-xs font-bold py-1.5 text-center uppercase tracking-widest z-20">
                                         En Çok Tercih Edilen
                                     </div>
                                 )}
 
-                                {/* Başlık & Açıklama */}
-                                <div className="text-center mb-8 pt-4">
-                                    <h3 className="text-3xl font-black text-gray-900 mb-3">{product.name}</h3>
-                                    <p className="text-gray-500 text-sm leading-relaxed min-h-[40px]">
-                                        {product.description || "Can dostun için harika sürprizler."}
-                                    </p>
+                                <div className={`p-8 flex flex-col h-full ${isPopular ? 'pt-10' : ''}`}>
+                                    
+                                    {/* Başlık & Açıklama */}
+                                    <div className="text-center mb-6">
+                                        <h3 className="text-2xl font-black text-gray-900 mb-3 leading-tight">{product.name}</h3>
+                                        <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 min-h-[60px]">
+                                            {product.description || "Can dostun için harika sürprizler içeren dolu dolu bir kutu."}
+                                        </p>
+                                    </div>
+
+                                    {/* Avantaj Rozetleri */}
+                                    <div className="flex justify-center gap-2 mb-6 flex-wrap">
+                                        <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-100 flex items-center gap-1">
+                                            💳 Taksit İmkanı
+                                        </span>
+                                        <span className="bg-orange-50 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-orange-100 flex items-center gap-1">
+                                            🔥 Yıllık İndirim
+                                        </span>
+                                    </div>
+
+                                    {/* Fiyat Alanı */}
+                                    <div className="text-center mb-8 pb-8 border-b border-gray-100">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <span className="text-2xl font-bold text-gray-400 self-start mt-2">₺</span>
+                                            <span className="text-6xl font-black text-gray-900 tracking-tighter">{Number(product.price).toFixed(0)}</span>
+                                        </div>
+                                        <span className="text-gray-400 font-bold text-sm block mt-1">/ ay (Başlayan fiyatlarla)</span>
+                                    </div>
+
+                                    {/* Özellikler Listesi */}
+                                    <ul className="space-y-3 mb-8 px-2 flex-grow">
+                                        {product.features && product.features.length > 0 ? (
+                                            product.features.map((feature, i) => (
+                                                <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
+                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold mt-0.5">✓</span>
+                                                    <span className="font-medium">{feature}</span>
+                                                </li>
+                                            ))
+                                        ) : (
+                                            // Varsayılan özellikler
+                                            <>
+                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Orijinal Lisanslı Ürünler</span></li>
+                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Veteriner Hekim Seçimi</span></li>
+                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Sürpriz Hediyeler</span></li>
+                                            </>
+                                        )}
+                                    </ul>
+
+                                    {/* Buton */}
+                                    <button 
+                                        onClick={() => handleSelectPackage(product.id)}
+                                        disabled={!hasStock}
+                                        className={`w-full py-4 rounded-xl font-bold text-base transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 group-hover:shadow-xl
+                                            ${!hasStock 
+                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
+                                                : isPopular 
+                                                    ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200' 
+                                                    : 'bg-gray-900 text-white hover:bg-black shadow-gray-200'
+                                            }
+                                        `}
+                                    >
+                                        {!hasStock ? "Stoklar Tükendi" : "İncele & Satın Al 👉"}
+                                    </button>
                                 </div>
-
-                                {/* Fiyat */}
-                                <div className="flex justify-center items-end gap-1 mb-10 pb-8 border-b border-dashed border-gray-200">
-                                    <span className="text-3xl font-bold text-gray-400 -mb-1">₺</span>
-                                    <span className="text-7xl font-black text-gray-900 tracking-tighter">{product.price}</span>
-                                    <span className="text-gray-400 font-bold text-lg mb-2">/ay</span>
-                                </div>
-
-                                {/* Özellikler */}
-                                <ul className="space-y-4 mb-10 text-gray-600 text-left px-2 flex-grow">
-                                    {product.features && product.features.length > 0 ? (
-                                        product.features.map((feature, i) => (
-                                            <li key={i} className="flex items-start gap-3">
-                                                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold mt-0.5">✓</span>
-                                                <span className="font-medium text-sm">{feature}</span>
-                                            </li>
-                                        ))
-                                    ) : (
-                                        // Varsayılan özellikler (Eğer DB'de yoksa)
-                                        <>
-                                            <li className="flex items-center gap-3"><span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Orijinal Lisanslı Ürünler</span></li>
-                                            <li className="flex items-center gap-3"><span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Veteriner Kontrolünde</span></li>
-                                            <li className="flex items-center gap-3"><span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Ücretsiz Kargo 🚚</span></li>
-                                        </>
-                                    )}
-                                </ul>
-
-                                {/* Buton */}
-                                <button 
-                                    onClick={() => handleSelectPackage(product.id)}
-                                    disabled={!hasStock}
-                                    className={`w-full py-4 rounded-2xl font-bold text-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-2
-                                        ${!hasStock 
-                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                                            : isPopular 
-                                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200 hover:shadow-green-300' 
-                                                : 'bg-gray-900 text-white hover:bg-gray-800'
-                                        }
-                                    `}
-                                >
-                                    {!hasStock ? "Stokta Yok 😔" : "Paketi Seç 👉"}
-                                </button>
                             </div>
                         );
                     })}
                 </div>
             )}
-        </div>
       </div>
+
+      {/* ================================================================== */}
+      {/* ℹ️ NASIL ÇALIŞIR? (EK BİLGİ ALANI) ℹ️ */}
+      {/* ================================================================== */}
+      <div className="container mx-auto px-4 py-12 border-t border-gray-200 mt-12">
+          <div className="text-center mb-10">
+              <h2 className="text-2xl font-black text-gray-900">Nasıl Çalışır?</h2>
+              <p className="text-gray-500">Mutluluk sadece 3 adım uzakta.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {/* Adım 1 */}
+              <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mb-4">📦</div>
+                  <h3 className="font-bold text-gray-900 text-lg mb-2">Paketini Seç</h3>
+                  <p className="text-sm text-gray-500">Bütçene uygun paketi seç, ister aylık ister yıllık avantajlı öde.</p>
+              </div>
+              
+              {/* Adım 2 */}
+              <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-3xl mb-4">🐶</div>
+                  <h3 className="font-bold text-gray-900 text-lg mb-2">Dostunu Tanıt</h3>
+                  <p className="text-sm text-gray-500">Köpeğini, kedini veya kuşunu sisteme kaydet, ona özel ürünler hazırlayalım.</p>
+              </div>
+
+              {/* Adım 3 */}
+              <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
+                  <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-3xl mb-4">🎉</div>
+                  <h3 className="font-bold text-gray-900 text-lg mb-2">Mutluluk Kapında</h3>
+                  <p className="text-sm text-gray-500">Her ay düzenli olarak sürpriz kutun kapına gelsin, pati şenliği başlasın!</p>
+              </div>
+          </div>
+      </div>
+
     </main>
   );
 }
