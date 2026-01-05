@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
+import { Review } from '../../reviews/entities/review.entity';
 
 @Entity()
 export class Product {
@@ -41,4 +42,8 @@ export class Product {
 
   @DeleteDateColumn()
   deletedAt: Date;
+
+  // İlişki Tanımı
+  @OneToMany(() => Review, (review) => review.product)
+  reviews: Review[];
 }

@@ -12,6 +12,7 @@ import { Pet } from '../../pets/entities/pet.entity';
 import { Order } from '../../orders/entities/order.entity';
 import { Subscription } from '../../subscriptions/entities/subscription.entity';
 import { Address } from '../../addresses/entities/address.entity'; 
+import { Review } from '../../reviews/entities/review.entity'; // Import ekle
 
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
@@ -63,6 +64,9 @@ export class User {
 
   @OneToMany(() => Subscription, (sub) => sub.user)
   subscriptions: Subscription[];
+
+  @OneToMany(() => Review, (review) => review.user)
+  reviews: Review[];
 
   // 👇 DÜZELTME: cascade: true eklendi (Adresler artık kaydedilecek)
   @OneToMany(() => Address, (addr) => addr.user, { cascade: true })

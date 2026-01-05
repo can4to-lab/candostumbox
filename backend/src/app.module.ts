@@ -12,6 +12,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { AddressesModule } from './addresses/addresses.module'; 
 import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
+import { ReviewsModule } from './reviews/reviews.module'; 
 
 @Module({
   imports: [
