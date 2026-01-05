@@ -40,15 +40,15 @@ export default function Home() {
   const slides = [
     {
         id: 1,
-        badge: "🚀 En Popüler Başlangıç",
+        badge: "🚀 En Popüler",
         title: "Dostun İçin Mutluluk Kutusu",
         description: "İçinde ne olduğunu sadece biz biliyoruz! Her ay kapına gelen sürpriz lezzet ve oyun şöleni.",
-        image: "/slider_1.png", // Uzantıyı .jpeg olarak düzelttim (senin yüklediğine göre)
+        image: "/slider_1.png", 
         btnColor: "bg-green-600 hover:bg-green-700 border-green-600",
     },
     {
         id: 2,
-        badge: "✨ Premium Deneyim",
+        badge: "✨ Premium",
         title: "Sıkıcı Oyuncaklara Veda Et",
         description: "Sıradan bir top yerine, zeka geliştirici ve dayanıklı oyuncaklar gönderiyoruz.",
         image: "/slider_2.png", 
@@ -58,7 +58,7 @@ export default function Home() {
         id: 3,
         badge: "🛡️ %100 Güvenli",
         title: "Veteriner Hekim Onaylı",
-        description: "Dostunun sağlığı şakaya gelmez. Kutularımızdaki her ürün uzman veterinerlerimizce kontrol edilir.",
+        description: "Dostunun sağlığı şakaya gelmez. Her ürün uzman veterinerlerimizce kontrol edilir.",
         image: "/slider_3.png", 
         btnColor: "bg-blue-600 hover:bg-blue-700 border-blue-600",
     }
@@ -80,19 +80,16 @@ export default function Home() {
     setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
 
-  // --- KULLANICI BİLGİLERİ VE SİPARİŞ KONTROLÜ ---
+  // --- KULLANICI BİLGİLERİ ---
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
         setIsLoggedIn(true);
-        
         fetch("https://candostumbox-api.onrender.com/auth/profile", {
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => res.json())
-        .then(data => {
-            setUserName(data.name || "Dostum");
-        })
+        .then(data => setUserName(data.name || "Dostum"))
         .catch(err => console.log(err));
 
         fetch("https://candostumbox-api.onrender.com/orders/my-orders", {
@@ -100,11 +97,8 @@ export default function Home() {
         })
         .then(res => res.json())
         .then(orders => {
-            if (Array.isArray(orders) && orders.length > 0) {
-                setHasOrders(true); 
-            } else {
-                setHasOrders(false); 
-            }
+            if (Array.isArray(orders) && orders.length > 0) setHasOrders(true); 
+            else setHasOrders(false); 
         })
         .catch(() => setHasOrders(false));
     }
@@ -130,42 +124,21 @@ export default function Home() {
   };
 
   const getHeroButtonConfig = (slideId: number) => {
-      let config = { 
-          text: "Kutunu Seç 🎁", 
-          action: () => router.push('/product') 
-      };
+      let config = { text: "Kutunu Seç 🎁", action: () => router.push('/product') };
 
-      if (slideId === 3) {
-           return { text: "Bizi Tanı 🩺", action: () => router.push('/about') };
-      }
+      if (slideId === 3) return { text: "Bizi Tanı 🩺", action: () => router.push('/about') };
 
       if (isLoggedIn) {
-          if (hasOrders) {
-              config = { 
-                  text: "Kutunu Takip Et 📦", 
-                  action: () => router.push('/profile?tab=siparisler')
-              };
-          } else {
-              config = { 
-                  text: `İlk Paketini Seç ${userName ? userName.split(' ')[0] : ''} 🚀`, 
-                  action: () => router.push('/product') 
-              };
-          }
+          if (hasOrders) config = { text: "Kutunu Takip Et 📦", action: () => router.push('/profile?tab=siparisler') };
+          else config = { text: "İlk Paketini Seç $", action: () => router.push('/product') };
       } else {
-          config = {
-               text: "Hemen Başla 🎁",
-               action: () => router.push('/product')
-          };
+          config = { text: "Hemen Başla 🎁", action: () => router.push('/product') };
       }
       
       if (slideId === 2) {
-          if (isLoggedIn && hasOrders) {
-               config = { text: "Aboneliği Yükselt 🚀", action: () => router.push('/profile?tab=abonelik') };
-          } else {
-               config = { text: "Planları İncele 🔍", action: () => router.push('/product') };
-          }
+          if (isLoggedIn && hasOrders) config = { text: "Aboneliği Yükselt 🚀", action: () => router.push('/profile?tab=abonelik') };
+          else config = { text: "Planları İncele 🔍", action: () => router.push('/product') };
       }
-
       return config;
   };
 
@@ -173,13 +146,6 @@ export default function Home() {
     <main className="min-h-screen bg-[#f8f9fa] text-gray-800 font-sans relative">
       <Toaster position="top-right" />
       
-      {showBanner && (
-        <div className="bg-gray-900 text-gray-200 text-xs font-medium py-2 px-4 text-center relative z-50 animate-fade-in">
-            <span>🎉 YENİ ÜYELERE ÖZEL İLK KUTUDA %20 İNDİRİM! Kod: DOSTUM2025</span>
-            <button onClick={() => setShowBanner(false)} className="absolute right-4 top-1/2 transform -translate-y-1/2 hover:text-white">✕</button>
-        </div>
-      )}
-
       <LoginModal 
         isOpen={isLoginOpen} 
         onClose={() => setLoginOpen(false)} 
@@ -194,19 +160,17 @@ export default function Home() {
         onRegisterSuccess={handleRegisterSuccess}
       />
 
-      {/* --- HERO BANNER (GÜNCELLENDİ) --- */}
-      <div className="relative w-full overflow-hidden group">
+      {/* ================================================================== */}
+      {/* 🖼️ BÖLÜM 1: GÖRSEL SLIDER (Sadece Resim) */}
+      {/* ================================================================== */}
+      <div className="relative w-full overflow-hidden group bg-gray-100">
         <div 
-            className="flex transition-transform duration-1000 ease-out h-[600px] md:h-[750px]"
+            className="flex transition-transform duration-700 ease-in-out h-[350px] md:h-[550px] lg:h-[650px]"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
-            {slides.map((slide, index) => {
-                const btnConfig = getHeroButtonConfig(slide.id);
-
-                return (
+            {slides.map((slide, index) => (
                 <div key={slide.id} className="w-full flex-shrink-0 relative h-full">
-                    
-                    {/* Görsel: Ortalı ve Kaplayan */}
+                    {/* Görsel artık tertemiz, üzerinde yazı yok */}
                     <Image 
                         src={slide.image} 
                         alt={slide.title} 
@@ -214,73 +178,78 @@ export default function Home() {
                         className="object-cover object-center" 
                         priority={index === 0} 
                     />
-                    
-                    {/* Gradyan Katmanı: SADECE SOL TARAFI KOYULAŞTIRIR */}
-                    {/* Mobilde alttan, Desktopta soldan karartma */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent md:bg-gradient-to-r md:from-black/80 md:via-black/40 md:to-transparent"></div>
-
-                    {/* İçerik Alanı: SOLA HİZALI */}
-                    <div className="absolute inset-0 flex items-end justify-center md:items-center md:justify-start z-10 px-6 pb-20 md:pb-0 md:pl-24 lg:pl-32">
-                        <div className="max-w-2xl space-y-6 text-center md:text-left">
-                            
-                            {/* Badge */}
-                            <div className="overflow-hidden inline-block rounded-full">
-                                <span className="inline-block py-2 px-4 text-xs font-bold tracking-widest uppercase bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-lg animate-fade-in-up">
-                                    {slide.badge}
-                                </span>
-                            </div>
-
-                            {/* Başlık (Boyutu Mobilde Küçültüldü) */}
-                            <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-white leading-tight tracking-tight drop-shadow-xl animate-fade-in-up delay-100">
-                                {slide.title}
-                            </h1>
-
-                            {/* Açıklama (Mobilde Gizlenebilir veya Küçültülebilir) */}
-                            <p className="text-base md:text-xl text-gray-100/90 leading-relaxed font-medium drop-shadow-md max-w-lg mx-auto md:mx-0 animate-fade-in-up delay-200">
-                                {slide.description}
-                            </p>
-
-                            {/* Butonlar */}
-                            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-4 animate-fade-in-up delay-300">
-                                <button 
-                                    onClick={btnConfig.action} 
-                                    className={`w-full sm:w-auto px-8 py-4 text-white rounded-full font-bold text-lg transition-all shadow-xl hover:scale-105 active:scale-95 flex items-center justify-center gap-3 border ${slide.btnColor}`}
-                                >
-                                    {btnConfig.text}
-                                </button>
-                                
-                                <button 
-                                    onClick={() => router.push('/how-it-works')} 
-                                    className="w-full sm:w-auto px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/30 rounded-full font-bold text-lg transition-all hover:border-white/60 flex items-center justify-center gap-2"
-                                >
-                                    Nasıl Çalışır?
-                                    <span>➔</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
-            )})}
-        </div>
-        
-        {/* Oklar */}
-        <button onClick={prevSlide} className="hidden md:flex absolute top-1/2 left-8 transform -translate-y-1/2 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-full border border-white/20 transition-all z-20">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-        </button>
-        <button onClick={nextSlide} className="hidden md:flex absolute top-1/2 right-8 transform -translate-y-1/2 w-12 h-12 items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur text-white rounded-full border border-white/20 transition-all z-20">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-        </button>
-
-        {/* Noktalar */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-            {slides.map((_, index) => (
-                <button 
-                    key={index} 
-                    onClick={() => setCurrentSlide(index)} 
-                    className={`h-1.5 rounded-full transition-all duration-500 ${currentSlide === index ? 'bg-white w-8' : 'bg-white/40 w-2 hover:bg-white/60'}`}
-                ></button>
             ))}
         </div>
+
+        {/* Oklar - Görselin üzerinde kalsın */}
+        <button onClick={prevSlide} className="absolute top-1/2 left-4 md:left-8 transform -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white/30 hover:bg-white/50 backdrop-blur-md text-white rounded-full transition-all z-20">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <button onClick={nextSlide} className="absolute top-1/2 right-4 md:right-8 transform -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-white/30 hover:bg-white/50 backdrop-blur-md text-white rounded-full transition-all z-20">
+            <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+
+      {/* ================================================================== */}
+      {/* 📝 BÖLÜM 2: METİN SLIDER (Görselin Altında) */}
+      {/* ================================================================== */}
+      <div className="bg-white border-b border-gray-100 py-8 md:py-10 shadow-sm relative z-10">
+          <div className="container mx-auto px-4 overflow-hidden">
+              <div 
+                  className="flex transition-transform duration-700 ease-in-out"
+                  style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+              >
+                  {slides.map((slide) => {
+                      const btnConfig = getHeroButtonConfig(slide.id);
+                      return (
+                          <div key={slide.id} className="w-full flex-shrink-0 flex flex-col items-center text-center px-4">
+                              {/* Badge */}
+                              <span className="inline-block py-1.5 px-3 rounded-full bg-blue-50 text-blue-600 font-bold text-[10px] md:text-xs tracking-wider uppercase mb-3">
+                                  {slide.badge}
+                              </span>
+
+                              {/* Başlık (Siyah ve Belirgin) */}
+                              <h2 className="text-2xl md:text-4xl font-black text-gray-900 mb-3 leading-tight">
+                                  {slide.title}
+                              </h2>
+
+                              {/* Açıklama (Gri ve Okunaklı) */}
+                              <p className="text-sm md:text-lg text-gray-500 font-medium max-w-2xl mx-auto mb-6 leading-relaxed">
+                                  {slide.description}
+                              </p>
+
+                              {/* Butonlar (Küçültüldü ve Yan Yana) */}
+                              <div className="flex items-center gap-4">
+                                  <button 
+                                      onClick={btnConfig.action} 
+                                      className={`px-6 py-3 rounded-xl text-white font-bold text-sm transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 flex items-center gap-2 ${slide.btnColor}`}
+                                  >
+                                      {btnConfig.text}
+                                  </button>
+                                  <button 
+                                      onClick={() => router.push('/how-it-works')} 
+                                      className="px-6 py-3 rounded-xl bg-white border border-gray-200 text-gray-600 font-bold text-sm transition-all hover:bg-gray-50 hover:text-gray-900 flex items-center gap-2"
+                                  >
+                                      Bilgi Al <span>➔</span>
+                                  </button>
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+
+              {/* Noktalar (Metnin Altında) */}
+              <div className="flex justify-center gap-2 mt-8">
+                  {slides.map((_, index) => (
+                      <button 
+                          key={index} 
+                          onClick={() => setCurrentSlide(index)} 
+                          className={`h-2 rounded-full transition-all duration-300 ${currentSlide === index ? 'bg-gray-800 w-8' : 'bg-gray-300 w-2 hover:bg-gray-400'}`}
+                      ></button>
+                  ))}
+              </div>
+          </div>
       </div>
 
       {/* --- ABONELİK SİSTEMİ BİLGİLENDİRME (AYNI) --- */}
