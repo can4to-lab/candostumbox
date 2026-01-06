@@ -242,9 +242,16 @@ function ProfileContent() {
 
   // 2. Paketi Yükselt Fonksiyonu
   const handleUpgradeSubscription = (sub: any) => {
-      // Kullanıcıyı ürünlere yönlendiriyoruz, belki ileride query params ile pet ID gönderilebilir
+      if (!sub.product) return;
+
+    // URL Parametreleri Hazırla
+    const params = new URLSearchParams();
+    params.set('mode', 'upgrade'); // Mod: Yükseltme
+    params.set('oldPrice', sub.product.price); // Mevcut paket fiyatı (buna göre filtreleyeceğiz)
+    params.set('oldSubId', sub.id); // Eski abonelik ID'si
+    params.set('petName', sub.pet?.name || 'Dostum');
       router.push('/product'); 
-      toast("Dostunuz için daha kapsamlı paketlerimizi inceleyin! ⭐", {
+      toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`, {
           icon: '🚀',
           duration: 4000
       });

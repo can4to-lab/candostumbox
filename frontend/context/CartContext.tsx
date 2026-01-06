@@ -15,6 +15,8 @@ export interface CartItem {
   uniqueId: string;
   deliveryPeriod?: string; 
   subscriptionId?: string; 
+  // 👇 YENİ EKLENEN ALAN: Paket Yükseltme ID'si
+  upgradeFromSubId?: string; 
 }
 
 interface CartContextType {
@@ -96,7 +98,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const toggleCart = useCallback(() => setIsCartOpen((prev) => !prev), []);
 
-  // 👇 GÜNCELLENEN KISIM: Sadece toplama yapıyoruz ve küsüratları temizliyoruz.
   const rawTotal = items.reduce((total, item) => total + Number(item.price), 0);
   const cartTotal = Number(rawTotal.toFixed(2));
 

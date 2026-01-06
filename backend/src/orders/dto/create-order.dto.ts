@@ -37,6 +37,11 @@ export class OrderItemDto {
   @IsString()
   @IsOptional()
   subscriptionId?: string;
+
+  @IsString()
+  @IsOptional()
+  upgradeFromSubId?: string; // 👈 Yeni alan: Hangi aboneliği yükseltiyoruz?
+  
 }
 
 export class CreateOrderDto {

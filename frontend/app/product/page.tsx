@@ -7,6 +7,7 @@ import { Toaster } from "react-hot-toast";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 
+
 interface Product {
   id: number;
   name: string;

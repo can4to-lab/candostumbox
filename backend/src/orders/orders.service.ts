@@ -65,7 +65,38 @@ export class OrdersService {
             // 👇 ESKİ STATİK HESAPLAMA YERİNE DİNAMİK SERVİS ÇAĞRISI
             const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
             itemTotal = calculation.finalPrice * item.quantity;
-        } else {
+        } 
+            // ⭐ YENİ KOD: UPGRADE (YÜKSELTME) MANTIĞI ⭐
+            // Eğer frontend 'upgradeFromSubId' gönderdiyse:
+            if (item.upgradeFromSubId) {
+                const oldSub = await queryRunner.manager.findOne(Subscription, { 
+                    where: { id: item.upgradeFromSubId },
+                    relations: ['product']
+                });
+
+                if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE) {
+                    // 1. Kalan Tutar Hesabı (Proration)
+                    // Formül: (Ödenen Tutar / Toplam Ay) * Kalan Ay
+                    const oldPrice = Number(oldSub.product.price); // Dikkat: Burası sipariş anındaki fiyat olmalı aslında, basitleştirmek için product.price aldık.
+                    const pricePerMonth = oldPrice / (oldSub.totalMonths || 1);
+                    const remainingValue = pricePerMonth * oldSub.remainingMonths;
+
+                    console.log(`Eski Paketten Kalan Bakiye: ${remainingValue} TL`);
+
+                    // 2. Yeni Tutar'dan Düş
+                    itemTotal -= remainingValue;
+
+                    // Tutar eksiye düşerse 0 yap (Üste para vermeyelim)
+                    if (itemTotal < 0) itemTotal = 0;
+
+                    // 3. Eski Aboneliği İPTAL ET (Yerine yenisi geçecek)
+                    oldSub.status = SubscriptionStatus.CANCELLED; // veya 'UPGRADED' diye yeni bir status eklenebilir
+                    oldSub.cancellationReason = "Paket yükseltme nedeniyle otomatik iptal.";
+                    await queryRunner.manager.save(Subscription, oldSub);
+                }
+            }
+        
+        else {
             // Aylık ödemede indirim yok (1 aylık fiyat * adet)
             itemTotal = basePrice * item.quantity; 
         }
