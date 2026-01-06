@@ -244,13 +244,16 @@ function ProfileContent() {
   const handleUpgradeSubscription = (sub: any) => {
       if (!sub.product) return;
 
-    // URL Parametreleri Hazırla
-    const params = new URLSearchParams();
-    params.set('mode', 'upgrade'); // Mod: Yükseltme
-    params.set('oldPrice', sub.product.price); // Mevcut paket fiyatı (buna göre filtreleyeceğiz)
-    params.set('oldSubId', sub.id); // Eski abonelik ID'si
-    params.set('petName', sub.pet?.name || 'Dostum');
-      router.push('/product'); 
+      // URL Parametreleri Hazırla
+      const params = new URLSearchParams();
+      params.set('mode', 'upgrade');
+      params.set('oldPrice', sub.product.price);
+      params.set('oldSubId', sub.id); 
+      params.set('petName', sub.pet?.name || 'Dostum');
+
+      // 👇 DÜZELTME BURADA YAPILDI
+      router.push(`/product?${params.toString()}`); 
+      
       toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`, {
           icon: '🚀',
           duration: 4000
