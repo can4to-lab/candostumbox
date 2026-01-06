@@ -12,6 +12,9 @@ import ConfirmationModal from "../components/modals/ConfirmationModal";
 
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
+// frontend/app/profile/page.tsx
+// ... diğer importlar ...
+import { useCart } from "@/context/CartContext"; // <-- Bunu ekleyin
 
 const OTHER_ICONS: Record<string, string> = {
     'Kuş': '🦜', 'Hamster': '🐹', 'Tavşan': '🐰', 'Balık': '🐟'
@@ -20,6 +23,7 @@ const OTHER_ICONS: Record<string, string> = {
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { addToCart } = useCart();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -211,6 +215,39 @@ function ProfileContent() {
     } catch (e) {
       toast.error("Sunucu hatası.", { id: toastId });
     }
+  };
+
+// 1. Süreyi Uzat (+3 Ay) Fonksiyonu
+  const handleExtendSubscription = (sub: any) => {
+    if (!sub.product) {
+        toast.error("Paket bilgisi bulunamadı.");
+        return;
+    }
+
+    addToCart({
+        productId: sub.product.id,
+        productName: sub.product.name,
+        price: sub.product.price, // Birim aylık fiyat
+        duration: 3, // Buton +3 Ay dediği için sabit 3 gönderiyoruz
+        petId: sub.pet?.id,
+        petName: sub.pet?.name,
+        paymentType: 'upfront', // Peşin ödeme
+        image: sub.pet?.image || "",
+        subscriptionId: sub.id // Backend'in bu siparişin bir "uzatma" olduğunu anlaması için ID
+    });
+
+    toast.success(`${sub.pet?.name} için +3 ay paket sepete eklendi! 🚀`);
+    router.push('/checkout');
+  };
+
+  // 2. Paketi Yükselt Fonksiyonu
+  const handleUpgradeSubscription = (sub: any) => {
+      // Kullanıcıyı ürünlere yönlendiriyoruz, belki ileride query params ile pet ID gönderilebilir
+      router.push('/product'); 
+      toast("Dostunuz için daha kapsamlı paketlerimizi inceleyin! ⭐", {
+          icon: '🚀',
+          duration: 4000
+      });
   };
 
   // --- İŞLEMLER ---
@@ -454,14 +491,31 @@ function ProfileContent() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
-                                                        {isActive ? (
-                                                            <>
-                                                                <button onClick={() => toast("Bu özellik çok yakında! Müşteri hizmetlerinden destek alabilirsiniz.", {icon:'🚧'})} className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"><span>⚡</span> Paketi Yükselt</button>
-                                                                <button onClick={() => toast("Çok yakında tek tıkla uzatabileceksiniz!", {icon:'📅'})} className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition">Süreyi Uzat (+3 Ay)</button>
-                                                                <button onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }} className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2">Aboneliği İptal Et</button>
-                                                            </>
-                                                        ) : (
+                                                   {/* ... önceki kodlar ... */}
+<div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
+    {isActive ? (
+        <>
+            {/* PAKETİ YÜKSELT BUTONU */}
+            <button 
+                onClick={() => handleUpgradeSubscription(sub)} 
+                className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"
+            >
+                <span>⚡</span> Paketi Yükselt
+            </button>
+
+            {/* SÜREYİ UZAT BUTONU */}
+            <button 
+                onClick={() => handleExtendSubscription(sub)} 
+                className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition"
+            >
+                Süreyi Uzat (+3 Ay)
+            </button>
+            
+            <button onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }} className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2">
+                Aboneliği İptal Et
+            </button>
+        </>
+    ) : (
                                                             <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
                                                                 <p className="text-sm text-gray-500 mb-3 font-medium">Sizi özleyeceğiz 😔</p>
                                                                 <button onClick={() => router.push('/')} className="text-green-600 font-bold hover:underline text-sm border border-green-200 bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition">Tekrar Abone Ol</button>
