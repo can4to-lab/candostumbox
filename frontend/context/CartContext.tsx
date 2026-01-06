@@ -14,9 +14,10 @@ export interface CartItem {
   image?: string;
   uniqueId: string;
   deliveryPeriod?: string; 
-  subscriptionId?: string; 
-  // 👇 YENİ EKLENEN ALAN: Paket Yükseltme ID'si
+  subscriptionId?: string;
+  // 👇 YENİ EKLENEN ALANLAR: TypeScript hatasını çözen kısım burası
   upgradeFromSubId?: string; 
+  deductionAmount?: number; 
 }
 
 interface CartContextType {

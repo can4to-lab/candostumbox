@@ -244,20 +244,23 @@ function ProfileContent() {
   const handleUpgradeSubscription = (sub: any) => {
       if (!sub.product) return;
 
-      // URL Parametreleri Hazırla
+      // 1. Kalan Tutarı Hesapla (Tahmini)
+      // Formül: (Toplam Fiyat / Toplam Ay) * Kalan Ay
+      const monthlyPrice = sub.product.price / (sub.totalMonths || 1);
+      const refundAmount = monthlyPrice * (sub.remainingMonths || 0);
+
+      // 2. Parametreleri Hazırla
       const params = new URLSearchParams();
       params.set('mode', 'upgrade');
       params.set('oldPrice', sub.product.price);
-      params.set('oldSubId', sub.id); 
+      params.set('oldSubId', sub.id);
       params.set('petName', sub.pet?.name || 'Dostum');
+      params.set('petId', sub.pet?.id || ''); // 👈 Pet ID'sini ekledik (Otomatik seçim için şart)
+      params.set('refund', refundAmount.toFixed(2)); // 👈 İade tutarını taşıyoruz
 
-      // 👇 DÜZELTME BURADA YAPILDI
-      router.push(`/product?${params.toString()}`); 
+      router.push(`/product?${params.toString()}`);
       
-      toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`, {
-          icon: '🚀',
-          duration: 4000
-      });
+      toast(`🚀 ${sub.pet?.name} için paketleri listeliyoruz...`);
   };
 
   // --- İŞLEMLER ---

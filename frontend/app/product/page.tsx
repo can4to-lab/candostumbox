@@ -77,14 +77,12 @@ function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Susp
       : products;
 
   const handleSelectPackage = (id: number) => {
-      // Eğer upgrade modundaysak, detay sayfasına da bu bilgiyi taşı
+      const isUpgradeMode = searchParams.get('mode') === 'upgrade';
+      
       if (isUpgradeMode) {
-          const params = new URLSearchParams();
-          params.set('mode', 'upgrade');
-          if(oldSubId) params.set('oldSubId', oldSubId);
-          params.set('petName', petName);
-          
-          router.push(`/product/${id}?${params.toString()}`);
+          // Mevcut tüm parametreleri kopyala ve yeni sayfaya taşı
+          const currentParams = new URLSearchParams(Array.from(searchParams.entries()));
+          router.push(`/product/${id}?${currentParams.toString()}`);
       } else {
           router.push(`/product/${id}`);
       }
