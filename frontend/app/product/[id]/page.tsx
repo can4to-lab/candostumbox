@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation"; // 👈 useSearchParams eklendi
 import toast, { Toaster } from "react-hot-toast";
 import { useCart } from "@/context/CartContext";
 import LoginModal from "@/components/LoginModal";
@@ -251,11 +251,21 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
     );
 };
 
-export default function ProductDetail() {
+// --- ANA COMPONENT ---
+// Suspense için ayrı bir içerik bileşeni oluşturuyoruz (Next.js App Router kuralı)
+function ProductDetailContent() {
   const params = useParams();
   const id = params?.id as string; 
   const router = useRouter();
   const { addToCart } = useCart();
+  
+  // 👇 YENİ EKLENEN: URL Parametreleri
+  const searchParams = useSearchParams();
+  const upgradeMode = searchParams.get('mode') === 'upgrade';
+  const preSelectedPetId = searchParams.get('petId');
+  const refundAmount = Number(searchParams.get('refund')) || 0;
+  const oldSubId = searchParams.get('oldSubId');
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -316,6 +326,17 @@ export default function ProductDetail() {
     };
     fetchData();
   }, [id]);
+
+  // 👇 YENİ EKLENEN: Yükseltme modu için otomatik pet seçimi
+  useEffect(() => {
+    if (upgradeMode && preSelectedPetId && savedPets.length > 0) {
+        const petIdNum = Number(preSelectedPetId);
+        const foundPet = savedPets.find(p => p.id === petIdNum);
+        if (foundPet) {
+            handleSelectSavedPet(foundPet);
+        }
+    }
+  }, [savedPets, preSelectedPetId, upgradeMode]);
 
   useEffect(() => { if (duration === 1) setPaymentType('upfront'); }, [duration]);
 
@@ -410,6 +431,7 @@ export default function ProductDetail() {
           const finalPrice = paymentType === 'monthly' ? Number(product.price) : priceInfo.total;
           const safePetName = isNewPetMode ? petData.name : savedPets.find(p => p.id === selectedPetId)?.name;
           
+          // 👇 YENİ EKLENEN: Sepete 'upgrade' verilerini de gönderiyoruz
           addToCart({ 
               productId: product.id as any,
               productName: product.name, 
@@ -419,7 +441,9 @@ export default function ProductDetail() {
               paymentType: paymentType, 
               petId: selectedPetId || 0, 
               petName: safePetName || "", 
-              deliveryPeriod: petData.shippingDate 
+              deliveryPeriod: petData.shippingDate,
+              upgradeFromSubId: upgradeMode ? oldSubId! : undefined, // 👈 EKLE
+              deductionAmount: upgradeMode ? refundAmount : 0        // 👈 EKLE
           });
           toast.success("Ödeme sayfasına yönlendiriliyorsunuz... 🚀"); setTimeout(() => router.push('/checkout'), 500);
       }
@@ -464,6 +488,20 @@ export default function ProductDetail() {
             </div>
 
             <div className="lg:col-span-8">
+                {/* 👇 YENİ EKLENEN: UPGRADE BİLGİLENDİRME BANNER'I */}
+                {upgradeMode && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 animate-fade-in flex items-start gap-4 shadow-sm">
+                         <div className="text-3xl">🚀</div>
+                         <div>
+                             <h4 className="font-bold text-blue-900 text-lg">Paket Yükseltme Modu</h4>
+                             <p className="text-blue-700 text-sm mt-1 leading-relaxed">
+                                 Şu an <strong>{petData.name || 'Dostunuz'}</strong> için paket yükseltme işlemi yapıyorsunuz. 
+                                 Ödeme adımında eski paketinizden kalan <span className="font-black bg-blue-100 px-2 py-0.5 rounded">₺{refundAmount.toFixed(2)}</span> tutar toplam fiyattan düşülecektir.
+                             </p>
+                         </div>
+                    </div>
+                )}
+
                 <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
                     {/* STEPS */}
                     <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center text-sm">
@@ -574,7 +612,6 @@ export default function ProductDetail() {
                             <div className="animate-fade-in text-center space-y-6">
                                 <h2 className="text-2xl font-black text-gray-900">Özet & Ödeme 🧾</h2>
                                 
-                                {/* 1. ÖDEME YÖNTEMİ SEÇİMİ (EN ÜSTE ALINDI) */}
                                 {duration > 1 && (
                                     <div className="bg-blue-50 p-4 rounded-2xl mb-4 border border-blue-100">
                                         <p className="text-left text-sm font-bold text-blue-900 mb-3 ml-1">Ödeme Tercihi Seçiniz:</p>
@@ -612,14 +649,12 @@ export default function ProductDetail() {
                                     </div>
                                 )}
 
-                                {/* 2. ÖZET KUTUSU (İÇERİK EKLENDİ) */}
                                 <div className="bg-gray-50 p-6 rounded-2xl text-left space-y-4 border border-gray-200">
                                     <div className="flex justify-between items-center pb-4 border-b border-gray-200">
                                         <span className="text-gray-500 font-medium">Paket</span>
                                         <span className="font-bold text-gray-900 text-lg">{product.name}</span>
                                     </div>
                                     
-                                    {/* Kutu İçeriği Özeti */}
                                     {product.features && product.features.length > 0 && (
                                         <div className="py-3">
                                             <span className="text-xs font-bold text-gray-400 uppercase block mb-2">Paket İçeriği</span>
@@ -659,10 +694,17 @@ export default function ProductDetail() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* 👇 YENİ EKLENEN: Özet Alanında İade Gösterimi */}
+                                    {upgradeMode && (
+                                         <div className="mt-2 text-xs font-bold text-green-600 bg-green-50 p-2 rounded">
+                                             + Eski paketten kalan ₺{refundAmount.toFixed(2)} ödeme ekranında düşülecek.
+                                         </div>
+                                    )}
                                 </div>
 
                                 <button onClick={handleNextStep} className="bg-gray-900 text-white w-full py-4 rounded-xl font-bold shadow-xl hover:bg-black transition transform active:scale-95 flex items-center justify-center gap-2">
-                                    <span>Ödemeye Geç</span>
+                                    <span>{upgradeMode ? 'Yükselt ve Öde' : 'Ödemeye Geç'}</span>
                                     <span>➔</span>
                                 </button>
                                 
@@ -674,7 +716,6 @@ export default function ProductDetail() {
                     </div>
                 </div>
 
-                {/* --- SEKMELİ BÖLÜM: Kutu İçeriği / Taksit / Yorumlar --- */}
                 <div className="mt-8 bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
                     <div className="flex border-b border-gray-100">
                         <button onClick={() => setActiveTab('desc')} className={`flex-1 py-4 text-sm font-bold transition-all ${activeTab === 'desc' ? 'border-b-4 border-green-500 text-green-600 bg-green-50/50' : 'text-gray-500 hover:bg-gray-50'}`}>📦 Kutu İçeriği</button>
@@ -719,10 +760,19 @@ export default function ProductDetail() {
                         )}
                     </div>
                 </div>
-
             </div>
         </div>
       </div>
     </main>
   );
+}
+
+// ⚠️ Next.js 13+ App Router'da useSearchParams kullanan bileşenler
+// Suspense içine alınmalıdır, yoksa build hatası verebilir.
+export default function ProductDetailPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]"><div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div></div>}>
+            <ProductDetailContent />
+        </Suspense>
+    );
 }
