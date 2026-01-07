@@ -39,12 +39,12 @@ export class OrderItemDto {
 
   // 👇 GÜNCELLEME 1: Pet ID ve Upgrade ID Eklendi
   @IsOptional()
-  @IsNumber()
-  petId?: number; 
+  @IsString() // <--- UUID string olduğu için burası String olmalı
+  petId?: string; 
 
   @IsString()
   @IsOptional()
-  upgradeFromSubId?: string; 
+  upgradeFromSubId?: string;
 }
 
 export class CreateOrderDto {

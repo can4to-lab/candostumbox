@@ -91,14 +91,12 @@ export class OrdersService {
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name;
         
-        // 👇 DÜZELTME: Pet değişkenine açıkça tip veriyoruz ki TypeScript kızmasın
-        let foundPet: Pet | null = null; 
-        
+       // Doğrudan string olarak aratıp kaydediyoruz.
+        let foundPet: Pet | null = null;
         if (itemDto.petId) {
-            // ID'niz UUID (String) olduğu için direkt string olarak arıyoruz.
-            // "as any" kullanarak TypeScript'in ID tipi kontrolünü aşıyoruz.
+            // itemDto.petId artık string olduğu için direkt kullanabiliriz
             foundPet = await queryRunner.manager.findOne(Pet, { 
-                where: { id: itemDto.petId as any } 
+                where: { id: itemDto.petId as any } // 'as any' UUID tip uyuşmazlığı için kalabilir
             });
             
             if (foundPet) {
