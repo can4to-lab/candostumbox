@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber, IsOptional, IsBoolean, IsObject } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, ValidateNested, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Misafir Bilgileri İçin DTO
@@ -14,7 +14,6 @@ export class GuestInfoDto {
   @IsString() 
   @IsOptional() 
   title?: string;
-  
 }
 
 export class OrderItemDto {
@@ -38,14 +37,17 @@ export class OrderItemDto {
   @IsOptional()
   subscriptionId?: string;
 
+  // 👇 GÜNCELLEME 1: Pet ID ve Upgrade ID Eklendi
+  @IsOptional()
+  @IsNumber()
+  petId?: number; 
+
   @IsString()
   @IsOptional()
-  upgradeFromSubId?: string; // 👈 Yeni alan: Hangi aboneliği yükseltiyoruz?
-  
+  upgradeFromSubId?: string; 
 }
 
 export class CreateOrderDto {
-  // 👇 Misafir siparişinde adres ID'si gelmeyeceği için OPSİYONEL yaptık
   @IsOptional() 
   @IsString()
   addressId?: string;
@@ -59,21 +61,16 @@ export class CreateOrderDto {
   @IsOptional()
   paymentType?: 'monthly' | 'upfront';
 
-  @IsNumber()
+  // Eğer sipariş genelinde tek bir pet varsa diye opsiyonel bırakıyoruz (ama genelde items içinden gelir)
   @IsOptional()
-  duration?: number;
+  petId?: any; 
 
-  @IsString()
-  @IsOptional()
-  petId?: string;
-
-  // 👇 MİSAFİR ALANLARI
   @IsOptional()
   @IsBoolean()
   isGuest?: boolean;
 
   @IsOptional()
-  @ValidateNested() // İçindeki alanları da kontrol et
-  @Type(() => GuestInfoDto) // Gelen objeyi GuestInfoDto sınıfına çevir
+  @ValidateNested()
+  @Type(() => GuestInfoDto)
   guestInfo?: GuestInfoDto;
 }

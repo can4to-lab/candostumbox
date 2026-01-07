@@ -8,18 +8,18 @@ import { Product } from 'src/products/entities/product.entity';
 import { Address } from 'src/addresses/entities/address.entity';
 import { Pet } from 'src/pets/entities/pet.entity';
 import { User } from 'src/users/entities/user.entity';
-import { DiscountsService } from 'src/discounts/discounts.service'; // 👈 YENİ IMPORT
+import { DiscountsService } from 'src/discounts/discounts.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private dataSource: DataSource,
-    private discountsService: DiscountsService // 👈 SERVİS ENJEKTE EDİLDİ
+    private discountsService: DiscountsService 
   ) {}
 
   // 1. CREATE ORDER (Supports Guest)
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
-    const { addressId, items, paymentType, isGuest, guestInfo, petId } = createOrderDto;
+    const { addressId, items, paymentType, isGuest, guestInfo } = createOrderDto;
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -28,7 +28,7 @@ export class OrdersService {
     try {
       let addressSnapshot: any = {};
 
-      // A. ADDRESS LOGIC
+      // A. ADRES İŞLEMLERİ
       if (userId) {
           const address = await queryRunner.manager.findOne(Address, {
             where: { id: addressId, userId },
@@ -40,53 +40,48 @@ export class OrdersService {
           addressSnapshot = { ...guestInfo, title: 'Guest Address' };
       }
 
-      // B. Variables
+      // B. DEĞİŞKENLER
       let totalPrice = 0;
       const orderItems: OrderItem[] = [];
 
-      // C. LOOP ITEMS
-      for (const item of items) {
+      // C. ÜRÜNLERİ DÖNGÜYE AL
+      for (const itemDto of items) {
         const product = await queryRunner.manager.findOne(Product, { 
-            where: { id: item.productId }
+            where: { id: itemDto.productId }
            });
         
-        if (!product) throw new NotFoundException(`Product not found (ID: ${item.productId})`);
+        if (!product) throw new NotFoundException(`Product not found (ID: ${itemDto.productId})`);
         
-        if (product.stock < item.quantity) {
+        if (product.stock < itemDto.quantity) {
            throw new BadRequestException(`Insufficient stock for ${product.name}.`);
         }
-// --- 💰 1. FİYAT HESAPLAMA (NORMAL) ---
+
+        // --- 💰 1. FİYAT HESAPLAMA ---
         let itemTotal = 0;
-        const itemDuration = item.duration || 1;
+        const itemDuration = itemDto.duration || 1;
         const basePrice = Number(product.price);
 
         if (paymentType === 'upfront') {
             const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
-            itemTotal = calculation.finalPrice * item.quantity;
+            itemTotal = calculation.finalPrice * itemDto.quantity;
         } else {
-            itemTotal = basePrice * item.quantity; 
+            itemTotal = basePrice * itemDto.quantity; 
         }
 
         // --- 🚀 2. UPGRADE (YÜKSELTME) İNDİRİMİ ---
-        // DTO'ya eklediğimiz alan sayesinde artık burası çalışacak
-        if (item.upgradeFromSubId) {
+        if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
-                where: { id: item.upgradeFromSubId },
+                where: { id: itemDto.upgradeFromSubId },
                 relations: ['product']
             });
 
-            // Sadece aktifse ve süresi varsa indirim yap
             if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
-                // Formül: (Eski Ürün Fiyatı / Toplam Ay) * Kalan Ay
                 const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
                 const refundValue = monthlyValue * oldSub.remainingMonths;
 
                 console.log(`[Upgrade] Düşülen Tutar: ${refundValue} TL`);
-
-                // Yeni fiyattan düş (Eksiye düşerse 0 olsun)
                 itemTotal = Math.max(0, itemTotal - refundValue);
                 
-                // Eski aboneliği iptal et
                 oldSub.status = SubscriptionStatus.CANCELLED; 
                 oldSub.cancellationReason = `Paket yükseltildi (Yeni Sipariş Oluşturuluyor)`;
                 await queryRunner.manager.save(Subscription, oldSub);
@@ -98,35 +93,34 @@ export class OrdersService {
         // --- 📝 SİPARİŞ KALEMİ OLUŞTURMA ---
         const orderItem = new OrderItem();
         orderItem.product = product;
-        orderItem.product = { id: item.productId } as any;
-        orderItem.quantity = item.quantity;
+        orderItem.quantity = itemDto.quantity;
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name;
         
-        // 🐾 PET BİLGİSİNİ KAYDETME (EKLENEN KISIM)
-        // DTO'dan gelen petId varsa veritabanından bulup ekliyoruz
-        if (petId) {
-            const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId } });
+        // 👇 DÜZELTME 1: "as any" kullanarak TypeScript hatasını aşıyoruz
+        if (itemDto.petId) {
+            const pet = await queryRunner.manager.findOne(Pet, { 
+                where: { id: itemDto.petId as any } // <-- BURASI DÜZELTİLDİ
+            });
             if (pet) orderItem.pet = pet;
         }
 
         orderItems.push(orderItem);
 
-        // Deduct Stock
-        product.stock -= item.quantity;
+        // Stok Düş
+        product.stock -= itemDto.quantity;
         await queryRunner.manager.save(product);
 
-        // --- 📅 SUBSCRIPTION LOGIC ---
-        if (item.subscriptionId) {
+        // --- 📅 ABONELİK (SUBSCRIPTION) OLUŞTURMA ---
+        if (itemDto.subscriptionId) {
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
-                where: { id: item.subscriptionId } 
+                where: { id: itemDto.subscriptionId } 
             });
 
             if (existingSub) {
                 existingSub.totalMonths += itemDuration;
                 existingSub.remainingMonths += itemDuration;
-                
-                if (existingSub.status === SubscriptionStatus.COMPLETED || existingSub.status === SubscriptionStatus.CANCELLED) {
+                if ([SubscriptionStatus.COMPLETED, SubscriptionStatus.CANCELLED].includes(existingSub.status)) {
                     existingSub.status = SubscriptionStatus.ACTIVE;
                 }
                 await queryRunner.manager.save(Subscription, existingSub);
@@ -137,12 +131,15 @@ export class OrdersService {
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             
-            if (createOrderDto.petId) {
-                 const pet = await queryRunner.manager.findOne(Pet, { where: { id: createOrderDto.petId } });
+            // 👇 DÜZELTME 2: Burada da "as any" kullanıldı
+            if (itemDto.petId) {
+                 const pet = await queryRunner.manager.findOne(Pet, { 
+                     where: { id: itemDto.petId as any } // <-- BURASI DÜZELTİLDİ
+                 });
                  if (pet) subscription.pet = pet;
             }
 
-            subscription.deliveryPeriod = item.deliveryPeriod || "1-5 of Month";
+            subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
             subscription.totalMonths = itemDuration;
             subscription.remainingMonths = itemDuration;
             subscription.startDate = new Date();
@@ -157,7 +154,7 @@ export class OrdersService {
         }
       }
 
-      // D. SAVE ORDER
+      // D. SİPARİŞİ KAYDET
       const order = new Order();
       if (userId) order.user = { id: userId } as User;
       
@@ -185,7 +182,7 @@ export class OrdersService {
     return await this.dataSource.getRepository(Order).find({
       where: { user: { id: userId } },
       order: { createdAt: 'DESC' },
-      relations: ['items', 'items.product'], 
+      relations: ['items', 'items.product', 'items.pet'],
     });
   }
 
