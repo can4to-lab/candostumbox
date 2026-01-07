@@ -59,31 +59,35 @@ export default function Navbar() {
                 <span className="text-sm font-bold text-gray-600 hidden md:block cursor-pointer tracking-wider" onClick={() => setIsSideMenuOpen(true)}>MENÜ</span>
             </div>
 
-            {/* 2. ORTA: LOGO (GÜNCELLENDİ) */}
-            <div 
-                className="absolute left-1/2 transform -translate-x-1/2 flex items-center cursor-pointer" 
-                onClick={() => router.push('/')}
-            >
-                {/* Lütfen 'public' klasörüne 'logo-navbar.png' (beyaz zeminli yatay logo) 
-                    dosyasını attığından emin ol. 
-                */}
-                <div className="relative h-12 w-40 md:h-16 md:w-56">
-                    <Image
-                        src="/logo_navbar.png" 
-                        alt="Can Dostum Box Logo"
-                        fill
-                        className="object-contain"
-                        priority
-                    />
-                </div>
-            </div>
+            {/* 2. ORTA: LOGO (GÜNCELLENDİ - DAHA BÜYÜK) */}
+<div 
+    className="absolute left-1/2 transform -translate-x-1/2 flex items-center cursor-pointer py-2" 
+    onClick={() => router.push('/')}
+>
+    {/* DEĞİŞİKLİKLER:
+       1. h-12 -> h-14 (Mobilde yükseklik arttı)
+       2. w-40 -> w-64 (Mobilde genişlik sınırı açıldı, böylece logo yanlardan sıkışmaz)
+       3. md:h-16 -> md:h-20 (Masaüstünde yükseklik arttı)
+       4. md:w-56 -> md:w-80 (Masaüstünde genişlik sınırı açıldı)
+    */}
+    <div className="relative h-14 w-64 md:h-20 md:w-80">
+        <Image
+            src="/logo_navbar.png" 
+            alt="Can Dostum Box Logo"
+            fill
+            className="object-contain" 
+            priority
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        />
+    </div>
+</div>
 
             {/* 3. SAĞ: İKONLAR */}
             <div className="flex items-center gap-2 md:gap-4">
                 {/* Arama (Süs) - DÜZELTİLDİ: 'flex' silindi, sadece 'hidden sm:flex' kaldı */}
-                <button className="w-10 h-10 rounded-full hover:bg-gray-100 items-center justify-center text-gray-900 transition hidden sm:flex">
+                {/*<button className="w-10 h-10 rounded-full hover:bg-gray-100 items-center justify-center text-gray-900 transition hidden sm:flex">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                </button>
+                </button>*/}
 
                 {/* Profil */}
                 <button 
