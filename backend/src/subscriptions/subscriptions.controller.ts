@@ -23,6 +23,12 @@ export class SubscriptionsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':id/refund-preview')
+  async getRefundPreview(@Param('id') id: string) {
+  return this.subscriptionsService.calculateRefund(id);
+
+}
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/cancel')
   cancelSubscription(
       @Param('id') id: string, 

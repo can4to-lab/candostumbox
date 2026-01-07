@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation"; // 👈 useSearchParams eklendi
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import { useCart } from "@/context/CartContext";
 import LoginModal from "@/components/LoginModal";
@@ -252,20 +252,20 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
 };
 
 // --- ANA COMPONENT ---
-// Suspense için ayrı bir içerik bileşeni oluşturuyoruz (Next.js App Router kuralı)
+// Suspense için ayrı bir içerik bileşeni oluşturuyoruz
 function ProductDetailContent() {
   const params = useParams();
   const id = params?.id as string; 
   const router = useRouter();
   const { addToCart } = useCart();
   
-  // 👇 YENİ EKLENEN: URL Parametreleri
+  // 👇 YENİ EKLENEN: URL Parametreleri ve İade State'i
   const searchParams = useSearchParams();
   const upgradeMode = searchParams.get('mode') === 'upgrade';
-  const preSelectedPetId = searchParams.get('petId');
-  const refundAmount = Number(searchParams.get('refund')) || 0;
   const oldSubId = searchParams.get('oldSubId');
-  
+  const preSelectedPetId = searchParams.get('petId');
+  const [calculatedRefund, setCalculatedRefund] = useState(0);
+
   const [product, setProduct] = useState<Product | null>(null);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -296,6 +296,7 @@ function ProductDetailContent() {
   const [dateParts, setDateParts] = useState({ day: "", month: "", year: "" });
   const [isOtherOpen, setIsOtherOpen] = useState(false);
 
+  // --- 1. VERİ ÇEKME VE UPGRADE HESAPLAMA ---
   useEffect(() => {
     const fetchData = async () => {
         try {
@@ -305,6 +306,15 @@ function ProductDetailContent() {
             }
             const discRes = await fetch(`${API_URL}/discounts`);
             if (discRes.ok) { const discData = await discRes.json(); setDiscountRules(discData); }
+
+            // 👇 BACKEND İADE SORGUSU
+            if (upgradeMode && oldSubId) {
+                const refundRes = await fetch(`${API_URL}/subscriptions/${oldSubId}/refund-preview`);
+                if (refundRes.ok) {
+                    const refundData = await refundRes.json();
+                    setCalculatedRefund(refundData.refundAmount);
+                }
+            }
 
             const token = localStorage.getItem("token");
             if (token) {
@@ -319,7 +329,9 @@ function ProductDetailContent() {
                     const data = await petsRes.json();
                     const pets = Array.isArray(data) ? data : (data.pets || []);
                     setSavedPets(pets);
-                    if (pets.length > 0) setSelectedPetId(pets[0].id); else setIsNewPetMode(true);
+                    // Varsayılan seçim (Upgrade değilse)
+                    if (!upgradeMode && pets.length > 0) setSelectedPetId(pets[0].id); 
+                    else if (pets.length === 0) setIsNewPetMode(true);
                 }
             } else { setIsNewPetMode(true); }
         } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -327,13 +339,31 @@ function ProductDetailContent() {
     fetchData();
   }, [id]);
 
-  // 👇 YENİ EKLENEN: Yükseltme modu için otomatik pet seçimi
+  // --- 2. UPGRADE MODU İÇİN OTOMATİK PET SEÇİMİ (FIXED) ---
   useEffect(() => {
     if (upgradeMode && preSelectedPetId && savedPets.length > 0) {
         const petIdNum = Number(preSelectedPetId);
         const foundPet = savedPets.find(p => p.id === petIdNum);
+        
         if (foundPet) {
-            handleSelectSavedPet(foundPet);
+            // State'i doğrudan burada güncelliyoruz (helper fonksiyon çağırmadan)
+            setSelectedPetId(foundPet.id);
+            setIsNewPetMode(false);
+            setPetData(prev => ({
+                ...prev,
+                name: foundPet.name,
+                type: foundPet.type,
+                breed: foundPet.breed || "",
+                weight: foundPet.weight || "",
+                isNeutered: foundPet.isNeutered || false,
+                allergies: foundPet.allergies || []
+            }));
+            if(foundPet.birthDate) {
+                const d = new Date(foundPet.birthDate);
+                if(!isNaN(d.getTime())) {
+                    setDateParts({ day: String(d.getDate()), month: MONTHS[d.getMonth()], year: String(d.getFullYear()) });
+                }
+            }
         }
     }
   }, [savedPets, preSelectedPetId, upgradeMode]);
@@ -431,7 +461,6 @@ function ProductDetailContent() {
           const finalPrice = paymentType === 'monthly' ? Number(product.price) : priceInfo.total;
           const safePetName = isNewPetMode ? petData.name : savedPets.find(p => p.id === selectedPetId)?.name;
           
-          // 👇 YENİ EKLENEN: Sepete 'upgrade' verilerini de gönderiyoruz
           addToCart({ 
               productId: product.id as any,
               productName: product.name, 
@@ -442,8 +471,9 @@ function ProductDetailContent() {
               petId: selectedPetId || 0, 
               petName: safePetName || "", 
               deliveryPeriod: petData.shippingDate,
-              upgradeFromSubId: upgradeMode ? oldSubId! : undefined, // 👈 EKLE
-              deductionAmount: upgradeMode ? refundAmount : 0        // 👈 EKLE
+              // 👇 YENİ: Backend'den gelen hesaplamayı kullanıyoruz
+              upgradeFromSubId: upgradeMode ? oldSubId! : undefined,
+              deductionAmount: upgradeMode ? calculatedRefund : 0
           });
           toast.success("Ödeme sayfasına yönlendiriliyorsunuz... 🚀"); setTimeout(() => router.push('/checkout'), 500);
       }
@@ -488,7 +518,7 @@ function ProductDetailContent() {
             </div>
 
             <div className="lg:col-span-8">
-                {/* 👇 YENİ EKLENEN: UPGRADE BİLGİLENDİRME BANNER'I */}
+                {/* 👇 YENİ: YÜKSELTME BİLGİLENDİRMESİ */}
                 {upgradeMode && (
                     <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 animate-fade-in flex items-start gap-4 shadow-sm">
                          <div className="text-3xl">🚀</div>
@@ -496,7 +526,10 @@ function ProductDetailContent() {
                              <h4 className="font-bold text-blue-900 text-lg">Paket Yükseltme Modu</h4>
                              <p className="text-blue-700 text-sm mt-1 leading-relaxed">
                                  Şu an <strong>{petData.name || 'Dostunuz'}</strong> için paket yükseltme işlemi yapıyorsunuz. 
-                                 Ödeme adımında eski paketinizden kalan <span className="font-black bg-blue-100 px-2 py-0.5 rounded">₺{refundAmount.toFixed(2)}</span> tutar toplam fiyattan düşülecektir.
+                                 <br/>
+                                 Hesaplanan İade Tutarı: <span className="font-black bg-blue-100 px-2 py-0.5 rounded">₺{calculatedRefund.toFixed(2)}</span>
+                                 <br/>
+                                 <span className="text-xs opacity-75">Bu tutar ödeme ekranında toplam fiyattan düşülecektir.</span>
                              </p>
                          </div>
                     </div>
@@ -695,10 +728,10 @@ function ProductDetailContent() {
                                         </div>
                                     </div>
 
-                                    {/* 👇 YENİ EKLENEN: Özet Alanında İade Gösterimi */}
+                                    {/* 👇 YENİ: ÖZETTE İADE GÖSTERİMİ */}
                                     {upgradeMode && (
                                          <div className="mt-2 text-xs font-bold text-green-600 bg-green-50 p-2 rounded">
-                                             + Eski paketten kalan ₺{refundAmount.toFixed(2)} ödeme ekranında düşülecek.
+                                             + Eski paketten kalan ₺{calculatedRefund.toFixed(2)} ödeme ekranında düşülecek.
                                          </div>
                                     )}
                                 </div>
@@ -767,11 +800,9 @@ function ProductDetailContent() {
   );
 }
 
-// ⚠️ Next.js 13+ App Router'da useSearchParams kullanan bileşenler
-// Suspense içine alınmalıdır, yoksa build hatası verebilir.
-export default function ProductDetailPage() {
+export default function ProductDetail() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]"><div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div></div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-gray-500">Yükleniyor...</div>}>
             <ProductDetailContent />
         </Suspense>
     );

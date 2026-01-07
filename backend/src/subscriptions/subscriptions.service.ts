@@ -10,7 +10,27 @@ import { OrderItem } from '../orders/entities/order-item.entity';
 @Injectable()
 export class SubscriptionsService {
   private readonly logger = new Logger(SubscriptionsService.name);
+async calculateRefund(id: string) {
+    const sub = await this.subRepository.findOne({
+        where: { id },
+        relations: ['product']
+    });
 
+    if (!sub) throw new NotFoundException('Abonelik bulunamadı.');
+
+    // PRORATION (ORANSAL İADE) MANTIĞI
+    // Formül: (Ürün Fiyatı / Toplam Ay) * Kalan Ay
+    const price = Number(sub.product.price);
+    const totalMonths = sub.totalMonths || 1;
+    const pricePerMonth = price / totalMonths;
+    const refundAmount = pricePerMonth * sub.remainingMonths;
+
+    return {
+        refundAmount: Number(refundAmount.toFixed(2)),
+        remainingMonths: sub.remainingMonths,
+        currency: 'TRY'
+    };
+}
   constructor(
     @InjectRepository(Subscription)
     private subRepository: Repository<Subscription>,
@@ -20,6 +40,8 @@ export class SubscriptionsService {
 
     @InjectRepository(OrderItem)
     private orderItemRepository: Repository<OrderItem>,
+
+    
   ) {}
 
   async findAllByUser(userId: string) {
