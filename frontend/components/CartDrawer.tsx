@@ -4,8 +4,6 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export default function CartDrawer() {
-  // context'ten cartTotal'i alsak da, anlık görsel doğrulama için burada tekrar hesaplatmak
-  // upgrade işlemlerinde cache sorununu önler.
   const { items, removeFromCart, isCartOpen, toggleCart } = useCart();
   const router = useRouter();
 
@@ -14,11 +12,11 @@ export default function CartDrawer() {
     router.push("/checkout"); 
   };
 
-  // 👇 YENİ: Sepet Toplamını (İadeler/Düşümler Dahil) Hesapla
+  // 👇 DÜZELTME 1: Toplam hesaplarken Number() kullanarak güvenliği sağladık
   const calculatedTotal = items.reduce((acc, item) => {
-      // Eğer deductionAmount (iade) varsa fiyattan düş, yoksa normal fiyatı al
-      const deduction = item.deductionAmount || 0;
-      const finalPrice = Math.max(0, item.price - deduction);
+      const price = Number(item.price) || 0; // Fiyatı sayıya zorla
+      const deduction = Number(item.deductionAmount) || 0; // İadeyi sayıya zorla
+      const finalPrice = Math.max(0, price - deduction);
       return acc + finalPrice;
   }, 0);
 
@@ -60,9 +58,10 @@ export default function CartDrawer() {
                 </div>
             ) : (
                 items.map((item) => {
-                    // Ürün bazlı hesaplama
-                    const deduction = item.deductionAmount || 0;
-                    const finalItemPrice = Math.max(0, item.price - deduction);
+                    // 👇 DÜZELTME 2: Ürün bazlı hesaplamada da Number() kullandık
+                    const price = Number(item.price) || 0;
+                    const deduction = Number(item.deductionAmount) || 0;
+                    const finalItemPrice = Math.max(0, price - deduction);
 
                     return (
                         <div key={item.uniqueId} className="flex gap-4 p-3 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-green-200 transition relative overflow-hidden">
@@ -102,12 +101,14 @@ export default function CartDrawer() {
                                         {/* Eğer indirim/iade varsa, eski fiyatı çizip detay gösteriyoruz */}
                                         {deduction > 0 ? (
                                             <>
-                                                <span className="text-xs text-gray-400 line-through">₺{item.price.toFixed(2)}</span>
+                                                {/* 👇 DÜZELTME 3: Burada price değişkenini kullanıyoruz (Number çevrildi) */}
+                                                <span className="text-xs text-gray-400 line-through">₺{price.toFixed(2)}</span>
                                                 <span className="text-[10px] text-green-600 font-bold">- ₺{deduction.toFixed(2)} (İade)</span>
                                                 <span className="font-black text-gray-900 text-lg">₺{finalItemPrice.toFixed(2)}</span>
                                             </>
                                         ) : (
-                                            <span className="font-black text-gray-900 text-lg">₺{item.price.toFixed(2)}</span>
+                                            // 👇 DÜZELTME 4: Burada da price değişkeni kullanıldı
+                                            <span className="font-black text-gray-900 text-lg">₺{price.toFixed(2)}</span>
                                         )}
                                     </div>
 

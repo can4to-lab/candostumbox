@@ -219,7 +219,7 @@ function ProfileContent() {
     params.set('oldSubId', sub.id); 
     params.set('petId', sub.pet?.id || ''); 
     params.set('refund', refundAmount.toFixed(2));
-
+    params.set('currentPrice', sub.product.price);
     router.push(`/product?${params.toString()}`);
     
     toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`);
@@ -499,13 +499,22 @@ function ProfileContent() {
                                                     <div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
                                                         {isActive ? (
                                                             <>
-                                                                {/* 👇 YÜKSELT BUTONU (YENİ) */}
-                                                                <button 
-                                                                    onClick={() => handleUpgradeSubscription(sub)} 
-                                                                    className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"
-                                                                >
-                                                                    <span>⚡</span> Paketi Yükselt
-                                                                </button>
+                                                                {/* --- GÜNCELLEME: PAKET YÜKSELTME BUTONU (PASİF MOD) --- */}
+<div className="group relative w-full sm:w-auto">
+    <button
+        disabled
+        className="w-full sm:w-auto bg-gray-300 text-gray-500 px-6 py-3 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2 border border-gray-200"
+    >
+        <span>🔒</span> Paketi Yükselt
+    </button>
+
+    {/* 👇 BİLGİ BALONU (TOOLTIP) */}
+    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 hidden group-hover:block w-max px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg shadow-xl z-20 animate-fade-in-up">
+        🚧 Çok yakında hizmetinizde
+        {/* Ok İşareti */}
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-8 border-transparent border-t-gray-900"></div>
+    </div>
+</div>
                                                                 
                                                                 {/* 👇 UZAT BUTONU (YENİ) */}
                                                                 <button 

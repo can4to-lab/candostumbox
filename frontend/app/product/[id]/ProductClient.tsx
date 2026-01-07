@@ -30,8 +30,9 @@ interface Review {
     }
 }
 
+// 👇 GÜNCELLEME: ID Tipi string (UUID) yapıldı
 interface Pet { 
-    id: number; 
+    id: string; 
     name: string; 
     type: string; 
     breed?: string; 
@@ -263,8 +264,9 @@ function ProductDetailContent() {
   const upgradeMode = searchParams.get('mode') === 'upgrade';
   const oldSubId = searchParams.get('oldSubId');
   const preSelectedPetId = searchParams.get('petId');
-  const [calculatedRefund, setCalculatedRefund] = useState(0);
+  const refundParam = searchParams.get('refund'); // 👇 GÜNCELLEME: URL'den iade tutarını alıyoruz
 
+  const [calculatedRefund, setCalculatedRefund] = useState(0);
   const [product, setProduct] = useState<Product | null>(null);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -283,7 +285,7 @@ function ProductDetailContent() {
   
   // PET STATE
   const [savedPets, setSavedPets] = useState<Pet[]>([]); 
-  const [selectedPetId, setSelectedPetId] = useState<number | null>(null); 
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null); // 👇 GÜNCELLEME: ID Tipi String
   const [isNewPetMode, setIsNewPetMode] = useState(false); 
   const [showUpsellModal, setShowUpsellModal] = useState(false);
 
@@ -322,13 +324,10 @@ function ProductDetailContent() {
             const discRes = await fetch(`${API_URL}/discounts`);
             if (discRes.ok) { const discData = await discRes.json(); setDiscountRules(discData); }
 
-            // B) UPGRADE İADE HESABI (BACKEND'E SORUYORUZ)
-            if (upgradeMode && oldSubId) {
-                const refundRes = await fetch(`${API_URL}/subscriptions/${oldSubId}/refund-preview`);
-                if (refundRes.ok) {
-                    const refundData = await refundRes.json();
-                    setCalculatedRefund(refundData.refundAmount); // Backend'den gelen tutar
-                }
+            // B) UPGRADE İADE HESABI (URL'DEN)
+            // 👇 GÜNCELLEME: İade tutarını state'e kaydediyoruz
+            if (upgradeMode && refundParam) {
+                setCalculatedRefund(Number(refundParam));
             }
 
             // C) Kullanıcı ve Pet Verileri
@@ -354,15 +353,15 @@ function ProductDetailContent() {
         } catch (error) { console.error(error); } finally { setLoading(false); }
     };
     fetchData();
-  }, [id]);
+  }, [id, upgradeMode, refundParam]);
 
   // 2. OTOMATİK PET SEÇİMİ (UPGRADE MODUNDA)
   useEffect(() => {
     if (upgradeMode && preSelectedPetId && savedPets.length > 0) {
-        const petIdNum = Number(preSelectedPetId);
-        const foundPet = savedPets.find(p => p.id === petIdNum);
+        // 👇 GÜNCELLEME: ID string olduğu için Number() kaldırıldı, direkt kıyaslama
+        const foundPet = savedPets.find(p => p.id === preSelectedPetId);
         if (foundPet) {
-            handleSelectSavedPet(foundPet); // Helper fonksiyonu burada kullanıyoruz
+            handleSelectSavedPet(foundPet); 
         }
     }
   }, [savedPets, preSelectedPetId, upgradeMode]);
@@ -446,7 +445,7 @@ function ProductDetailContent() {
           const finalPrice = paymentType === 'monthly' ? Number(product.price) : priceInfo.total;
           const safePetName = isNewPetMode ? petData.name : savedPets.find(p => p.id === selectedPetId)?.name;
           
-          // 👇 SEPETE EKLEME (UPGRADE VERİLERİ İLE)
+          // 👇 GÜNCELLEME: SEPETE EKLEME (UPGRADE VERİLERİ İLE)
           addToCart({ 
               productId: product.id as any,
               productName: product.name, 
@@ -454,7 +453,7 @@ function ProductDetailContent() {
               image: product.image, 
               duration: duration, 
               paymentType: paymentType, 
-              petId: selectedPetId || 0, 
+              petId: selectedPetId || "", 
               petName: safePetName || "", 
               deliveryPeriod: petData.shippingDate,
               // YENİ ALANLAR:
@@ -587,13 +586,14 @@ function ProductDetailContent() {
                                             <div 
                                                 key={pet.id} 
                                                 onClick={() => {
-                                                    // UPGRADE MODUNDA SADECE İLGİLİ PET SEÇİLEBİLİR
-                                                    if (upgradeMode && pet.id !== Number(preSelectedPetId)) return;
+                                                    // 👇 GÜNCELLEME: UPGRADE MODUNDA SADECE İLGİLİ PET SEÇİLEBİLİR
+                                                    if (upgradeMode && pet.id !== preSelectedPetId) return;
                                                     handleSelectSavedPet(pet);
                                                 }} 
+                                                // 👇 GÜNCELLEME: PASİF DURUM CSS'İ EKLENDİ
                                                 className={`p-4 rounded-xl border-2 flex items-center gap-3 transition-all
                                                     ${selectedPetId === pet.id && !isNewPetMode ? 'border-green-500 bg-green-50' : 'border-gray-100'}
-                                                    ${upgradeMode && pet.id !== Number(preSelectedPetId) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}
+                                                    ${upgradeMode && pet.id !== preSelectedPetId ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}
                                                 `}
                                             >
                                                 <div className="text-2xl">{pet.type==='kopek'?'🐶':pet.type==='kedi'?'🐱':'🦜'}</div>
@@ -603,7 +603,7 @@ function ProductDetailContent() {
                                     </div>
                                 )}
                                 
-                                {/* UPGRADE MODUNDA YENİ EKLE BUTONUNU GİZLE */}
+                                {/* 👇 GÜNCELLEME: UPGRADE MODUNDA YENİ EKLE BUTONUNU GİZLE */}
                                 {!upgradeMode && (
                                     <button onClick={() => { setIsNewPetMode(true); setSelectedPetId(null); setPetData({ type: "kopek", otherType: "", name: "", breed: "", weight: "", birthDate: "", isNeutered: false, shippingDate: "1-5", allergies: [], allergyInput: "" }); setDateParts({day:"",month:"",year:""}); }} className={`w-full p-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold mb-6 ${isNewPetMode ? 'border-green-500 bg-green-50 text-green-700' : ''}`}>+ Yeni Ekle</button>
                                 )}
@@ -755,7 +755,7 @@ function ProductDetailContent() {
                                         </div>
                                     </div>
 
-                                    {/* 👇 YENİ: ÖZET EKRANINDA İADE GÖSTERİMİ */}
+                                    {/* 👇 GÜNCELLEME: ÖZET EKRANINDA İADE GÖSTERİMİ */}
                                     {upgradeMode && (
                                          <div className="mt-4 pt-3 border-t border-gray-200">
                                              <div className="flex justify-between text-green-600 text-sm font-bold bg-green-50 p-3 rounded-lg border border-green-100">

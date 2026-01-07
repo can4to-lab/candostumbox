@@ -8,7 +8,7 @@ export interface CartItem {
   productName: string;
   price: number;
   duration: number;
-  petId: number | null;
+  petId: string | null;
   petName: string;
   paymentType: 'monthly' | 'upfront';
   image?: string;

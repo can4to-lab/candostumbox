@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, Suspense } from "react"; // 👈 Suspense eklendi
-import { useRouter, useSearchParams } from "next/navigation"; // 👈 useSearchParams eklendi
+import { useState, useEffect, Suspense } from "react"; 
+import { useRouter, useSearchParams } from "next/navigation"; 
 import { Toaster } from "react-hot-toast";
 
 // --- NAVBAR & LOGIN İÇİN GEREKLİ ---
@@ -8,29 +8,32 @@ import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 
 interface Product {
-  id: number;
+  id: string; // UUID String
   name: string;
   price: number;
   description: string;
   stock: number;
   features: string[]; 
-  isVisible: boolean;
+  image?: string;
   order: number;
 }
 
-function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Suspense için)
+function ProductContent() { 
   const router = useRouter();
-  const searchParams = useSearchParams(); // 👈 URL parametrelerini okuyoruz
+  const searchParams = useSearchParams(); 
 
   // --- UPGRADE MODU DEĞİŞKENLERİ ---
   const isUpgradeMode = searchParams.get('mode') === 'upgrade';
-  const oldPrice = Number(searchParams.get('oldPrice')) || 0;
+  const urlOldPrice = Number(searchParams.get('oldPrice')); // URL'den gelen fiyat
   const oldSubId = searchParams.get('oldSubId');
   const petName = searchParams.get('petName') || "Dostun";
 
   // --- STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // 👇 YENİ: Filtreleme Eşiği (URL'de yoksa veritabanından bulacağız)
+  const [filterThreshold, setFilterThreshold] = useState(urlOldPrice || 0);
 
   // Auth State
   const [isLoginOpen, setLoginOpen] = useState(false);
@@ -38,50 +41,85 @@ function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Susp
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userName, setUserName] = useState("");
 
-  // --- VERİ ÇEKME ---
+  // --- 1. VERİ ÇEKME VE KULLANICI KONTROLÜ ---
   useEffect(() => {
-    // 1. Kullanıcı Kontrolü
-    const token = localStorage.getItem("token");
-    if (token) {
-        setIsLoggedIn(true);
-        fetch("https://candostumbox-api.onrender.com/auth/profile", {
-            headers: { "Authorization": `Bearer ${token}` }
-        })
-        .then(res => res.json())
-        .then(data => setUserName(data.name || "Dostum"))
-        .catch(() => {});
-    }
+    const initPage = async () => {
+        // Kullanıcı Kontrolü
+        const token = localStorage.getItem("token");
+        if (token) {
+            setIsLoggedIn(true);
+            try {
+                const res = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                setUserName(data.name || "Dostum");
+            } catch (e) {}
+        }
 
-    // 2. Ürünleri Çekme
-    const fetchProducts = async () => {
-      try {
-        const res = await fetch("https://candostumbox-api.onrender.com/products");
-        const data = await res.json();
-        const sortedProducts = Array.isArray(data) 
-            ? data.sort((a:any, b:any) => (a.order || 0) - (b.order || 0)) 
-            : [];
-        setProducts(sortedProducts);
-      } catch (error) {
-        console.error("Paketler yüklenemedi:", error);
-      } finally {
-        setLoading(false);
-      }
+        // Ürünleri Çekme
+        try {
+            const res = await fetch("https://candostumbox-api.onrender.com/products");
+            const data = await res.json();
+            // Sıralama
+            const sortedProducts = Array.isArray(data) 
+                ? data.sort((a:any, b:any) => (a.order || 0) - (b.order || 0)) 
+                : [];
+            setProducts(sortedProducts);
+        } catch (error) {
+            console.error("Paketler yüklenemedi:", error);
+        } finally {
+            setLoading(false);
+        }
     };
-    fetchProducts();
+
+    initPage();
   }, []);
 
-  // --- FİLTRELEME MANTIĞI (ÖNEMLİ) 🧠 ---
-  // Eğer upgrade modundaysak, sadece eski paketten daha pahalı olanları göster
+  // 👇 DÜZELTME: FİYAT BULMA SİGORTASI (URL'DE YOKSA BACKEND'DEN BUL) 🧠
+  // URL'de oldPrice yoksa, oldSubId kullanarak veritabanından fiyatı öğreniyoruz.
+  useEffect(() => {
+      if (isUpgradeMode && filterThreshold === 0 && oldSubId) {
+          const fetchOldSubPrice = async () => {
+              const token = localStorage.getItem("token");
+              if (!token) return;
+              try {
+                  // Eski aboneliği çekip fiyatını öğreniyoruz
+                  const res = await fetch(`https://candostumbox-api.onrender.com/subscriptions/${oldSubId}`, {
+                      headers: { "Authorization": `Bearer ${token}` }
+                  });
+                  if (res.ok) {
+                      const subData = await res.json();
+                      if (subData.product && subData.product.price) {
+                          console.log("Eski paket fiyatı bulundu:", subData.product.price);
+                          // State'i güncelliyoruz, böylece filtreleme tetikleniyor
+                          setFilterThreshold(Number(subData.product.price));
+                      }
+                  }
+              } catch (e) {
+                  console.error("Eski abonelik fiyatı çekilemedi", e);
+              }
+          };
+          fetchOldSubPrice();
+      }
+  }, [isUpgradeMode, filterThreshold, oldSubId]);
+
+
+  // 👇 DÜZELTME: FİLTRELEME MANTIĞI
+  // 'oldPrice' yerine artık güncellediğimiz 'filterThreshold' değerini kullanıyoruz.
   const displayedProducts = isUpgradeMode 
-      ? products.filter(p => Number(p.price) > oldPrice)
+      ? products.filter(p => Number(p.price) > filterThreshold)
       : products;
 
-  const handleSelectPackage = (id: number) => {
-      const isUpgradeMode = searchParams.get('mode') === 'upgrade';
-      
+  const handleSelectPackage = (id: string) => {
       if (isUpgradeMode) {
-          // Mevcut tüm parametreleri kopyala ve yeni sayfaya taşı
           const currentParams = new URLSearchParams(Array.from(searchParams.entries()));
+          
+          // Eğer oldPrice URL'de yoksa ama biz bulduysak, URL'ye de ekleyelim ki detay sayfası da bilsin
+          if (!currentParams.has('oldPrice') && filterThreshold > 0) {
+              currentParams.set('oldPrice', filterThreshold.toString());
+          }
+          
           router.push(`/product/${id}?${currentParams.toString()}`);
       } else {
           router.push(`/product/${id}`);
@@ -110,7 +148,7 @@ function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Susp
                         <h2 className="text-2xl font-black text-blue-900 mb-2">Paket Yükseltme Zamanı!</h2>
                         <p className="text-blue-700 font-medium">
                             <span className="font-bold">{petName}</span> için daha kapsamlı bir paket seçiyorsun. 
-                            Merak etme, eski paketinden kalan tutar yeni paketinden otomatik olarak düşülecek! 💰
+                            Aşağıda sadece mevcut paketinden <strong className="text-blue-900 bg-blue-100 px-1 rounded">daha üstün</strong> olan paketleri listeledik.
                         </p>
                     </div>
                  </div>
@@ -162,7 +200,7 @@ function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Susp
 
             {/* UPGRADE İÇİN BOŞ DURUM (DAHA PAHALI PAKET YOKSA) */}
             {!loading && isUpgradeMode && displayedProducts.length === 0 && (
-                <div className="text-center py-12 bg-gray-50 rounded-3xl border border-gray-200">
+                <div className="text-center py-12 bg-gray-50 rounded-3xl border border-gray-200 max-w-2xl mx-auto">
                     <div className="text-5xl mb-4">🏆</div>
                     <h3 className="text-xl font-bold text-gray-900">Zaten Zirvedesin!</h3>
                     <p className="text-gray-500 mt-2">
@@ -222,7 +260,7 @@ function ProductContent() { // 👈 İçerik ayrı bir fonksiyona alındı (Susp
                                         </div>
                                         {isUpgradeMode && (
                                              <div className="mt-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
-                                                 Sana Özel Fiyat Hesaplanacak
+                                                 İade tutarı sepette düşülecek
                                              </div>
                                         )}
                                         {!isUpgradeMode && (
