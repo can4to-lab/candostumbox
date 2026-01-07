@@ -69,7 +69,7 @@ export default function Navbar() {
                 */}
                 <div className="relative h-12 w-40 md:h-16 md:w-56">
                     <Image
-                        src="/logo-navbar.jpg" 
+                        src="/logo_navbar.png" 
                         alt="Can Dostum Box Logo"
                         fill
                         className="object-contain"
