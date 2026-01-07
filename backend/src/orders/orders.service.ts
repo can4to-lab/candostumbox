@@ -17,7 +17,6 @@ export class OrdersService {
     private discountsService: DiscountsService 
   ) {}
 
-  // 1. CREATE ORDER (Supports Guest)
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
     const { addressId, items, paymentType, isGuest, guestInfo } = createOrderDto;
 
@@ -33,10 +32,10 @@ export class OrdersService {
           const address = await queryRunner.manager.findOne(Address, {
             where: { id: addressId, userId },
           });
-          if (!address) throw new NotFoundException('Delivery address not found.');
+          if (!address) throw new NotFoundException('Teslimat adresi bulunamadı.');
           addressSnapshot = address;
       } else {
-          if (!guestInfo) throw new BadRequestException('Guest information is missing.');
+          if (!guestInfo) throw new BadRequestException('Misafir bilgileri eksik.');
           addressSnapshot = { ...guestInfo, title: 'Guest Address' };
       }
 
@@ -50,11 +49,8 @@ export class OrdersService {
             where: { id: itemDto.productId }
            });
         
-        if (!product) throw new NotFoundException(`Product not found (ID: ${itemDto.productId})`);
-        
-        if (product.stock < itemDto.quantity) {
-           throw new BadRequestException(`Insufficient stock for ${product.name}.`);
-        }
+        if (!product) throw new NotFoundException(`Ürün bulunamadı (ID: ${itemDto.productId})`);
+        if (product.stock < itemDto.quantity) throw new BadRequestException(`${product.name} için stok yetersiz.`);
 
         // --- 💰 1. FİYAT HESAPLAMA ---
         let itemTotal = 0;
@@ -68,7 +64,7 @@ export class OrdersService {
             itemTotal = basePrice * itemDto.quantity; 
         }
 
-        // --- 🚀 2. UPGRADE (YÜKSELTME) İNDİRİMİ ---
+        // --- 🚀 2. UPGRADE İNDİRİMİ ---
         if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.upgradeFromSubId },
@@ -78,12 +74,10 @@ export class OrdersService {
             if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
                 const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
                 const refundValue = monthlyValue * oldSub.remainingMonths;
-
-                console.log(`[Upgrade] Düşülen Tutar: ${refundValue} TL`);
                 itemTotal = Math.max(0, itemTotal - refundValue);
                 
                 oldSub.status = SubscriptionStatus.CANCELLED; 
-                oldSub.cancellationReason = `Paket yükseltildi (Yeni Sipariş Oluşturuluyor)`;
+                oldSub.cancellationReason = `Paket yükseltildi`;
                 await queryRunner.manager.save(Subscription, oldSub);
             }
         }
@@ -97,12 +91,18 @@ export class OrdersService {
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name;
         
-        // 👇 PET BİLGİSİNİ YAKALA VE KAYDET (ORDER ITEM İÇİN)
+        // 👇 DÜZELTME: Pet değişkenine açıkça tip veriyoruz ki TypeScript kızmasın
+        let foundPet: Pet | null = null; 
+        
         if (itemDto.petId) {
-            const petId = Number(itemDto.petId); // Kesinlikle sayıya çevir
-            if (!isNaN(petId)) {
-                const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId as any } });
-                if (pet) orderItem.pet = pet;
+            // ID'niz UUID (String) olduğu için direkt string olarak arıyoruz.
+            // "as any" kullanarak TypeScript'in ID tipi kontrolünü aşıyoruz.
+            foundPet = await queryRunner.manager.findOne(Pet, { 
+                where: { id: itemDto.petId as any } 
+            });
+            
+            if (foundPet) {
+                orderItem.pet = foundPet;
             }
         }
 
@@ -134,14 +134,9 @@ export class OrdersService {
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             
-            // 👇 KRİTİK GÜNCELLEME: ABONELİK İÇİN PET BİLGİSİNİ KAYDET
-            // Bu kısım eksik olduğu için aboneliklerde pet görünmüyordu.
-            if (itemDto.petId) {
-                 const petId = Number(itemDto.petId);
-                 if (!isNaN(petId)) {
-                     const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId as any } });
-                     if (pet) subscription.pet = pet;
-                 }
+            // 👇 PET İLİŞKİSİNİ BURADA KURUYORUZ (Artık abonelikte görünecek)
+            if (foundPet) {
+                subscription.pet = foundPet;
             }
 
             subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
@@ -173,7 +168,7 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
 
-      return { success: true, orderId: savedOrder.id, message: 'Order received!' };
+      return { success: true, orderId: savedOrder.id, message: 'Sipariş alındı!' };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -200,7 +195,7 @@ export class OrdersService {
 
   async updateStatus(id: string, status: OrderStatus) {
     const order = await this.dataSource.getRepository(Order).findOne({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException('Sipariş bulunamadı');
     
     order.status = status;
     return await this.dataSource.getRepository(Order).save(order);
