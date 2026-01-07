@@ -536,7 +536,7 @@ function ProfileContent() {
                                     <div className="text-6xl mb-4 grayscale opacity-50">📅</div>
                                     <h3 className="text-xl font-bold text-gray-900">Aktif aboneliğin yok</h3>
                                     <p className="text-gray-500 mt-2 mb-6">Her ay kapına mutluluk gelmesini istemez misin?</p>
-                                    <button onClick={() => router.push('/')} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105 inline-block">Paketleri İncele</button>
+                                    <button onClick={() => router.push('/product')} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105 inline-block">Paketleri İncele</button>
                                 </div>
                             )}
                         </div>
@@ -658,7 +658,7 @@ function ProfileContent() {
                                     <div className="text-6xl mb-4">🛒</div>
                                     <h3 className="text-xl font-bold text-gray-900">Henüz sipariş vermedin</h3>
                                     <p className="text-gray-500 mt-2 mb-6">Can dostun için ilk sürpriz kutusunu oluşturmaya ne dersin?</p>
-                                    <button onClick={() => router.push('/')} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition">
+                                    <button onClick={() => router.push('/product')} className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-black transition">
                                         Hemen Alışverişe Başla
                                     </button>
                                 </div>

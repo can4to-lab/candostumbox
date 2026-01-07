@@ -27,4 +27,5 @@ export class OrderItem {
 
   @Column({ nullable: true })
   productNameSnapshot: string;
+
 }
