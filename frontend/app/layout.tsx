@@ -12,9 +12,21 @@ import Footer from "@/components/layout/Footer";
 const inter = Inter({subsets:["latin"]})
 
 export const metadata: Metadata = {
-    title: "Can Dostum Box | Sürpriz Mutluluk", 
-    description: "Can dostunuz için aylık sürpriz kutular.",
-    icons:{icon: '/icon.png', }
+  title: {
+    default: 'Can Dostum Box | Evcil Hayvan Abonelik Kutusu',
+    template: '%s | Can Dostum Box', // Alt sayfalarda "Ürün Adı | Can Dostum Box" yazar
+    
+  },
+  description: 'Köpek, kedi ve kuşlar için her ay kapınıza gelen sürpriz mutluluk kutusu. Doğal mamalar, eğlenceli oyuncaklar.',
+  icons:{icon: '/icon.png', },
+  keywords: ['köpek maması', 'kedi kutusu', 'abonelik', 'sürpriz kutu', 'evcil hayvan'],
+  authors: [{ name: 'Can Dostum Ekibi' }],
+  metadataBase: new URL('https://candostumbox.com'), // Kendi domaininizi yazın
+  openGraph: {
+    type: 'website',
+    locale: 'tr_TR',
+    siteName: 'Can Dostum Box',
+  }
 };
 
 export default function RootLayout({

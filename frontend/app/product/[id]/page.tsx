@@ -6,6 +6,7 @@ import { useCart } from "@/context/CartContext";
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import UpsellModal from "@/components/UpsellModal";
+import { Metadata } from 'next';
 
 const API_URL = "https://candostumbox-api.onrender.com";
 
@@ -250,7 +251,27 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
         </div>
     );
 };
+// ... (Mevcut importlarınız) ...
 
+// 👇 SEO İÇİN DİNAMİK METADATA OLUŞTURMA
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const id = params.id;
+  
+  // Ürün verisini çek (Burada fetch kullanıyoruz, Next.js bunu cache'ler, performans kaybı olmaz)
+  const product = await fetch(`https://candostumbox-api.onrender.com/products/${id}`).then((res) => res.json());
+
+  return {
+    title: `${product.name} | Can Dostum Box`,
+    description: `${product.description.slice(0, 160)}...`, // İlk 160 karakter (Google standardı)
+    openGraph: {
+      title: product.name,
+      description: product.description,
+      images: [product.image || '/default-box.png'], // Sosyal medyada paylaşılınca çıkacak resim
+    },
+  };
+}
+
+// ... (Kalan ProductDetailContent ve diğer kodlarınız) ...
 // --- ANA COMPONENT (İÇERİK) ---
 function ProductDetailContent() {
   const params = useParams();
@@ -471,10 +492,38 @@ function ProductDetailContent() {
   // STYLES
   const inputStyle = "w-full p-4 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition shadow-sm placeholder:text-gray-400";
   const selectStyle = "w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-gray-900 outline-none focus:border-green-500 transition cursor-pointer shadow-sm";
+// ... (Component içi kodlar) ...
+
+  // 👇 GOOGLE'IN ÜRÜNÜ ANLAMASI İÇİN SCHEMA KODU
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.image,
+    description: product.description,
+    brand: {
+      '@type': 'Brand',
+      name: 'Can Dostum Box',
+    },
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'TRY',
+      price: product.price,
+      availability: 'https://schema.org/InStock', // Stokta var
+    },
+  };
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] font-sans pb-10">
+    <main className="...">
+      {/* 👇 BU KOD GİZLİDİR, SADECE GOOGLE BOTLARI OKUR */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
       <Toaster position="top-right" />
+      {/* ... Kalan JSX kodlarınız ... */}
+      
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={handleAuthSuccess} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={handleAuthSuccess} />
       <UpsellModal isOpen={showUpsellModal} onClose={() => {setShowUpsellModal(false); setDuration(1); setPaymentType('upfront'); setStep(2);}} onAccept={() => {setShowUpsellModal(false); setRegisterOpen(true);}} savingsAmount={currentPriceInfo.originalTotal - currentPriceInfo.total} />
