@@ -154,4 +154,23 @@ export class UsersService {
   async findMyAddresses(userId: string) {
     return this.addressRepository.find({ where: { user: { id: userId } } });
   }
+
+  // 👇 BU METODU EKLEYİN: Profil sayfası için detaylı kullanıcı verisi
+  async findOneWithOrders(userId: string) {
+    return this.userRepository.findOne({
+      where: { id: userId },
+      relations: [
+        'pets', 
+        'addresses', 
+        'orders', 
+        'orders.items', 
+        'orders.items.product', 
+        'orders.items.pet' // 👈 İŞTE BU EKSİKTİ! Artık siparişin peti de gelecek.
+      ], 
+      order: { 
+        createdAt: 'DESC',
+        orders: { createdAt: 'DESC' } 
+      }
+    });
+  }
 }

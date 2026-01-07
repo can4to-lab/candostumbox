@@ -3,6 +3,9 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
+// 👇 YENİ: Sepet İşlemleri İçin Import
+import { useCart } from "@/context/CartContext";
+
 // --- BİLEŞEN IMPORTLARI ---
 import AddPetModal from "../components/modals/AddPetModal";
 import EditPetModal from "../components/modals/EditPetModal";
@@ -12,9 +15,6 @@ import ConfirmationModal from "../components/modals/ConfirmationModal";
 
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
-// frontend/app/profile/page.tsx
-// ... diğer importlar ...
-import { useCart } from "@/context/CartContext"; // <-- Bunu ekleyin
 
 const OTHER_ICONS: Record<string, string> = {
     'Kuş': '🦜', 'Hamster': '🐹', 'Tavşan': '🐰', 'Balık': '🐟'
@@ -23,7 +23,10 @@ const OTHER_ICONS: Record<string, string> = {
 function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // 👇 YENİ: Sepet Hook'unu Başlatıyoruz
   const { addToCart } = useCart();
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -65,28 +68,22 @@ function ProfileContent() {
 
   const [passData, setPassData] = useState({ current: "", new: "", confirm: "" });
 
-  // --- 🛠️ YARDIMCI FONKSİYONLAR (YENİ EKLENDİ) ---
-
-  // 1. Yaş Hesaplama
+  // --- 🛠️ YARDIMCI FONKSİYONLAR ---
   const calculateAge = (birthDate: string) => {
     if (!birthDate) return 0;
     const birth = new Date(birthDate);
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-        age--;
-    }
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
     return age;
   };
 
-  // 2. Burç Hesaplama 🦁
   const getZodiacSign = (dateString: string) => {
     if (!dateString) return { sign: "Bilinmiyor", icon: "⭐" };
     const date = new Date(dateString);
     const day = date.getDate();
     const month = date.getMonth() + 1;
-
     if ((month == 1 && day <= 20) || (month == 12 && day >= 22)) return { sign: "Oğlak", icon: "♑" };
     if ((month == 1 && day >= 21) || (month == 2 && day <= 18)) return { sign: "Kova", icon: "♒" };
     if ((month == 2 && day >= 19) || (month == 3 && day <= 20)) return { sign: "Balık", icon: "♓" };
@@ -99,19 +96,17 @@ function ProfileContent() {
     if ((month == 9 && day >= 23) || (month == 10 && day <= 22)) return { sign: "Terazi", icon: "♎" };
     if ((month == 10 && day >= 23) || (month == 11 && day <= 21)) return { sign: "Akrep", icon: "♏" };
     if ((month == 11 && day >= 22) || (month == 12 && day >= 21)) return { sign: "Yay", icon: "♐" };
-    return { sign: "Bilinmiyor", icon: "⭐" };
+    return { sign: "Bilinmiyor", icon: "⭐" }; 
   };
 
-  // 3. İnsan Yaşı Hesaplama (Tahmini) 🧮
   const getHumanAge = (birthDate: string, type: string) => {
       if (!birthDate) return null;
       const age = calculateAge(birthDate); 
-      let multiplier = 7; // Standart köpek/kedi çarpanı
+      let multiplier = 7; 
       if (type === 'Kuş') multiplier = 5; 
       return age * multiplier;
   };
 
-  // 4. Kart Tasarımı (Renklendirme) 🎨
   const getPetTheme = (type: string) => {
       switch(type) {
           case 'kopek': return { bg: 'from-orange-400 to-amber-500', light: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-100', icon: '🐶' };
@@ -187,6 +182,49 @@ function ProfileContent() {
     }
   }, [activeTab]);
 
+  // --- ABONELİK İŞLEMLERİ (YENİ) ---
+  // 1. Süreyi Uzat (+3 Ay)
+  const handleExtendSubscription = (sub: any) => {
+    if (!sub.product) {
+        toast.error("Paket bilgisi bulunamadı.");
+        return;
+    }
+
+    addToCart({
+        productId: sub.product.id,
+        productName: sub.product.name,
+        price: sub.product.price, 
+        duration: 3, // Buton +3 Ay dediği için
+        petId: sub.pet?.id,
+        petName: sub.pet?.name || "Dostum",
+        paymentType: 'upfront', 
+        image: sub.pet?.image || "",
+        subscriptionId: sub.id // Backend bunu uzatma olarak algılar
+    });
+
+    toast.success(`${sub.pet?.name} için +3 ay paket sepete eklendi! 🚀`);
+    router.push('/checkout');
+  };
+
+  // 2. Paketi Yükselt
+  const handleUpgradeSubscription = (sub: any) => {
+    if (!sub.product) return;
+
+    // Kalan Tutarı Hesapla (Tahmini - Kullanıcıya göstermek için)
+    const monthlyPrice = sub.product.price / (sub.totalMonths || 1);
+    const refundAmount = monthlyPrice * (sub.remainingMonths || 0);
+
+    const params = new URLSearchParams();
+    params.set('mode', 'upgrade');
+    params.set('oldSubId', sub.id); 
+    params.set('petId', sub.pet?.id || ''); 
+    params.set('refund', refundAmount.toFixed(2));
+
+    router.push(`/product?${params.toString()}`);
+    
+    toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`);
+  };
+
   // --- ABONELİK İPTAL ---
   const handleCancelSubscription = async () => {
     if (!selectedSubId) return;
@@ -217,53 +255,7 @@ function ProfileContent() {
     }
   };
 
-// 1. Süreyi Uzat (+3 Ay) Fonksiyonu
-  const handleExtendSubscription = (sub: any) => {
-    if (!sub.product) {
-        toast.error("Paket bilgisi bulunamadı.");
-        return;
-    }
-
-    addToCart({
-        productId: sub.product.id,
-        productName: sub.product.name,
-        price: sub.product.price, // Birim aylık fiyat
-        duration: 3, // Buton +3 Ay dediği için sabit 3 gönderiyoruz
-        petId: sub.pet?.id,
-        petName: sub.pet?.name,
-        paymentType: 'upfront', // Peşin ödeme
-        image: sub.pet?.image || "",
-        subscriptionId: sub.id // Backend'in bu siparişin bir "uzatma" olduğunu anlaması için ID
-    });
-
-    toast.success(`${sub.pet?.name} için +3 ay paket sepete eklendi! 🚀`);
-    router.push('/checkout');
-  };
-
-  // 2. Paketi Yükselt Fonksiyonu
-  const handleUpgradeSubscription = (sub: any) => {
-      if (!sub.product) return;
-
-      // 1. Kalan Tutarı Hesapla (Tahmini)
-      // Formül: (Toplam Fiyat / Toplam Ay) * Kalan Ay
-      const monthlyPrice = sub.product.price / (sub.totalMonths || 1);
-      const refundAmount = monthlyPrice * (sub.remainingMonths || 0);
-
-      // 2. Parametreleri Hazırla
-      const params = new URLSearchParams();
-      params.set('mode', 'upgrade');
-      params.set('oldPrice', sub.product.price);
-      params.set('oldSubId', sub.id);
-      params.set('petName', sub.pet?.name || 'Dostum');
-      params.set('petId', sub.pet?.id || ''); // 👈 Pet ID'sini ekledik (Otomatik seçim için şart)
-      params.set('refund', refundAmount.toFixed(2)); // 👈 İade tutarını taşıyoruz
-
-      router.push(`/product?${params.toString()}`);
-      
-      toast(`🚀 ${sub.pet?.name} için paketleri listeliyoruz...`);
-  };
-
-  // --- İŞLEMLER ---
+  // --- İŞLEMLER (Profil Güncelleme, Silme vb.) ---
   const handleUpdateProfile = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
@@ -288,8 +280,7 @@ function ProfileContent() {
             toast.success("Bilgilerin güncellendi! ✅", { id: toastId });
             fetchProfile();
         } else {
-             const errorMessage = data.message || "Güncelleme başarısız.";
-             toast.error(errorMessage, { id: toastId });
+             toast.error(data.message || "Güncelleme başarısız.", { id: toastId });
         }
       } catch (error) { toast.error("Sunucu hatası.", { id: toastId }); }
   };
@@ -338,12 +329,11 @@ function ProfileContent() {
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
               body: JSON.stringify({ currentPassword: passData.current, newPassword: passData.new })
           });
-          const data = await res.json();
           if (res.ok) {
               toast.success("Şifreniz değiştirildi! 🔒", { id: toastId });
               setPassData({ current: "", new: "", confirm: "" }); 
           } else {
-              toast.error(data.message || "Hata oluştu.", { id: toastId });
+              toast.error("Hata oluştu.", { id: toastId });
           }
       } catch (e) { toast.error("Bağlantı hatası.", { id: toastId }); }
   };
@@ -468,8 +458,10 @@ function ProfileContent() {
                                                         {sub.pet?.type === 'kopek' ? '🐶' : sub.pet?.type === 'kedi' ? '🐱' : '🐦'}
                                                     </div>
                                                     <div>
-                                                        <h3 className="font-bold text-gray-900 text-sm">{sub.pet?.name || "Can Dostum"} Paketi</h3>
-                                                        <p className="text-xs text-gray-500">Başlangıç: {new Date(sub.startDate).toLocaleDateString('tr-TR')}</p>
+                                                        <h3 className="font-bold text-gray-900 text-sm">
+                                                            {sub.pet?.name ? `${sub.pet.name} Paketi` : "Can Dostum Paketi"}
+                                                        </h3>
+                                                        <p className="text-xs text-gray-500">{sub.product?.name}</p>
                                                     </div>
                                                 </div>
                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
@@ -496,39 +488,38 @@ function ProfileContent() {
                                                         <div className="grid grid-cols-2 gap-4">
                                                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                                                 <span className="block text-xs text-gray-400 font-bold uppercase mb-1">📦 Sıradaki Kutu</span>
-                                                                <span className="text-sm font-bold text-gray-900">{isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}</span>
+                                                                <span className="text-sm font-bold text-gray-900">{isActive ? (sub.nextDeliveryDate ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : 'Hesaplanıyor') : '-'}</span>
                                                             </div>
                                                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                                                 <span className="block text-xs text-gray-400 font-bold uppercase mb-1">💳 Yenileme Tarihi</span>
-                                                                <span className="text-sm font-bold text-gray-900">{isActive ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : '-'}</span>
+                                                                <span className="text-sm font-bold text-gray-900">{isActive ? (sub.nextDeliveryDate ? new Date(sub.nextDeliveryDate).toLocaleDateString('tr-TR') : 'Hesaplanıyor') : '-'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                   {/* ... önceki kodlar ... */}
-<div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
-    {isActive ? (
-        <>
-            {/* PAKETİ YÜKSELT BUTONU */}
-            <button 
-                onClick={() => handleUpgradeSubscription(sub)} 
-                className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"
-            >
-                <span>⚡</span> Paketi Yükselt
-            </button>
-
-            {/* SÜREYİ UZAT BUTONU */}
-            <button 
-                onClick={() => handleExtendSubscription(sub)} 
-                className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition"
-            >
-                Süreyi Uzat (+3 Ay)
-            </button>
-            
-            <button onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }} className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2">
-                Aboneliği İptal Et
-            </button>
-        </>
-    ) : (
+                                                    <div className="md:w-1/3 md:border-l border-gray-100 md:pl-6 flex flex-col justify-center gap-3">
+                                                        {isActive ? (
+                                                            <>
+                                                                {/* 👇 YÜKSELT BUTONU (YENİ) */}
+                                                                <button 
+                                                                    onClick={() => handleUpgradeSubscription(sub)} 
+                                                                    className="w-full py-3 px-4 bg-gray-900 hover:bg-black text-white text-sm font-bold rounded-xl transition shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                                                                >
+                                                                    <span>⚡</span> Paketi Yükselt
+                                                                </button>
+                                                                
+                                                                {/* 👇 UZAT BUTONU (YENİ) */}
+                                                                <button 
+                                                                    onClick={() => handleExtendSubscription(sub)} 
+                                                                    className="w-full py-3 px-4 bg-white border-2 border-gray-200 hover:border-blue-500 hover:text-blue-600 text-gray-600 text-sm font-bold rounded-xl transition"
+                                                                >
+                                                                    Süreyi Uzat (+3 Ay)
+                                                                </button>
+                                                                
+                                                                <button onClick={() => { setSelectedSubId(sub.id); setCancelModalOpen(true); }} className="w-full py-2 px-4 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition mt-2">
+                                                                    Aboneliği İptal Et
+                                                                </button>
+                                                            </>
+                                                        ) : (
                                                             <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
                                                                 <p className="text-sm text-gray-500 mb-3 font-medium">Sizi özleyeceğiz 😔</p>
                                                                 <button onClick={() => router.push('/')} className="text-green-600 font-bold hover:underline text-sm border border-green-200 bg-green-50 px-4 py-2 rounded-lg hover:bg-green-100 transition">Tekrar Abone Ol</button>
@@ -603,6 +594,19 @@ function ProfileContent() {
                                                                         <h4 className="font-bold text-gray-900 text-base">{item.product?.name}</h4>
                                                                         <span className="font-bold text-gray-900">₺{item.priceAtPurchase || item.product?.price}</span>
                                                                     </div>
+                                                                    
+                                                                    {/* 👇 YENİ: Pet İsmi Etiketi */}
+                                                                    {item.pet && (
+                                                                        <div className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-orange-50 border border-orange-100 rounded-md">
+                                                                            <span className="text-xs">
+                                                                                {item.pet.type === 'kopek' ? '🐶' : item.pet.type === 'kedi' ? '🐱' : '🦜'}
+                                                                            </span>
+                                                                            <span className="text-xs font-bold text-orange-700">
+                                                                                {item.pet.name} için
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+
                                                                     <p className="text-sm text-gray-500 line-clamp-2 mt-1">{item.product?.description}</p>
                                                                     <div className="mt-2">
                                                                         <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold border border-gray-200">
@@ -662,6 +666,7 @@ function ProfileContent() {
                         </div>
                     )}
 
+                    {/* --- KULLANICI BİLGİLERİ SEKMESİ --- */}
                     {activeTab === "bilgiler" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 md:p-8 shadow-sm animate-fade-in">
                              <div className="space-y-6">
@@ -680,7 +685,7 @@ function ProfileContent() {
                         </div>
                     )}
 
-                    {/* --- CAN DOSTLARIM SEKMESİ (YENİLENMİŞ TASARIM) --- */}
+                    {/* --- CAN DOSTLARIM SEKMESİ --- */}
                     {activeTab === "pets" && (
                         <div className="space-y-8 animate-fade-in">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -692,15 +697,11 @@ function ProfileContent() {
 
                                     return (
                                         <div key={pet.id} className={`group relative bg-white border ${theme.border} rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden`}>
-                                            
-                                            {/* RENKLİ ÜST BAŞLIK */}
                                             <div className={`h-24 bg-gradient-to-r ${theme.bg} relative`}>
                                                 <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full border border-white/30">
                                                     #{pet.id.toString().slice(0,4)}
                                                 </div>
                                             </div>
-
-                                            {/* AVATAR (YUVARLAK) */}
                                             <div className="absolute top-12 left-6">
                                                 <div className="w-24 h-24 bg-white p-1.5 rounded-full shadow-lg">
                                                     <div className={`w-full h-full ${theme.light} rounded-full flex items-center justify-center text-5xl`}>
@@ -708,11 +709,7 @@ function ProfileContent() {
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* KART İÇERİĞİ */}
                                             <div className="pt-16 px-6 pb-6">
-                                                
-                                                {/* İsim ve Tür */}
                                                 <div className="flex justify-between items-start mb-4">
                                                     <div>
                                                         <h4 className="font-black text-2xl text-gray-900 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-gray-900 group-hover:to-gray-600 transition-all">
@@ -722,99 +719,47 @@ function ProfileContent() {
                                                             {pet.breed || "Bilinmiyor"}
                                                         </span>
                                                     </div>
-                                                    
-                                                    {/* Düzenle Butonu (Gizli, hoverda çıkar) */}
-                                                    <button 
-                                                        onClick={() => openEditPetModal(pet)}
-                                                        className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"
-                                                        title="Düzenle"
-                                                    >
-                                                        ✏️
-                                                    </button>
+                                                    <button onClick={() => openEditPetModal(pet)} className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition" title="Düzenle">✏️</button>
                                                 </div>
-
-                                                {/* Bilgi Izgarası (Grid) */}
                                                 <div className="grid grid-cols-2 gap-3 mb-6">
                                                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                                                         <span className="text-xs text-gray-400 font-bold block mb-1">YAŞ</span>
-                                                        <div className="font-bold text-gray-800 flex items-center gap-1">
-                                                            🎂 {age} Yaşında
-                                                        </div>
-                                                        {humanAge && (
-                                                            <div className="text-[10px] text-gray-500 mt-1">
-                                                                (İnsan yaşıyla: {humanAge})
-                                                            </div>
-                                                        )}
+                                                        <div className="font-bold text-gray-800 flex items-center gap-1">🎂 {age} Yaşında</div>
+                                                        {humanAge && (<div className="text-[10px] text-gray-500 mt-1">(İnsan yaşıyla: {humanAge})</div>)}
                                                     </div>
                                                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
                                                         <span className="text-xs text-gray-400 font-bold block mb-1">AĞIRLIK</span>
-                                                        <div className="font-bold text-gray-800">
-                                                            ⚖️ {pet.weight} kg
-                                                        </div>
-                                                        <div className="text-[10px] text-gray-500 mt-1">
-                                                            {pet.gender === 'male' ? 'Erkek ♂' : 'Dişi ♀'}
-                                                        </div>
+                                                        <div className="font-bold text-gray-800">⚖️ {pet.weight} kg</div>
+                                                        <div className="text-[10px] text-gray-500 mt-1">{pet.gender === 'male' ? 'Erkek ♂' : 'Dişi ♀'}</div>
                                                     </div>
                                                     <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 col-span-2 flex items-center justify-between">
-                                                        <div>
-                                                            <span className="text-xs text-gray-400 font-bold block">BURCU</span>
-                                                            <span className="font-bold text-gray-800">{zodiac.sign}</span>
-                                                        </div>
-                                                        <div className="text-3xl grayscale group-hover:grayscale-0 transition-all duration-500">
-                                                            {zodiac.icon}
-                                                        </div>
+                                                        <div><span className="text-xs text-gray-400 font-bold block">BURCU</span><span className="font-bold text-gray-800">{zodiac.sign}</span></div>
+                                                        <div className="text-3xl grayscale group-hover:grayscale-0 transition-all duration-500">{zodiac.icon}</div>
                                                     </div>
                                                 </div>
-
-                                                {/* Alt Butonlar */}
                                                 <div className="flex gap-3 pt-4 border-t border-gray-100">
-                                                    <button 
-    onClick={() => {
-        // 1. Bu hayvana ait aktif bir abonelik var mı kontrol et
-        const hasActiveSub = subs.find(s => s.pet?.id === pet.id && s.status === 'active');
-        
-        if (hasActiveSub) {
-            // Varsa: Abonelik sekmesini aç ve o aboneliği göster
-            setActiveTab("abonelik");
-            toast("Abonelik detaylarına yönlendiriliyorsunuz...", { icon: '🚀' });
-        } else {
-            // Yoksa: Satın almaya (paket seçmeye) yönlendir
-            toast.success(`${pet.name} için harika bir kutu seçelim!`);
-            router.push("/product");
-        }
-    }}
-    className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition shadow-lg shadow-gray-200"
->
-    {subs.find(s => s.pet?.id === pet.id && s.status === 'active') ? '⚙️ Paketi Yönet' : '🎁 Paket Satın Al'}
-</button>
-                                                    <button 
-                                                        onClick={() => requestDelete('pet', pet.id)}
-                                                        className="px-4 py-2.5 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition"
-                                                    >
-                                                        Sil 🗑️
+                                                    <button onClick={() => {
+                                                        const hasActiveSub = subs.find(s => s.pet?.id === pet.id && s.status === 'active');
+                                                        if (hasActiveSub) { setActiveTab("abonelik"); toast("Abonelik detaylarına yönlendiriliyorsunuz...", { icon: '🚀' }); } 
+                                                        else { toast.success(`${pet.name} için harika bir kutu seçelim!`); router.push("/product"); }
+                                                    }} className="flex-1 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black transition shadow-lg shadow-gray-200">
+                                                        {subs.find(s => s.pet?.id === pet.id && s.status === 'active') ? '⚙️ Paketi Yönet' : '🎁 Paket Satın Al'}
                                                     </button>
+                                                    <button onClick={() => requestDelete('pet', pet.id)} className="px-4 py-2.5 bg-red-50 text-red-500 rounded-xl text-xs font-bold hover:bg-red-100 transition">Sil 🗑️</button>
                                                 </div>
-
                                             </div>
                                         </div>
                                     );
                                 })}
-
-                                {/* YENİ DOST EKLE KARTI */}
-                                <button 
-                                    onClick={() => setAddPetOpen(true)} 
-                                    className="group relative h-full min-h-[320px] bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center hover:border-green-400 hover:bg-green-50/30 transition-all duration-300"
-                                >
-                                    <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-4xl mb-4 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-green-100 transition-all duration-300">
-                                        +
-                                    </div>
+                                <button onClick={() => setAddPetOpen(true)} className="group relative h-full min-h-[320px] bg-white border-2 border-dashed border-gray-200 rounded-3xl flex flex-col items-center justify-center hover:border-green-400 hover:bg-green-50/30 transition-all duration-300">
+                                    <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-4xl mb-4 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-green-100 transition-all duration-300">+</div>
                                     <h4 className="font-bold text-gray-400 group-hover:text-green-600 text-lg transition-colors">Yeni Dost Ekle</h4>
-                                    <p className="text-xs text-gray-400 mt-2 px-8 text-center group-hover:text-green-600/70">Ailemize yeni bir üye mi katıldı? Hemen profilini oluşturalım!</p>
                                 </button>
                             </div>
                         </div>
                     )}
 
+                    {/* --- ŞİFRE DEĞİŞTİRME --- */}
                     {activeTab === "sifre" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm max-w-lg animate-fade-in">
                             <div className="space-y-4">
@@ -826,6 +771,7 @@ function ProfileContent() {
                         </div>
                     )}
 
+                    {/* --- ADRESLER --- */}
                     {activeTab === "adresler" && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="grid grid-cols-1 gap-4">
@@ -847,6 +793,7 @@ function ProfileContent() {
                         </div>
                     )}
 
+                    {/* --- KARTLAR --- */}
                     {activeTab === "kartlar" && (
                         <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm text-center animate-fade-in">
                             <div className="text-4xl mb-4">💳</div>
@@ -855,6 +802,7 @@ function ProfileContent() {
                         </div>
                     )}
 
+                    {/* --- İLETİŞİM --- */}
                     {activeTab === "iletisim" && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
                             <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm">
@@ -869,6 +817,7 @@ function ProfileContent() {
         </div>
       </div>
 
+      {/* --- TÜM MODALLAR BURADA --- */}
       <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} onLoginSuccess={() => router.push('/profile')} />
       <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} initialData={null} onRegisterSuccess={() => router.push('/profile')} />
       <AddPetModal isOpen={isAddPetOpen} onClose={() => setAddPetOpen(false)} onSuccess={fetchProfile} />
@@ -876,42 +825,27 @@ function ProfileContent() {
       <AddAddressModal isOpen={isAddAddressOpen} onClose={() => setAddAddressOpen(false)} onSuccess={fetchProfile} />
       <EditAddressModal isOpen={isEditAddressOpen} onClose={() => setEditAddressOpen(false)} onSuccess={fetchProfile} addressData={selectedAddress} />
       
-      {/* --- CAYMA HAKKI / İPTAL MODALI --- */}
+      {/* İptal Modalı */}
       {cancelModalOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative transform transition-all scale-100">
                 <button onClick={() => setCancelModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition">✕</button>
-                
                 <div className="text-center mb-6 pt-2">
-                    <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-4 border-white shadow-lg">
-                        💔
-                    </div>
+                    <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 border-4 border-white shadow-lg">💔</div>
                     <h3 className="text-xl font-bold text-gray-900">Ayrılıyor muyuz?</h3>
-                    <p className="text-gray-500 mt-2 text-sm px-4">
-                        Aboneliğini iptal edersen, bir sonraki aydan itibaren kutu gönderimi durdurulacaktır.
-                    </p>
+                    <p className="text-gray-500 mt-2 text-sm px-4">Aboneliğini iptal edersen, bir sonraki aydan itibaren kutu gönderimi durdurulacaktır.</p>
                 </div>
-
                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-6 text-sm text-orange-800 flex gap-3 items-start text-left">
                     <span className="text-xl">💰</span>
-                    <div>
-                        <strong className="block mb-1">Para İadesi Hakkında:</strong>
-                        Cayma hakkınız gereği, kullanmadığınız aylara ait tutar hesaplanarak 3-7 iş günü içinde kartınıza iade edilecektir.
-                    </div>
+                    <div><strong className="block mb-1">Para İadesi Hakkında:</strong>Cayma hakkınız gereği, kullanmadığınız aylara ait tutar hesaplanarak 3-7 iş günü içinde kartınıza iade edilecektir.</div>
                 </div>
-
                 <div className="flex gap-3">
-                    <button onClick={() => setCancelModalOpen(false)} className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">
-                        Vazgeçtim
-                    </button>
-                    <button onClick={handleCancelSubscription} className="flex-1 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg hover:shadow-red-200 transition transform hover:scale-105 active:scale-95">
-                        Evet, İptal Et
-                    </button>
+                    <button onClick={() => setCancelModalOpen(false)} className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition">Vazgeçtim</button>
+                    <button onClick={handleCancelSubscription} className="flex-1 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg hover:shadow-red-200 transition transform hover:scale-105 active:scale-95">Evet, İptal Et</button>
                 </div>
             </div>
         </div>
       )}
-
     </div>
   );
 }
