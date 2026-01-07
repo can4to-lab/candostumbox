@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Pet } from 'src/pets/entities/pet.entity';
 import { Product } from 'src/products/entities/product.entity';
@@ -18,7 +18,9 @@ export class Subscription {
   @ManyToOne(() => User, user => user.subscriptions, { onDelete: 'CASCADE' })
   user: User;
 
-  @ManyToOne(() => Pet, { nullable: true, onDelete: 'SET NULL' })
+  // 👇 GÜNCELLEME: @JoinColumn EKLENDİ
+  @ManyToOne(() => Pet, { nullable: true, onDelete: 'SET NULL', eager: true })
+  @JoinColumn({ name: 'petId' }) 
   pet: Pet;
 
   @ManyToOne(() => Product, { nullable: true })
@@ -36,7 +38,6 @@ export class Subscription {
   @Column({ type: 'timestamp', nullable: true })
   nextDeliveryDate: Date;
 
-  // 👇 İŞTE EKSİK OLAN SATIR BU:
   @Column({ nullable: true })
   deliveryPeriod: string; 
 

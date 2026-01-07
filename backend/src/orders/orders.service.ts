@@ -91,12 +91,13 @@ export class OrdersService {
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name;
         
-       // Doğrudan string olarak aratıp kaydediyoruz.
+        // 👇 TİP HATASI ÇÖZÜMÜ: Değişken tipini açıkça belirtiyoruz
         let foundPet: Pet | null = null;
+        
         if (itemDto.petId) {
-            // itemDto.petId artık string olduğu için direkt kullanabiliriz
+            // UUID String olduğu için Number() kullanmıyoruz. 'as any' ile TypeORM tip kontrolünü aşıyoruz.
             foundPet = await queryRunner.manager.findOne(Pet, { 
-                where: { id: itemDto.petId as any } // 'as any' UUID tip uyuşmazlığı için kalabilir
+                where: { id: itemDto.petId as any } 
             });
             
             if (foundPet) {
@@ -132,7 +133,7 @@ export class OrdersService {
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             
-            // 👇 PET İLİŞKİSİNİ BURADA KURUYORUZ (Artık abonelikte görünecek)
+            // 👇 PET İLİŞKİSİNİ ABONELİĞE EKLİYORUZ
             if (foundPet) {
                 subscription.pet = foundPet;
             }
