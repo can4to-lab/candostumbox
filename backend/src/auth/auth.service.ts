@@ -142,7 +142,7 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['pets', 'addresses', 'orders', 'orders.items', 'orders.items.product']
+      relations: ['pets', 'addresses', 'orders', 'orders.items', 'orders.items.product','orders.items.pet']
     });
 
     if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı.');
