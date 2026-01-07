@@ -19,7 +19,7 @@ export class OrdersService {
 
   // 1. CREATE ORDER (Supports Guest)
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
-    const { addressId, items, paymentType, isGuest, guestInfo } = createOrderDto;
+    const { addressId, items, paymentType, isGuest, guestInfo, petId } = createOrderDto;
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -55,59 +55,61 @@ export class OrdersService {
         if (product.stock < item.quantity) {
            throw new BadRequestException(`Insufficient stock for ${product.name}.`);
         }
-
-// --- 💰 PRICE CALCULATION (FİYAT HESAPLAMA) ---
+// --- 💰 1. FİYAT HESAPLAMA (NORMAL) ---
         let itemTotal = 0;
         const itemDuration = item.duration || 1;
         const basePrice = Number(product.price);
 
-        // 1. ADIM: Önce Yeni Paketin Normal Fiyatını Hesapla
         if (paymentType === 'upfront') {
-            // Peşin Ödeme: İndirim servisini kullan
             const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
             itemTotal = calculation.finalPrice * item.quantity;
         } else {
-            // Aylık Ödeme: Standart fiyat
             itemTotal = basePrice * item.quantity; 
         }
 
-        // 2. ADIM: Upgrade (Paket Yükseltme) Varsa Eskiyi Düş
+        // --- 🚀 2. UPGRADE (YÜKSELTME) İNDİRİMİ ---
+        // DTO'ya eklediğimiz alan sayesinde artık burası çalışacak
         if (item.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: item.upgradeFromSubId },
                 relations: ['product']
             });
 
-            if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE) {
-                // A. Kalan Tutar Hesabı (Proration)
-                const oldPrice = Number(oldSub.product.price); 
-                const pricePerMonth = oldPrice / (oldSub.totalMonths || 1);
-                const remainingValue = pricePerMonth * oldSub.remainingMonths;
+            // Sadece aktifse ve süresi varsa indirim yap
+            if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
+                // Formül: (Eski Ürün Fiyatı / Toplam Ay) * Kalan Ay
+                const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
+                const refundValue = monthlyValue * oldSub.remainingMonths;
 
-                console.log(`Eski Paketten Kalan Bakiye: ${remainingValue} TL`);
+                console.log(`[Upgrade] Düşülen Tutar: ${refundValue} TL`);
 
-                // B. Yeni Tutar'dan Düş
-                itemTotal -= remainingValue;
-
-                // Tutar eksiye düşerse 0 yap (Üste para vermeyelim)
-                if (itemTotal < 0) itemTotal = 0;
-
-                // C. Eski Aboneliği İPTAL ET
-                oldSub.status = SubscriptionStatus.CANCELLED;
-                oldSub.cancellationReason = "Paket yükseltme nedeniyle otomatik iptal.";
+                // Yeni fiyattan düş (Eksiye düşerse 0 olsun)
+                itemTotal = Math.max(0, itemTotal - refundValue);
+                
+                // Eski aboneliği iptal et
+                oldSub.status = SubscriptionStatus.CANCELLED; 
+                oldSub.cancellationReason = `Paket yükseltildi (Yeni Sipariş Oluşturuluyor)`;
                 await queryRunner.manager.save(Subscription, oldSub);
             }
         }
 
         totalPrice += itemTotal;
 
-        // Create Order Item
+        // --- 📝 SİPARİŞ KALEMİ OLUŞTURMA ---
         const orderItem = new OrderItem();
         orderItem.product = product;
-        orderItem.product = { id: item.productId } as any; // ✅ DOĞRU: İlişki objesi içine ID veriyoruz
+        orderItem.product = { id: item.productId } as any;
         orderItem.quantity = item.quantity;
         orderItem.priceAtPurchase = product.price; 
-        orderItem.productNameSnapshot = product.name; 
+        orderItem.productNameSnapshot = product.name;
+        
+        // 🐾 PET BİLGİSİNİ KAYDETME (EKLENEN KISIM)
+        // DTO'dan gelen petId varsa veritabanından bulup ekliyoruz
+        if (petId) {
+            const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId } });
+            if (pet) orderItem.pet = pet;
+        }
+
         orderItems.push(orderItem);
 
         // Deduct Stock
