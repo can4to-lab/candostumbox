@@ -31,27 +31,22 @@ export class AuthService {
     // Şifre hashleme
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 👇 DEĞİŞİKLİK 2: İsim Belirleme Mantığı (Hibrit Yapı)
-    // Önce direkt gelen firstName var mı diye bak, yoksa boş string ata
     let firstName = incomingFirstName || "";
     let lastName = incomingLastName || "";
 
-    // Eğer firstName gelmediyse AMA 'name' geldiyse (yani tek satır geldiyse), parçala
     if (!firstName && name) {
       const parts = name.trim().split(' ');
       if (parts.length > 1) {
-        lastName = parts.pop();         // Son kelimeyi soyisim yap
-        firstName = parts.join(' ');    // Kalanları isim yap
+        lastName = parts.pop();         
+        firstName = parts.join(' ');    
       } else {
         firstName = parts[0];
       }
     }
 
-    // Kullanıcı oluşturma (TypeORM)
     const newUser = this.userRepository.create({
         email,
         password: hashedPassword,
-        // Artık firstName doğru geleceği için "İsimsiz" yazmayacak
         firstName: firstName || "İsimsiz", 
         lastName: lastName || "",
         phone,
@@ -59,7 +54,6 @@ export class AuthService {
         userBirthDate: userBirthDate ? new Date(userBirthDate) : undefined,
         tcKimlikNo: tcKimlikNo,
         
-        // İlişkili veriler (User Entity'de cascade: true olmalı)
         pets: [{
             name: petName,
             type: petType,
@@ -84,8 +78,6 @@ export class AuthService {
 
     try {
         const savedUser = await this.userRepository.save(newUser);
-
-        // Token oluşturma
         const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
         
         return {
@@ -124,8 +116,6 @@ export class AuthService {
     const { email, password } = data;
     const user = await this.userRepository.findOne({ where: { email } });
     
-    // Rol kontrolü (Eğer User entity'de role sütunu varsa)
-    // Yoksa sadece şifre kontrolü yapıyoruz şimdilik
     if (!user || !(await bcrypt.compare(password, user.password))) {
        throw new UnauthorizedException('Giriş bilgileri hatalı.');
     }
@@ -142,7 +132,15 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      relations: ['pets', 'addresses', 'orders', 'orders.items', 'orders.items.product','orders.items.pet']
+      // 👇 BURAYA 'orders.items.pet' İLİŞKİSİ EKLENDİ
+      relations: [
+          'pets', 
+          'addresses', 
+          'orders', 
+          'orders.items', 
+          'orders.items.product',
+          'orders.items.pet'
+      ]
     });
 
     if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı.');

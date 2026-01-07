@@ -97,12 +97,13 @@ export class OrdersService {
         orderItem.priceAtPurchase = product.price; 
         orderItem.productNameSnapshot = product.name;
         
-        // 👇 DÜZELTME 1: "as any" kullanarak TypeScript hatasını aşıyoruz
+        // 👇 PET BİLGİSİNİ YAKALA VE KAYDET (ORDER ITEM İÇİN)
         if (itemDto.petId) {
-            const pet = await queryRunner.manager.findOne(Pet, { 
-                where: { id: itemDto.petId as any } // <-- BURASI DÜZELTİLDİ
-            });
-            if (pet) orderItem.pet = pet;
+            const petId = Number(itemDto.petId); // Kesinlikle sayıya çevir
+            if (!isNaN(petId)) {
+                const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId as any } });
+                if (pet) orderItem.pet = pet;
+            }
         }
 
         orderItems.push(orderItem);
@@ -113,6 +114,7 @@ export class OrdersService {
 
         // --- 📅 ABONELİK (SUBSCRIPTION) OLUŞTURMA ---
         if (itemDto.subscriptionId) {
+            // Mevcut aboneliği uzatma
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.subscriptionId } 
             });
@@ -127,16 +129,19 @@ export class OrdersService {
             }
         } 
         else {
+            // Yeni Abonelik
             const subscription = new Subscription();
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             
-            // 👇 DÜZELTME 2: Burada da "as any" kullanıldı
+            // 👇 KRİTİK GÜNCELLEME: ABONELİK İÇİN PET BİLGİSİNİ KAYDET
+            // Bu kısım eksik olduğu için aboneliklerde pet görünmüyordu.
             if (itemDto.petId) {
-                 const pet = await queryRunner.manager.findOne(Pet, { 
-                     where: { id: itemDto.petId as any } // <-- BURASI DÜZELTİLDİ
-                 });
-                 if (pet) subscription.pet = pet;
+                 const petId = Number(itemDto.petId);
+                 if (!isNaN(petId)) {
+                     const pet = await queryRunner.manager.findOne(Pet, { where: { id: petId as any } });
+                     if (pet) subscription.pet = pet;
+                 }
             }
 
             subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
