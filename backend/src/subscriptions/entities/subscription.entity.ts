@@ -51,7 +51,7 @@ export class Subscription {
   status: SubscriptionStatus;
 
   @Column({ nullable: true })
-  cancellationReason: string;
+  cancellationReason: string| null;
 
   @CreateDateColumn()
   createdAt: Date;

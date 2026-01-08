@@ -127,30 +127,44 @@ export class OrdersService {
 
         // --- 📅 ABONELİK (SUBSCRIPTION) OLUŞTURMA ---
         if (itemDto.subscriptionId) {
-            // Mevcut aboneliği uzatma
+            // 1. MEVCUT ABONELİĞİ BUL
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
-                where: { id: itemDto.subscriptionId } 
+                where: { id: itemDto.subscriptionId },
+                relations: ['product'] // İlişkileri de çekelim
             });
 
             if (existingSub) {
-                existingSub.totalMonths += itemDuration;
-                existingSub.remainingMonths += itemDuration;
-                if ([SubscriptionStatus.COMPLETED, SubscriptionStatus.CANCELLED].includes(existingSub.status)) {
+                console.log(`♻️ Abonelik Uzatılıyor: ${existingSub.id} -> +${itemDuration} Ay`);
+
+                // 2. SÜRELERİ GÜNCELLE (Üzerine Ekle)
+                existingSub.totalMonths += itemDuration;      // Toplam süreyi artır
+                existingSub.remainingMonths += itemDuration;  // Kalan süreyi artır
+                
+                // 3. PAKET BİLGİSİNİ GÜNCELLE (Eğer farklı bir paket seçildiyse referansı güncelle)
+                existingSub.product = product; 
+
+                // 4. DURUMU GÜNCELLE (Eğer süresi dolmuşsa veya iptalse tekrar AKTİF yap)
+                if (existingSub.status !== SubscriptionStatus.ACTIVE) {
                     existingSub.status = SubscriptionStatus.ACTIVE;
+                    existingSub.cancellationReason = null; // İptal nedenini temizle
                 }
+
+                // 5. KAYDET (Yeni abonelik oluşturma, bunu güncelle!)
                 await queryRunner.manager.save(Subscription, existingSub);
+            } else {
+                // ID gönderildi ama veritabanında yoksa, hata fırlatabilir veya yeni oluşturabiliriz.
+                // Güvenlik için yeni oluşturmayı burada yapmıyoruz, aşağıya düşmesini engelliyoruz.
+                throw new NotFoundException('Uzatılmak istenen abonelik bulunamadı.');
             }
         } 
         else {
-            // Yeni Abonelik
+            // ============================================================
+            // 🆕 YENİ ABONELİK (Sadece ID gelmediyse buraya girer)
+            // ============================================================
             const subscription = new Subscription();
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
-            
-            // 👇 PET İLİŞKİSİNİ ABONELİĞE EKLİYORUZ
-            if (foundPet) {
-                subscription.pet = foundPet;
-            }
+            if (foundPet) subscription.pet = foundPet;
 
             subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
             subscription.totalMonths = itemDuration;
