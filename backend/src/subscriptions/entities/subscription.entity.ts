@@ -3,11 +3,13 @@ import { User } from 'src/users/entities/user.entity';
 import { Pet } from 'src/pets/entities/pet.entity';
 import { Product } from 'src/products/entities/product.entity';
 
+// 👇 GÜNCELLENMİŞ DURUMLAR
 export enum SubscriptionStatus {
   ACTIVE = 'active',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
-  PAUSED = 'paused'
+  PAUSED = 'paused',
+  UPGRADED = 'upgraded' // 👈 YENİ EKLENDİ
 }
 
 @Entity()

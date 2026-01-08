@@ -64,7 +64,7 @@ export class OrdersService {
             itemTotal = basePrice * itemDto.quantity; 
         }
 
-        // --- 🚀 2. UPGRADE İNDİRİMİ ---
+// --- 🚀 2. UPGRADE İNDİRİMİ ---
         if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.upgradeFromSubId },
@@ -72,12 +72,15 @@ export class OrdersService {
             });
 
             if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
+                // ... (İade hesaplama kodları aynı kalsın) ...
                 const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
                 const refundValue = monthlyValue * oldSub.remainingMonths;
                 itemTotal = Math.max(0, itemTotal - refundValue);
                 
-                oldSub.status = SubscriptionStatus.CANCELLED; 
-                oldSub.cancellationReason = `Paket yükseltildi`;
+                // 👇 DEĞİŞİKLİK BURADA: Durumu UPGRADED yapıyoruz
+                oldSub.status = SubscriptionStatus.UPGRADED; 
+                oldSub.cancellationReason = `Paket Yükseltildi (Yeni Sipariş ID oluşturuluyor)`;
+                
                 await queryRunner.manager.save(Subscription, oldSub);
             }
         }
