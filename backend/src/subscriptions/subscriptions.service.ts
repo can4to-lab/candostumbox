@@ -106,74 +106,85 @@ async cancel(id: string, userId: string, reason: string) {
     };
 }
 
-  // 👇 OTOMATİK GÖREV (CRON JOB)
+// 👇 GÜNCELLENMİŞ CRON JOB (Ödeme Tipine Göre Karar Veren)
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
-    this.logger.debug('⏳ Cron Job Başladı: Ödemeler ve Siparişler kontrol ediliyor...');
+    this.logger.debug('⏳ Cron Job Başladı: Sevkiyat ve Yenileme Kontrolü...');
 
     const today = new Date();
-    
+    // 3 Gün sonra kargolanacakları bul
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 3);
+
     const activeSubs = await this.subRepository.find({
         where: {
             status: SubscriptionStatus.ACTIVE,
-            nextDeliveryDate: LessThanOrEqual(today)
+            nextDeliveryDate: LessThanOrEqual(targetDate),
         },
         relations: ['user', 'product', 'pet'] 
     });
 
     if (activeSubs.length === 0) {
-        this.logger.debug('✅ Bugün yenilenecek abonelik yok.');
+        this.logger.debug('✅ Bugün işlem yapılacak abonelik yok.');
         return;
     }
 
     for (const sub of activeSubs) {
-        const paymentSuccessful = true; // Simülasyon
-
-        if (paymentSuccessful) {
-            // 1. YENİ SİPARİŞ OLUŞTUR
-            // Artık Order entity'sinde 'paymentType' olduğu için hata vermeyecek.
-            const newOrder = this.orderRepository.create({
-                user: sub.user,
-                totalPrice: sub.product.price,
-                status: OrderStatus.PAID, // Enum kullandık
-                paymentType: 'monthly',   // Artık Entity'de var
-                shippingAddressSnapshot: { 
-                    title: "Kayıtlı Adres", 
-                    name: sub.user.firstName + ' ' + sub.user.lastName,
-                    fullAddress: "Otomatik Yenileme (Abonelik)" 
-                }
-            });
-            
-            const savedOrder = await this.orderRepository.save(newOrder);
-
-            // 2. SİPARİŞ İÇERİĞİNİ EKLE
-            const newItem = this.orderItemRepository.create({
-                order: savedOrder,
-                product: sub.product,
-                pet: sub.pet,
-                quantity: 1,
-                priceAtPurchase: sub.product.price,
-                productNameSnapshot: sub.product.name
-            });
-            await this.orderItemRepository.save(newItem);
-
-            // 3. ABONELİK TARİHİNİ GÜNCELLE
-            const nextDate = new Date(sub.nextDeliveryDate);
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            sub.nextDeliveryDate = nextDate;
-
-            sub.remainingMonths -= 1;
-
-            if (sub.remainingMonths <= 0) {
-                sub.status = SubscriptionStatus.COMPLETED;
-                sub.remainingMonths = 0;
-                this.logger.log(`🏁 Abonelik Tamamlandı: ${sub.id}`);
-            } else {
-                this.logger.log(`✅ Abonelik Yenilendi ve Sipariş Oluştu: ${sub.id}`);
-            }
-
+        if (sub.remainingMonths <= 0) {
+            sub.status = SubscriptionStatus.COMPLETED;
             await this.subRepository.save(sub);
+            continue;
         }
+
+        // 🧠 KRİTİK AYRIM BURADA
+        const isUpfront = sub.paymentType === 'upfront';
+        
+        // Eğer Peşinse (Upfront): Fiyat 0 TL, Statü Hazırlanıyor (Çünkü parası alındı)
+        // Eğer Aylıksa (Monthly): Fiyat Normal, Statü Ödeme Bekliyor (Karttan çekilmeli)
+        const orderPrice = isUpfront ? 0 : Number(sub.product.price);
+        const orderStatus = isUpfront ? OrderStatus.PREPARING : OrderStatus.PENDING; 
+
+        // Not: Aylık ödemelerde burada Iyzico'dan otomatik çekim denenmeli (Recurring Payment).
+        // Şimdilik PENDING yapıyoruz, kullanıcı girip ödesin veya otomatik çekim servisi devreye girsin.
+
+        const newOrder = this.orderRepository.create({
+            user: sub.user,
+            totalPrice: orderPrice,
+            status: orderStatus,
+            paymentType: isUpfront ? 'upfront' : 'monthly',
+            shippingAddressSnapshot: { 
+                title: "Kayıtlı Adres", 
+                fullAddress: "Otomatik Sevkiyat - Abonelik Kapsamında" 
+            }
+        });
+        
+        const savedOrder = await this.orderRepository.save(newOrder);
+
+        const newItem = this.orderItemRepository.create({
+            order: savedOrder,
+            product: sub.product,
+            pet: sub.pet,
+            quantity: 1,
+            priceAtPurchase: orderPrice,
+            productNameSnapshot: sub.product.name
+        });
+        await this.orderItemRepository.save(newItem);
+
+        // Tarihleri Güncelle
+        const nextDate = new Date(sub.nextDeliveryDate);
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        sub.nextDeliveryDate = nextDate;
+
+        sub.remainingMonths -= 1;
+
+        if (sub.remainingMonths <= 0) {
+            sub.status = SubscriptionStatus.COMPLETED;
+            this.logger.log(`🏁 Abonelik Tamamlandı: ${sub.id}`);
+        } else {
+            this.logger.log(`📦 Otomatik Sipariş (${sub.paymentType}): ${sub.id} - Tutar: ${orderPrice} TL`);
+        }
+
+        await this.subRepository.save(sub);
     }
   }
-}
+   }

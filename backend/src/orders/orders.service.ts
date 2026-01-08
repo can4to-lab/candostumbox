@@ -159,7 +159,7 @@ export class OrdersService {
         } 
         else {
             // ============================================================
-            // 🆕 YENİ ABONELİK (Sadece ID gelmediyse buraya girer)
+            // 🆕 YENİ ABONELİK
             // ============================================================
             const subscription = new Subscription();
             if (userId) subscription.user = { id: userId } as User;
@@ -169,6 +169,11 @@ export class OrdersService {
             subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
             subscription.totalMonths = itemDuration;
             subscription.remainingMonths = itemDuration;
+            
+            // 👇 GÜNCELLEME: Ödeme tipini kaydediyoruz!
+            // createOrderDto.paymentType bilgisini kullanıyoruz
+            subscription.paymentType = paymentType || 'upfront'; 
+
             subscription.startDate = new Date();
             
             const nextDate = new Date();

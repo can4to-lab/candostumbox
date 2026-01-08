@@ -397,7 +397,7 @@ function ProductDetailContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // A) Ürün ve İndirim Kuralları
+        // A) Ürün ve İndirim Kuralları (Mevcut kod)
         if (id) {
           const prodRes = await fetch(`${API_URL}/products/${id}`);
           if (prodRes.ok) {
@@ -411,10 +411,31 @@ function ProductDetailContent() {
           setDiscountRules(discData);
         }
 
-        // B) UPGRADE İADE HESABI (URL'DEN)
-        // 👇 GÜNCELLEME: İade tutarını state'e kaydediyoruz
-        if (upgradeMode && refundParam) {
-          setCalculatedRefund(Number(refundParam));
+        // B) UPGRADE MODU: ESKİ ABONELİK DETAYLARINI ÇEK 🧠
+        if (upgradeMode && oldSubId) {
+          const token = localStorage.getItem("token");
+          if (token) {
+            const subRes = await fetch(`${API_URL}/subscriptions/${oldSubId}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (subRes.ok) {
+              const subData = await subRes.json();
+
+              // 1. Süreyi Otomatik Ayarla (Eski paketle aynı süre olsun)
+              const oldDuration = subData.totalMonths || 1;
+              setDuration(oldDuration);
+
+              // 2. Ödeme Tipini Ayarla (Genelde peşin olur)
+              setPaymentType("upfront");
+
+              // 3. İade Tutarını (Görsel Amaçlı) Hesapla
+              if (subData.product && subData.remainingMonths > 0) {
+                const monthlyVal = subData.product.price / subData.totalMonths;
+                setCalculatedRefund(monthlyVal * subData.remainingMonths);
+              }
+            }
+          }
         }
 
         // C) Kullanıcı ve Pet Verileri
@@ -450,7 +471,7 @@ function ProductDetailContent() {
       }
     };
     fetchData();
-  }, [id, upgradeMode, refundParam]);
+  }, [id, upgradeMode, oldSubId]); // Dependency array önemli
 
   // 2. OTOMATİK PET SEÇİMİ (UPGRADE MODUNDA)
   useEffect(() => {
