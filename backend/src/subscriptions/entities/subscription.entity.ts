@@ -1,15 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { User } from 'src/users/entities/user.entity';
-import { Pet } from 'src/pets/entities/pet.entity';
-import { Product } from 'src/products/entities/product.entity';
+import { User } from '../../users/entities/user.entity';
+import { Pet } from '../../pets/entities/pet.entity';
+import { Product } from '../../products/entities/product.entity';
 
-// 👇 GÜNCELLENMİŞ DURUMLAR
 export enum SubscriptionStatus {
   ACTIVE = 'active',
   CANCELLED = 'cancelled',
   COMPLETED = 'completed',
   PAUSED = 'paused',
-  UPGRADED = 'upgraded' // 👈 YENİ EKLENDİ
+  UPGRADED = 'upgraded'
 }
 
 @Entity()
@@ -17,13 +16,13 @@ export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // Garanti olsun diye string alanlara type: 'text' ekliyoruz
   @Column({ type: 'text', nullable: true })
-  paymentType: string; // 'upfront' (Peşin) veya 'monthly' (Aylık)
+  paymentType: string; 
   
   @ManyToOne(() => User, user => user.subscriptions, { onDelete: 'CASCADE' })
   user: User;
 
-  // 👇 GÜNCELLEME: @JoinColumn EKLENDİ
   @ManyToOne(() => Pet, { nullable: true, onDelete: 'SET NULL', eager: true })
   @JoinColumn({ name: 'petId' }) 
   pet: Pet;
@@ -43,7 +42,7 @@ export class Subscription {
   @Column({ type: 'timestamp', nullable: true })
   nextDeliveryDate: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   deliveryPeriod: string; 
 
   @Column({
@@ -53,8 +52,9 @@ export class Subscription {
   })
   status: SubscriptionStatus;
 
-  @Column({ nullable: true })
-  cancellationReason: string| null;
+  // 🛠️ HATA BURADAYDI -> { type: 'text' } eklenerek düzeltildi.
+  @Column({ type: 'text', nullable: true })
+  cancellationReason: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
