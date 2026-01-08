@@ -17,7 +17,7 @@ export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   paymentType: string; // 'upfront' (Peşin) veya 'monthly' (Aylık)
   
   @ManyToOne(() => User, user => user.subscriptions, { onDelete: 'CASCADE' })
