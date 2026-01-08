@@ -25,38 +25,31 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
+      // ... (Adres işlemleri aynı) ...
       let addressSnapshot: any = {};
-
-      // A. ADRES İŞLEMLERİ
       if (userId) {
-          const address = await queryRunner.manager.findOne(Address, {
-            where: { id: addressId, userId },
-          });
+          const address = await queryRunner.manager.findOne(Address, { where: { id: addressId, userId } });
           if (!address) throw new NotFoundException('Teslimat adresi bulunamadı.');
           addressSnapshot = address;
       } else {
-          if (!guestInfo) throw new BadRequestException('Misafir bilgileri eksik.');
           addressSnapshot = { ...guestInfo, title: 'Guest Address' };
       }
 
-      // B. DEĞİŞKENLER
       let totalPrice = 0;
       const orderItems: OrderItem[] = [];
+      
+      // 👇 KRİTİK: Siparişin kargo durumunu belirleyecek bayrak
+      let isPhysicalShipmentRequired = true; 
 
-      // C. ÜRÜNLERİ DÖNGÜYE AL
       for (const itemDto of items) {
-        const product = await queryRunner.manager.findOne(Product, { 
-            where: { id: itemDto.productId }
-           });
-        
-        if (!product) throw new NotFoundException(`Ürün bulunamadı (ID: ${itemDto.productId})`);
-        if (product.stock < itemDto.quantity) throw new BadRequestException(`${product.name} için stok yetersiz.`);
+        const product = await queryRunner.manager.findOne(Product, { where: { id: itemDto.productId } });
+        if (!product) throw new NotFoundException('Ürün bulunamadı');
 
-        // --- 💰 1. FİYAT HESAPLAMA ---
         let itemTotal = 0;
         const itemDuration = itemDto.duration || 1;
         const basePrice = Number(product.price);
 
+        // Fiyat Hesaplama
         if (paymentType === 'upfront') {
             const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
             itemTotal = calculation.finalPrice * itemDto.quantity;
@@ -64,143 +57,142 @@ export class OrdersService {
             itemTotal = basePrice * itemDto.quantity; 
         }
 
-// --- 🚀 2. UPGRADE İNDİRİMİ ---
-        // Frontend'den gelen 'deductionAmount'a GÜVENMİYORUZ.
-        // Sadece 'upgradeFromSubId'ye bakarak kendimiz hesaplıyoruz.
-        if (itemDto.upgradeFromSubId) {
-            const oldSub = await queryRunner.manager.findOne(Subscription, { 
-                where: { id: itemDto.upgradeFromSubId },
-                relations: ['product', 'user']
-            });
-
-            // Güvenlik kontrolleri
-            if (!oldSub) throw new NotFoundException('Yükseltilecek abonelik bulunamadı.');
-            if (userId && oldSub.user.id !== userId) throw new BadRequestException('Bu abonelik size ait değil.');
-
-            if (oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
-                // İADE HESABI (SERVER-SIDE) 💰
-                // Formül: (Eski Ürün Fiyatı / Toplam Ay) * Kalan Ay
-                const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
-                const serverCalculatedRefund = monthlyValue * oldSub.remainingMonths;
-
-                console.log(`[Güvenli Upgrade] Hesaplanan İade: ${serverCalculatedRefund} TL`);
-                
-                // Yeni fiyattan düş (Eksiye düşemez)
-                itemTotal = Math.max(0, itemTotal - serverCalculatedRefund);
-                
-                // Eski aboneliği "YÜKSELTİLDİ" olarak işaretle (İptal değil!)
-                oldSub.status = SubscriptionStatus.UPGRADED; 
-                oldSub.cancellationReason = `Paket Yükseltildi -> Yeni Sipariş Oluşturuldu`;
-                
-                await queryRunner.manager.save(Subscription, oldSub);
-            }
-        }
-
-        totalPrice += itemTotal;
-
-        // --- 📝 SİPARİŞ KALEMİ OLUŞTURMA ---
-        const orderItem = new OrderItem();
-        orderItem.product = product;
-        orderItem.quantity = itemDto.quantity;
-        orderItem.priceAtPurchase = product.price; 
-        orderItem.productNameSnapshot = product.name;
-        
-        // 👇 TİP HATASI ÇÖZÜMÜ: Değişken tipini açıkça belirtiyoruz
         let foundPet: Pet | null = null;
-        
         if (itemDto.petId) {
-            // UUID String olduğu için Number() kullanmıyoruz. 'as any' ile TypeORM tip kontrolünü aşıyoruz.
-            foundPet = await queryRunner.manager.findOne(Pet, { 
-                where: { id: itemDto.petId as any } 
-            });
-            
-            if (foundPet) {
-                orderItem.pet = foundPet;
-            }
+            foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
         }
 
-        orderItems.push(orderItem);
-
-        // Stok Düş
-        product.stock -= itemDto.quantity;
-        await queryRunner.manager.save(product);
-
-        // --- 📅 ABONELİK (SUBSCRIPTION) OLUŞTURMA ---
+        // ============================================================
+        // 🛠️ SENARYO 1: SÜRE UZATMA (EXTEND)
+        // ============================================================
         if (itemDto.subscriptionId) {
-            // 1. MEVCUT ABONELİĞİ BUL
             const existingSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.subscriptionId },
-                relations: ['product'] // İlişkileri de çekelim
+                relations: ['product']
             });
 
             if (existingSub) {
-                console.log(`♻️ Abonelik Uzatılıyor: ${existingSub.id} -> +${itemDuration} Ay`);
-
-                // 2. SÜRELERİ GÜNCELLE (Üzerine Ekle)
-                existingSub.totalMonths += itemDuration;      // Toplam süreyi artır
-                existingSub.remainingMonths += itemDuration;  // Kalan süreyi artır
+                // Süreleri güncelle
+                existingSub.totalMonths += itemDuration;
+                existingSub.remainingMonths += itemDuration;
+                existingSub.status = SubscriptionStatus.ACTIVE;
                 
-                // 3. PAKET BİLGİSİNİ GÜNCELLE (Eğer farklı bir paket seçildiyse referansı güncelle)
-                existingSub.product = product; 
-
-                // 4. DURUMU GÜNCELLE (Eğer süresi dolmuşsa veya iptalse tekrar AKTİF yap)
-                if (existingSub.status !== SubscriptionStatus.ACTIVE) {
-                    existingSub.status = SubscriptionStatus.ACTIVE;
-                    existingSub.cancellationReason = null; // İptal nedenini temizle
-                }
-
-                // 5. KAYDET (Yeni abonelik oluşturma, bunu güncelle!)
                 await queryRunner.manager.save(Subscription, existingSub);
-            } else {
-                // ID gönderildi ama veritabanında yoksa, hata fırlatabilir veya yeni oluşturabiliriz.
-                // Güvenlik için yeni oluşturmayı burada yapmıyoruz, aşağıya düşmesini engelliyoruz.
-                throw new NotFoundException('Uzatılmak istenen abonelik bulunamadı.');
+                
+                // 🛑 BU BİR HİZMET İŞLEMİDİR, KARGO ÇIKMAZ
+                isPhysicalShipmentRequired = false; 
             }
         } 
+        // ============================================================
+        // 🛠️ SENARYO 2: PAKET YÜKSELTME (UPGRADE)
+        // ============================================================
+        else if (itemDto.upgradeFromSubId) {
+            const oldSub = await queryRunner.manager.findOne(Subscription, { 
+                where: { id: itemDto.upgradeFromSubId },
+                relations: ['product']
+            });
+
+            if (oldSub) {
+                // İade Hesabı
+                const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
+                const refundValue = monthlyValue * oldSub.remainingMonths;
+                itemTotal = Math.max(0, itemTotal - refundValue);
+                
+                // Eski aboneliği "YÜKSELTİLDİ" olarak işaretle
+                oldSub.status = SubscriptionStatus.UPGRADED; 
+                await queryRunner.manager.save(Subscription, oldSub);
+
+                // YENİ ABONELİK OLUŞTUR (Eskisinin devamı niteliğinde)
+                const newSubscription = new Subscription();
+                newSubscription.user = { id: userId } as User;
+                newSubscription.product = product;
+                if (foundPet) newSubscription.pet = foundPet;
+                
+                // ⚠️ Yeni paketin süresi: Satın alınan süre (Örn: 6 ay seçildiyse 6 ay)
+                newSubscription.totalMonths = itemDuration; 
+                newSubscription.remainingMonths = itemDuration;
+                
+                // ⚠️ TARİH AYARI: 
+                // Yükseltme işlemi hemen kargo çıkarmaz, bir sonraki döngüyü bekler.
+                // VEYA, hemen yeni paketi istiyorsa kargo çıkarılır. 
+                // Genelde: Mevcut ayın kutusu gittiyse, yeni paket gelecek ay gelir.
+                // Biz burada "Gelecek Ay" mantığını kuralım:
+                
+                newSubscription.startDate = oldSub.startDate; // Başlangıç eskiyle aynı kalsın (History için)
+                newSubscription.nextDeliveryDate = oldSub.nextDeliveryDate; // Sıradaki kargo tarihi değişmesin
+                newSubscription.paymentType = paymentType || 'upfront';
+                newSubscription.status = SubscriptionStatus.ACTIVE;
+
+                await queryRunner.manager.save(Subscription, newSubscription);
+
+                // 🛑 YÜKSELTME SADECE PLAN DEĞİŞİKLİĞİDİR, ANLIK KARGO ÇIKMAZ
+                // (Kargo, nextDeliveryDate geldiğinde Cron Job ile çıkacak)
+                isPhysicalShipmentRequired = false;
+            }
+        }
+        // ============================================================
+        // 🛠️ SENARYO 3: YENİ SATIN ALMA (NEW)
+        // ============================================================
         else {
-            // ============================================================
-            // 🆕 YENİ ABONELİK
-            // ============================================================
             const subscription = new Subscription();
             if (userId) subscription.user = { id: userId } as User;
             subscription.product = product;
             if (foundPet) subscription.pet = foundPet;
 
-            subscription.deliveryPeriod = itemDto.deliveryPeriod || "1-5 of Month";
+            subscription.deliveryPeriod = "1-5 of Month";
             subscription.totalMonths = itemDuration;
             subscription.remainingMonths = itemDuration;
-            
-            // 👇 GÜNCELLEME: Ödeme tipini kaydediyoruz!
-            // createOrderDto.paymentType bilgisini kullanıyoruz
-            subscription.paymentType = paymentType || 'upfront'; 
-
+            subscription.paymentType = paymentType || 'upfront';
             subscription.startDate = new Date();
             
+            // İlk kutu hemen çıkacağı için, bir sonraki tarih 1 ay sonra
             const nextDate = new Date();
             nextDate.setMonth(nextDate.getMonth() + 1);
             subscription.nextDeliveryDate = nextDate;
             
             subscription.status = SubscriptionStatus.ACTIVE;
-            
             await queryRunner.manager.save(Subscription, subscription);
+            
+            // ✅ YENİ ABONELİKTE İLK KUTU HEMEN ÇIKAR
+            isPhysicalShipmentRequired = true;
         }
+
+        totalPrice += itemTotal;
+
+        // Sipariş Kalemi (Order Item)
+        const orderItem = new OrderItem();
+        orderItem.product = product;
+        orderItem.quantity = itemDto.quantity;
+        orderItem.priceAtPurchase = product.price; 
+        if (foundPet) {
+            orderItem.pet = foundPet;
+        }
+        orderItems.push(orderItem);
+
+        // Stok Düş (Sadece fiziksel gönderim varsa mı düşmeli? Genelde rezerve edilir, düşelim)
+        product.stock -= itemDto.quantity;
+        await queryRunner.manager.save(product);
       }
 
-      // D. SİPARİŞİ KAYDET
+      // --- SİPARİŞİ KAYDET (FİNANSAL KAYIT) ---
       const order = new Order();
       if (userId) order.user = { id: userId } as User;
-      
       order.shippingAddressSnapshot = addressSnapshot; 
       order.totalPrice = totalPrice;
-      order.status = OrderStatus.PAID; 
       order.items = orderItems;
       order.paymentId = 'MOCK_' + Date.now(); 
 
-      const savedOrder = await queryRunner.manager.save(Order, order);
+      // 🧠 STATÜ BELİRLEME
+      // Eğer fiziksel gönderim gerekiyorsa (Yeni Abonelik): PREPARING (Depoya düşsün)
+      // Eğer sadece süre uzatma/yükseltme ise: COMPLETED (Sadece fatura kesilsin, kargo yok)
+      order.status = isPhysicalShipmentRequired ? OrderStatus.PREPARING : OrderStatus.PAID; 
+      // Not: PAID yaptık ki "Tamamlandı" veya "İşlemde" gibi görünsün ama "Kargoya Verildi" sürecine girmesin.
+      // Dilerseniz OrderStatus.COMPLETED diye bir statü ekleyip onu kullanabilirsiniz.
 
+      const savedOrder = await queryRunner.manager.save(Order, order);
       await queryRunner.commitTransaction();
 
-      return { success: true, orderId: savedOrder.id, message: 'Sipariş alındı!' };
+      return { success: true, orderId: savedOrder.id, message: 'İşlem başarılı!' };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();

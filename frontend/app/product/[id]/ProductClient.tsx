@@ -411,7 +411,7 @@ function ProductDetailContent() {
           setDiscountRules(discData);
         }
 
-        // B) UPGRADE MODU: ESKİ ABONELİK DETAYLARINI ÇEK 🧠
+        // B) UPGRADE MODU: ESKİ ABONELİK DETAYLARINI ÇEK
         if (upgradeMode && oldSubId) {
           const token = localStorage.getItem("token");
           if (token) {
@@ -422,14 +422,13 @@ function ProductDetailContent() {
             if (subRes.ok) {
               const subData = await subRes.json();
 
-              // 1. Süreyi Otomatik Ayarla (Eski paketle aynı süre olsun)
-              const oldDuration = subData.totalMonths || 1;
-              setDuration(oldDuration);
+              // 👇 KRİTİK: Eski süre neyse onu seç (Örn: 6 ay)
+              if (subData.totalMonths) {
+                setDuration(subData.totalMonths);
+                setPaymentType("upfront"); // Genelde peşin olur
+              }
 
-              // 2. Ödeme Tipini Ayarla (Genelde peşin olur)
-              setPaymentType("upfront");
-
-              // 3. İade Tutarını (Görsel Amaçlı) Hesapla
+              // 3. İade Tutarını Hesapla
               if (subData.product && subData.remainingMonths > 0) {
                 const monthlyVal = subData.product.price / subData.totalMonths;
                 setCalculatedRefund(monthlyVal * subData.remainingMonths);
@@ -437,7 +436,6 @@ function ProductDetailContent() {
             }
           }
         }
-
         // C) Kullanıcı ve Pet Verileri
         const token = localStorage.getItem("token");
         if (token) {
