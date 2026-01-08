@@ -28,6 +28,20 @@ export class SubscriptionsController {
   return this.subscriptionsService.calculateRefund(id);
 
 }
+
+@UseGuards(JwtAuthGuard)
+  @Get(':id')
+  async findOne(@Param('id') id: string, @Request() req) {
+      // Güvenlik: Kullanıcı sadece kendi aboneliğini görebilmeli
+      const sub = await this.subscriptionsService.findOne(id);
+      
+      const userId = req.user?.id || req.user?.userId || req.user?.sub;
+      if (userId && String(sub.user.id) !== String(userId)) {
+          throw new UnauthorizedException("Bu aboneliği görüntüleme yetkiniz yok.");
+      }
+      
+      return sub;
+  }
   @UseGuards(JwtAuthGuard)
   @Patch(':id/cancel')
   cancelSubscription(
