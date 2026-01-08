@@ -65,21 +65,32 @@ export class OrdersService {
         }
 
 // --- 🚀 2. UPGRADE İNDİRİMİ ---
+        // Frontend'den gelen 'deductionAmount'a GÜVENMİYORUZ.
+        // Sadece 'upgradeFromSubId'ye bakarak kendimiz hesaplıyoruz.
         if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.upgradeFromSubId },
-                relations: ['product']
+                relations: ['product', 'user']
             });
 
-            if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
-                // ... (İade hesaplama kodları aynı kalsın) ...
+            // Güvenlik kontrolleri
+            if (!oldSub) throw new NotFoundException('Yükseltilecek abonelik bulunamadı.');
+            if (userId && oldSub.user.id !== userId) throw new BadRequestException('Bu abonelik size ait değil.');
+
+            if (oldSub.status === SubscriptionStatus.ACTIVE && oldSub.remainingMonths > 0) {
+                // İADE HESABI (SERVER-SIDE) 💰
+                // Formül: (Eski Ürün Fiyatı / Toplam Ay) * Kalan Ay
                 const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
-                const refundValue = monthlyValue * oldSub.remainingMonths;
-                itemTotal = Math.max(0, itemTotal - refundValue);
+                const serverCalculatedRefund = monthlyValue * oldSub.remainingMonths;
+
+                console.log(`[Güvenli Upgrade] Hesaplanan İade: ${serverCalculatedRefund} TL`);
                 
-                // 👇 DEĞİŞİKLİK BURADA: Durumu UPGRADED yapıyoruz
+                // Yeni fiyattan düş (Eksiye düşemez)
+                itemTotal = Math.max(0, itemTotal - serverCalculatedRefund);
+                
+                // Eski aboneliği "YÜKSELTİLDİ" olarak işaretle (İptal değil!)
                 oldSub.status = SubscriptionStatus.UPGRADED; 
-                oldSub.cancellationReason = `Paket Yükseltildi (Yeni Sipariş ID oluşturuluyor)`;
+                oldSub.cancellationReason = `Paket Yükseltildi -> Yeni Sipariş Oluşturuldu`;
                 
                 await queryRunner.manager.save(Subscription, oldSub);
             }

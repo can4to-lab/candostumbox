@@ -258,7 +258,7 @@ function ProfileContent() {
   }, [activeTab]);
 
   // --- ABONELİK İŞLEMLERİ (YENİ) ---
-  // 1. Süreyi Uzat (+3 Ay)
+  /// 1. Süreyi Uzat (+3 Ay) (GÜNCELLENMİŞ)
   const handleExtendSubscription = (sub: any) => {
     if (!sub.product) {
       toast.error("Paket bilgisi bulunamadı.");
@@ -268,35 +268,35 @@ function ProfileContent() {
     addToCart({
       productId: sub.product.id,
       productName: sub.product.name,
-      price: sub.product.price,
-      duration: 3, // Buton +3 Ay dediği için
-      petId: sub.pet?.id,
+      price: Number(sub.product.price),
+      duration: 3, // Uzatma süresi
+      petId: sub.pet?.id, // ID artık string
       petName: sub.pet?.name || "Dostum",
       paymentType: "upfront",
-      image: sub.pet?.image || "",
+      image: sub.product.image || "", // Pet resmi yerine ürün resmi daha mantıklı olabilir
       subscriptionId: sub.id, // Backend bunu uzatma olarak algılar
     });
 
-    toast.success(`${sub.pet?.name} için +3 ay paket sepete eklendi! 🚀`);
+    toast.success(`${sub.pet?.name} için süre uzatma sepete eklendi! 🚀`);
     router.push("/checkout");
   };
 
-  // 2. Paketi Yükselt
+  // 2. Paketi Yükselt (GÜNCELLENMİŞ)
   const handleUpgradeSubscription = (sub: any) => {
     if (!sub.product) return;
 
-    // Kalan Tutarı Hesapla (Tahmini - Kullanıcıya göstermek için)
-    const monthlyPrice = sub.product.price / (sub.totalMonths || 1);
+    // Bu sadece gösterim amaçlıdır, backend bu veriyi kullanmaz.
+    const monthlyPrice = Number(sub.product.price) / (sub.totalMonths || 1);
     const refundAmount = monthlyPrice * (sub.remainingMonths || 0);
 
     const params = new URLSearchParams();
     params.set("mode", "upgrade");
-    params.set("oldSubId", sub.id);
+    params.set("oldSubId", sub.id); // KRİTİK VERİ BU 🔑
     params.set("petId", sub.pet?.id || "");
-    params.set("refund", refundAmount.toFixed(2));
-    params.set("currentPrice", sub.product.price);
-    router.push(`/product?${params.toString()}`);
+    params.set("refund", refundAmount.toFixed(2)); // Sadece görsel
+    params.set("oldPrice", sub.product.price); // Filtreleme için
 
+    router.push(`/product?${params.toString()}`);
     toast(`🚀 ${sub.pet?.name} için daha üst paketleri listeliyoruz...`);
   };
 
@@ -755,11 +755,14 @@ function ProfileContent() {
                                   <>
                                     {/* Yükseltme Butonu (Pasif & Tooltip) */}
                                     <div className="group relative w-full sm:w-auto">
+                                      {/* --- GÜNCELLEME: PAKET YÜKSELTME BUTONU (AKTİF) --- */}
                                       <button
-                                        disabled
-                                        className="w-full sm:w-auto bg-gray-300 text-gray-500 px-6 py-3 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2 border border-gray-200"
+                                        onClick={() =>
+                                          handleUpgradeSubscription(sub)
+                                        }
+                                        className="w-full sm:w-auto bg-gray-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition flex items-center justify-center gap-2 shadow-lg shadow-gray-200 transform active:scale-95"
                                       >
-                                        <span>🔒</span> Paketi Yükselt
+                                        <span>⚡</span> Paketi Yükselt
                                       </button>
                                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 hidden group-hover:block w-max px-4 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg shadow-xl z-20 animate-fade-in-up">
                                         🚧 Çok yakında hizmetinizde
