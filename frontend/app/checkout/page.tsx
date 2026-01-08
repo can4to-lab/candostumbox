@@ -151,6 +151,8 @@ export default function CheckoutPage() {
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
 
+  const [isSubmittingTest, setIsSubmittingTest] = useState(false);
+
   // --- SAYFA YÜKLENİNCE ---
   useEffect(() => {
     const initPage = async () => {
@@ -261,31 +263,37 @@ export default function CheckoutPage() {
     setGuestData({ ...guestData, [e.target.name]: e.target.value });
   };
 
-  // --- 👇 YENİ: TEST SİPARİŞİ FONKSİYONU (PAYTR BYPASS) ---
+  // --- TEST SİPARİŞİ FONKSİYONU ---
   const handleTestOrder = async () => {
+    // 👇 KORUMA 1: Eğer zaten işlem yapılıyorsa dur.
+    if (isSubmittingTest) return;
+
     const token = localStorage.getItem("token");
     if (!token) {
-      toast.error("Test siparişi için lütfen giriş yapın.");
+      toast.error("Giriş yapın.");
       return;
     }
     if (!selectedAddressId) {
-      toast.error("Lütfen bir adres seçin.");
+      toast.error("Adres seçin.");
       return;
     }
 
-    const loadingToast = toast.loading("🧪 Test siparişi oluşturuluyor...");
+    // 👇 KORUMA 2: İşlem başladı, butonu kilitle.
+    setIsSubmittingTest(true);
+    const loadingToast = toast.loading(
+      "🧪 Test siparişi işleniyor (Çift tıklamayın)..."
+    );
 
     try {
       const payload = {
         addressId: selectedAddressId,
         paymentType: items[0].paymentType || "upfront",
-        items: items.map((item) => ({
+        items: items.map((item: any) => ({
           productId: item.productId,
           quantity: 1,
           duration: Number(item.duration),
           petId: item.petId ? String(item.petId) : undefined,
           upgradeFromSubId: item.upgradeFromSubId,
-          // 👇 EKSİK OLAN PARÇA EKLENDİ
           subscriptionId: item.subscriptionId,
         })),
       };
@@ -302,21 +310,18 @@ export default function CheckoutPage() {
       const data = await res.json();
 
       if (res.ok) {
-        toast.success(
-          "✅ Test Siparişi Başarılı! Profile yönlendiriliyorsunuz...",
-          { id: loadingToast }
-        );
+        toast.success("✅ Sipariş Oluşturuldu!", { id: loadingToast });
         if (clearCart) clearCart();
         setTimeout(() => {
           router.push("/profile?tab=siparisler");
         }, 1500);
       } else {
-        toast.error("Hata: " + (data.message || "Bilinmeyen hata"), {
-          id: loadingToast,
-        });
+        toast.error("Hata: " + (data.message || "Hata"), { id: loadingToast });
+        setIsSubmittingTest(false); // Hata varsa kilidi aç
       }
     } catch (e) {
-      toast.error("Sunucu bağlantı hatası", { id: loadingToast });
+      toast.error("Bağlantı hatası", { id: loadingToast });
+      setIsSubmittingTest(false); // Hata varsa kilidi aç
     }
   };
 
@@ -893,17 +898,27 @@ export default function CheckoutPage() {
                   </button>
 
                   {/* 👇 YENİ: TEST (PAYTR BYPASS) BUTONU */}
+                  {/* TEST BUTONU GÜNCELLEMESİ */}
                   {!isGuest && (
                     <div className="border-t border-gray-200 pt-4 mt-4">
                       <button
                         onClick={handleTestOrder}
-                        className="w-full py-3 bg-red-50 text-red-600 border border-red-200 rounded-xl font-bold text-sm hover:bg-red-100 transition flex items-center justify-center gap-2"
+                        // 👇 KORUMA 3: İşlem sürüyorsa butonu pasif yap
+                        disabled={isSubmittingTest}
+                        className={`w-full py-3 border border-red-200 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition
+                ${
+                  isSubmittingTest
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-red-50 text-red-600 hover:bg-red-100"
+                }
+            `}
                       >
-                        🧪 Test Siparişi Ver (PayTR'sız)
+                        {isSubmittingTest
+                          ? "İşleniyor..."
+                          : "🧪 Test Siparişi Ver (PayTR'sız)"}
                       </button>
                       <p className="text-[10px] text-red-400 text-center mt-2">
-                        Bu buton PayTR onayı alana kadar veri akışını test etmek
-                        içindir.
+                        Bu buton veri akışını test etmek içindir.
                       </p>
                     </div>
                   )}

@@ -411,7 +411,7 @@ function ProductDetailContent() {
           setDiscountRules(discData);
         }
 
-        // B) UPGRADE MODU: ESKİ ABONELİK DETAYLARINI ÇEK
+        // B) UPGRADE MODU İSE ESKİ ABONELİĞİ ÇEK
         if (upgradeMode && oldSubId) {
           const token = localStorage.getItem("token");
           if (token) {
@@ -422,15 +422,18 @@ function ProductDetailContent() {
             if (subRes.ok) {
               const subData = await subRes.json();
 
-              // 👇 KRİTİK: Eski süre neyse onu seç (Örn: 6 ay)
-              if (subData.totalMonths) {
-                setDuration(subData.totalMonths);
-                setPaymentType("upfront"); // Genelde peşin olur
-              }
+              // 👇 DÜZELTME: Veriyi Number'a çevirerek garantiye alıyoruz.
+              // Eğer backend "6" (string) dönerse, state güncellenmezdi. Şimdi 6 (number) olacak.
+              const oldDuration = Number(subData.totalMonths) || 1;
 
-              // 3. İade Tutarını Hesapla
+              console.log("Eski Süre Algılandı:", oldDuration); // Konsoldan kontrol edebilirsiniz
+
+              setDuration(oldDuration); // Otomatik seçim tetiklenir
+              setPaymentType("upfront");
+
+              // İade Hesabı
               if (subData.product && subData.remainingMonths > 0) {
-                const monthlyVal = subData.product.price / subData.totalMonths;
+                const monthlyVal = Number(subData.product.price) / oldDuration;
                 setCalculatedRefund(monthlyVal * subData.remainingMonths);
               }
             }
