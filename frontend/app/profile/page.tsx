@@ -848,7 +848,7 @@ function ProfileContent() {
                         order.status === "PAID" || order.status === "success";
                       const isShipped = order.status === "SHIPPED";
                       const isDelivered = order.status === "DELIVERED";
-
+                      const isCancelled = order.status === "CANCELLED";
                       return (
                         <div
                           key={order.id}
@@ -954,9 +954,12 @@ function ProfileContent() {
 
                               <div className="lg:w-1/3 lg:border-l border-gray-100 lg:pl-8 pt-6 lg:pt-0">
                                 <div className="mb-4">
-                                  <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-sm transition transform hover:-translate-y-0.5">
-                                    Kargom Nerede?
-                                  </button>
+                                  {/* 👇 SADECE İPTAL DEĞİLSE GÖSTER */}
+                                  {!isCancelled && (
+                                    <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-sm transition transform hover:-translate-y-0.5">
+                                      Kargom Nerede?
+                                    </button>
+                                  )}
                                 </div>
                                 <div className="relative pl-4 space-y-6 border-l-2 border-gray-200 ml-2">
                                   <div className="relative">
@@ -1024,6 +1027,18 @@ function ProfileContent() {
                                     >
                                       Teslim Edildi
                                     </p>
+                                    {isCancelled && (
+                                      <div className="relative mt-6 pt-4 border-t border-red-100">
+                                        <div className="absolute -left-[21px] top-5 w-4 h-4 bg-red-500 rounded-full border-2 border-white ring-1 ring-red-500"></div>
+                                        <p className="text-sm font-bold text-red-600">
+                                          Sipariş İptal Edildi
+                                        </p>
+                                        <p className="text-xs text-red-500 mt-1">
+                                          İade süreci başlatılmıştır (3-7 iş
+                                          günü).
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
