@@ -70,6 +70,36 @@ const EyeIcon = () => (
     />
   </svg>
 );
+const XCircleIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
+const CheckCircleIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+    />
+  </svg>
+);
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -87,7 +117,6 @@ export default function AdminOrders() {
   const fetchOrders = async () => {
     const token = localStorage.getItem("token");
     try {
-      // Updated URL to point to your live backend if needed, or keep local
       const res = await fetch("https://candostumbox-api.onrender.com/orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -110,7 +139,6 @@ export default function AdminOrders() {
     const token = localStorage.getItem("token");
 
     try {
-      // Calls the backend endpoint that triggers ShippingService
       const res = await fetch(
         `https://candostumbox-api.onrender.com/orders/${orderId}/ship`,
         {
@@ -128,7 +156,6 @@ export default function AdminOrders() {
       if (res.ok) {
         toast.success(`✅ Sipariş Kargolandı!\nKod: ${data.trackingCode}`);
 
-        // Update local state to reflect changes without refreshing
         const updatedOrders = orders.map((o) =>
           o.id === orderId
             ? {
@@ -142,7 +169,6 @@ export default function AdminOrders() {
         );
         setOrders(updatedOrders);
 
-        // Update modal if open
         if (selectedOrder?.id === orderId) {
           setSelectedOrder({
             ...selectedOrder,
@@ -162,7 +188,53 @@ export default function AdminOrders() {
     }
   };
 
-  // --- 3. PRINT LABEL (CLIENT SIDE GENERATION) ---
+  // --- 3. STATUS UPDATE (CANCEL / DELIVER) ---
+  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    if (
+      !confirm(
+        `Siparişi '${newStatus}' olarak güncellemek istediğinize emin misiniz?`
+      )
+    )
+      return;
+
+    const token = localStorage.getItem("token");
+    const loadingToast = toast.loading("Durum güncelleniyor...");
+
+    try {
+      const res = await fetch(
+        `https://candostumbox-api.onrender.com/orders/${orderId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Durum güncellendi!", { id: loadingToast });
+
+        // Listeyi güncelle
+        const updatedOrders = orders.map((o) =>
+          o.id === orderId ? { ...o, status: newStatus } : o
+        );
+        setOrders(updatedOrders);
+
+        // Modalı güncelle
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder({ ...selectedOrder, status: newStatus });
+        }
+      } else {
+        toast.error("Güncelleme başarısız.", { id: loadingToast });
+      }
+    } catch (e) {
+      toast.error("Sunucu hatası.", { id: loadingToast });
+    }
+  };
+
+  // --- 4. PRINT LABEL ---
   const handlePrintLabel = (order: any) => {
     const printWindow = window.open("", "_blank", "width=800,height=600");
     if (!printWindow) return;
@@ -180,7 +252,6 @@ export default function AdminOrders() {
               body { font-family: 'Helvetica', sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; border: 4px solid #333; }
               .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
               .logo { font-size: 32px; font-weight: 900; letter-spacing: -1px; }
-              .tag { background: #000; color: #fff; padding: 5px 10px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
               .row { display: flex; justify-content: space-between; margin-bottom: 30px; }
               .box { flex: 1; }
               .label { font-size: 10px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
@@ -213,7 +284,7 @@ export default function AdminOrders() {
 
             <div class="row">
               <div class="box">
-                <div class="label">TESLİMAT ADRESİ (DELIVERY ADDRESS)</div>
+                <div class="label">TESLİMAT ADRESİ</div>
                 <div class="value">
                   ${address?.fullAddress || address?.address}<br>
                   ${address?.district ? address.district + " / " : ""} ${
@@ -225,7 +296,7 @@ export default function AdminOrders() {
             </div>
 
             <div class="barcode-box">
-              <div class="label">KARGO TAKİP NO (TRACKING NUMBER)</div>
+              <div class="label">KARGO TAKİP NO</div>
               <div class="tracking-code">${
                 order.cargoTrackingCode || "MOCK-123456"
               }</div>
@@ -236,7 +307,7 @@ export default function AdminOrders() {
 
             <div class="row">
                <div class="box">
-                  <div class="label">PAKET İÇERİĞİ (CONTENTS)</div>
+                  <div class="label">İÇERİK</div>
                   <div class="value" style="font-size: 12px;">
                     <ul>
                       ${order.items
@@ -252,11 +323,7 @@ export default function AdminOrders() {
                </div>
             </div>
             
-            <div class="footer">
-                Sipariş ID: #${
-                  order.id
-                } • Bu etiket Can Dostum Box Yönetim Paneli tarafından oluşturulmuştur.
-            </div>
+            <div class="footer">Sipariş ID: #${order.id}</div>
             <script>window.print();</script>
           </body>
         </html>
@@ -264,38 +331,29 @@ export default function AdminOrders() {
     printWindow.document.close();
   };
 
-  // --- HELPER: NAME RESOLVER ---
   const getCustomerName = (order: any) => {
-    // 1. Try User Profile
     if (order.user?.firstName)
       return `${order.user.firstName} ${order.user.lastName}`;
     if (order.user?.name) return order.user.name;
-
-    // 2. Try Shipping Snapshot
     const snap = order.shippingAddressSnapshot;
     if (snap?.contactName) return snap.contactName;
     if (snap?.name) return snap.name;
     if (snap?.firstName) return `${snap.firstName} ${snap.lastName}`;
-
     return "Misafir Müşteri";
   };
 
-  // --- FILTER LOGIC ---
+  // --- FILTER ---
   const filteredOrders = orders.filter((order) => {
     const matchesStatus =
       filterStatus === "ALL" || order.status === filterStatus;
-
     const customerName = getCustomerName(order).toLowerCase();
     const orderId = order.id.toLowerCase();
     const search = searchTerm.toLowerCase();
-
     const matchesSearch =
       orderId.includes(search) || customerName.includes(search);
-
     return matchesStatus && matchesSearch;
   });
 
-  // --- STATS CALCULATION ---
   const stats = {
     totalRevenue: orders.reduce((acc, o) => acc + Number(o.totalPrice), 0),
     pendingCount: orders.filter(
@@ -315,11 +373,35 @@ export default function AdminOrders() {
     );
   }
 
+  // --- HELPER: GET PET ICON ---
+  const getPetIcon = (type: string) => {
+    if (!type) return "🐾";
+    const t = type.toLowerCase();
+    if (t.includes("kopek") || t.includes("köpek")) return "🐶";
+    if (t.includes("kedi")) return "🐱";
+    if (t.includes("kus") || t.includes("kuş")) return "🦜";
+    if (t.includes("balik") || t.includes("balık")) return "🐟";
+    return "🐾";
+  };
+
+  // --- HELPER: CALCULATE AGE ---
+  const getAge = (birthDate: string) => {
+    if (!birthDate) return "Bilinmiyor";
+    const birth = new Date(birthDate);
+    const now = new Date();
+    let months =
+      (now.getFullYear() - birth.getFullYear()) * 12 +
+      (now.getMonth() - birth.getMonth());
+    if (months < 12) return `${months} Aylık`;
+    const years = Math.floor(months / 12);
+    return `${years} Yaşında`;
+  };
+
   return (
     <div className="min-h-screen bg-[#F3F4F6] p-8 font-sans">
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
 
-      {/* DASHBOARD CARDS */}
+      {/* DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-fade-in">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/60 relative overflow-hidden group hover:shadow-md transition">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl">
@@ -335,7 +417,6 @@ export default function AdminOrders() {
             })}
           </div>
         </div>
-
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/60 relative overflow-hidden group hover:shadow-md transition">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl">
             📦
@@ -348,7 +429,6 @@ export default function AdminOrders() {
             <span className="text-sm font-medium text-gray-400">Sipariş</span>
           </div>
         </div>
-
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200/60 relative overflow-hidden group hover:shadow-md transition">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl">
             🚚
@@ -430,6 +510,7 @@ export default function AdminOrders() {
                   const isCompleted =
                     order.status === "COMPLETED" ||
                     order.status === "DELIVERED";
+                  const isCancelled = order.status === "CANCELLED";
 
                   return (
                     <tr
@@ -478,6 +559,8 @@ export default function AdminOrders() {
                               ? "bg-blue-50 text-blue-600 border-blue-100"
                               : isCompleted
                               ? "bg-green-50 text-green-600 border-green-100"
+                              : isCancelled
+                              ? "bg-red-50 text-red-600 border-red-100"
                               : "bg-gray-50 text-gray-600 border-gray-200"
                           }`}
                         >
@@ -489,6 +572,8 @@ export default function AdminOrders() {
                                 ? "bg-blue-500"
                                 : isCompleted
                                 ? "bg-green-500"
+                                : isCancelled
+                                ? "bg-red-500"
                                 : "bg-gray-400"
                             }`}
                           ></span>
@@ -496,6 +581,8 @@ export default function AdminOrders() {
                             ? "Hazırlanıyor"
                             : order.status === "PREPARING"
                             ? "Hazırlanıyor"
+                            : order.status === "CANCELLED"
+                            ? "İptal Edildi"
                             : order.status}
                         </span>
                       </td>
@@ -600,7 +687,17 @@ export default function AdminOrders() {
                       <TruckIcon /> Kargo Entegrasyonu
                     </h4>
 
-                    {selectedOrder.cargoTrackingCode ? (
+                    {selectedOrder.status === "CANCELLED" ? (
+                      <div className="text-center py-6 relative z-10 bg-red-50 rounded-2xl border border-red-100">
+                        <div className="text-4xl mb-2">🚫</div>
+                        <p className="font-bold text-red-700">
+                          Bu Sipariş İptal Edildi
+                        </p>
+                        <p className="text-xs text-red-500 mt-1">
+                          Kargo işlemleri yapılamaz.
+                        </p>
+                      </div>
+                    ) : selectedOrder.cargoTrackingCode ? (
                       <div className="relative z-10">
                         <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center mb-4">
                           <div className="text-xs text-green-600 font-bold uppercase mb-1">
@@ -645,7 +742,7 @@ export default function AdminOrders() {
                         >
                           {processingId === selectedOrder.id ? (
                             <>
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>{" "}
                               İşleniyor...
                             </>
                           ) : (
@@ -657,44 +754,128 @@ export default function AdminOrders() {
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN: ITEMS & SUMMARY */}
+                {/* RIGHT COLUMN: ITEMS, SUMMARY & ACTIONS */}
                 <div className="lg:col-span-5 space-y-6">
                   <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 h-full flex flex-col">
                     <h4 className="text-xs font-bold text-gray-400 uppercase mb-4 tracking-wider">
-                      Sipariş İçeriği
+                      Sipariş İçeriği & Pet Bilgileri
                     </h4>
 
-                    <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px] pr-2 custom-scrollbar">
+                    <div className="flex-1 space-y-4 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
                       {selectedOrder.items?.map((item: any) => (
                         <div
                           key={item.id}
-                          className="flex gap-4 p-3 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-sm transition"
+                          className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-sm transition"
                         >
-                          <div className="w-14 h-14 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-2xl shadow-sm">
-                            🎁
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-bold text-gray-900 text-sm leading-tight">
-                              {item.productNameSnapshot}
-                            </p>
-                            <div className="flex justify-between items-center mt-1">
-                              <p className="text-xs font-bold text-gray-500">
-                                x{item.quantity} Adet
-                              </p>
-                              <p className="text-sm font-bold text-gray-900">
-                                ₺{Number(item.priceAtPurchase).toFixed(2)}
-                              </p>
+                          <div className="flex gap-4">
+                            <div className="w-14 h-14 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-2xl shadow-sm">
+                              🎁
                             </div>
-                            {item.pet && (
-                              <div className="mt-2 inline-flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-md font-bold">
-                                🐾 {item.pet.name} ({item.pet.type})
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-900 text-sm leading-tight">
+                                {item.productNameSnapshot}
+                              </p>
+                              <div className="flex justify-between items-center mt-1">
+                                <p className="text-xs font-bold text-gray-500">
+                                  x{item.quantity} Adet
+                                </p>
+                                <p className="text-sm font-bold text-gray-900">
+                                  ₺{Number(item.priceAtPurchase).toFixed(2)}
+                                </p>
                               </div>
-                            )}
+                            </div>
                           </div>
+
+                          {/* EKSİKSİZ PET BİLGİSİ - YENİ EKLENEN KISIM */}
+                          {item.pet && (
+                            <div className="mt-4 bg-white border border-gray-100 rounded-xl p-3">
+                              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-50">
+                                <span className="text-xl">
+                                  {getPetIcon(item.pet.type)}
+                                </span>
+                                <span className="font-black text-gray-900 text-sm">
+                                  {item.pet.name}
+                                </span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase bg-gray-50 px-2 py-0.5 rounded ml-auto">
+                                  {item.pet.type}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-gray-50 p-2 rounded-lg">
+                                  <div className="text-gray-400 font-bold text-[9px] uppercase">
+                                    Irk (Breed)
+                                  </div>
+                                  <div className="font-bold text-gray-700">
+                                    {item.pet.breed || "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded-lg">
+                                  <div className="text-gray-400 font-bold text-[9px] uppercase">
+                                    Kilo
+                                  </div>
+                                  <div className="font-bold text-gray-700">
+                                    {item.pet.weight
+                                      ? item.pet.weight + " kg"
+                                      : "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded-lg">
+                                  <div className="text-gray-400 font-bold text-[9px] uppercase">
+                                    Yaş/Doğum
+                                  </div>
+                                  <div className="font-bold text-gray-700">
+                                    {getAge(item.pet.birthDate)}
+                                  </div>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded-lg flex items-center gap-2">
+                                  {item.pet.isNeutered ? (
+                                    <CheckCircleIcon />
+                                  ) : (
+                                    <XCircleIcon />
+                                  )}
+                                  <div>
+                                    <div className="text-gray-400 font-bold text-[9px] uppercase">
+                                      Kısır mı?
+                                    </div>
+                                    <div
+                                      className={`font-bold ${
+                                        item.pet.isNeutered
+                                          ? "text-green-600"
+                                          : "text-red-500"
+                                      }`}
+                                    >
+                                      {item.pet.isNeutered ? "Evet" : "Hayır"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              {item.pet.allergies &&
+                                item.pet.allergies.length > 0 && (
+                                  <div className="mt-2 pt-2 border-t border-gray-50">
+                                    <div className="text-gray-400 font-bold text-[9px] uppercase mb-1">
+                                      Alerjiler
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {item.pet.allergies.map(
+                                        (allergy: string, i: number) => (
+                                          <span
+                                            key={i}
+                                            className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-bold border border-red-100"
+                                          >
+                                            {allergy}
+                                          </span>
+                                        )
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
 
+                    {/* SUMMARY */}
                     <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
                       <div className="flex justify-between items-center text-sm mb-2">
                         <span className="text-gray-500 font-medium">
@@ -719,6 +900,33 @@ export default function AdminOrders() {
                         </span>
                       </div>
                     </div>
+
+                    {/* YENİ EKLENEN İPTAL VE DURUM YÖNETİMİ BUTONLARI */}
+                    {selectedOrder.status !== "CANCELLED" && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">
+                          Sipariş Durumu Yönetimi
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(selectedOrder.id, "DELIVERED")
+                            }
+                            className="bg-green-50 text-green-700 py-3 rounded-xl font-bold hover:bg-green-100 transition border border-green-100 text-xs"
+                          >
+                            ✅ Teslim Edildi
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(selectedOrder.id, "CANCELLED")
+                            }
+                            className="bg-red-50 text-red-700 py-3 rounded-xl font-bold hover:bg-red-100 transition border border-red-100 text-xs"
+                          >
+                            🚫 Siparişi İptal Et
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
