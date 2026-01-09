@@ -899,7 +899,7 @@ export default function CheckoutPage() {
 
                   {/* 👇 YENİ: TEST (PAYTR BYPASS) BUTONU */}
                   {/* TEST BUTONU GÜNCELLEMESİ */}
-                  {!isGuest && (
+                  {/* {!isGuest && (
                     <div className="border-t border-gray-200 pt-4 mt-4">
                       <button
                         onClick={handleTestOrder}
@@ -922,6 +922,7 @@ export default function CheckoutPage() {
                       </p>
                     </div>
                   )}
+                    */}
                 </>
               )}
 
