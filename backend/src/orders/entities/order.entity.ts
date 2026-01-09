@@ -1,16 +1,17 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { OrderItem } from './order-item.entity';
-import { Pet } from 'src/pets/entities/pet.entity'; // 👈 1. BU IMPORT EKLENECEK
+import { Pet } from 'src/pets/entities/pet.entity'; 
 
 export enum OrderStatus {
-  PENDING = 'PENDING',
-  PAID = 'PAID',
-  PREPARING = 'PREPARING',
-  SHIPPED = 'SHIPPED',
-  DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED',
-  REFUNDED = 'REFUNDED',
+  PENDING = 'PENDING',        // Ödeme Bekleniyor
+  PAID = 'PAID',              // Ödendi (Süre uzatma vb. kargo gerektirmeyen işlemler için)
+  PREPARING = 'PREPARING',    // Hazırlanıyor (Fiziksel gönderim yapılacaksa)
+  SHIPPED = 'SHIPPED',        // Kargolandı
+  DELIVERED = 'DELIVERED',    // Teslim Edildi
+  CANCELLED = 'CANCELLED',    // İptal
+  REFUNDED = 'REFUNDED',      // İade
+  COMPLETED = 'COMPLETED'     // Tamamlandı (Servis kodunda kullanılıyor)
 }
 
 @Entity()
@@ -24,7 +25,7 @@ export class Order {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   totalPrice: number;
 
-  @Column({ type: 'jsonb', nullable: true }) 
+  @Column({ type: 'jsonb', nullable: true })
   shippingAddressSnapshot: any;
 
   @Column({
@@ -34,9 +35,8 @@ export class Order {
   })
   status: OrderStatus;
 
-  // ✅ BU DOĞRU: paymentType burada kalmalı
-  @Column({ nullable: true }) 
-  paymentType: string; 
+  @Column({ nullable: true })
+  paymentType: string;
 
   @ManyToOne(() => User, (user) => user.orders, { nullable: true })
   user: User;
@@ -44,13 +44,23 @@ export class Order {
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
 
-  // 👇 2. BU İLİŞKİ EKLENECEK (Eksik Olan Parça Bu)
   @ManyToOne(() => Pet, { nullable: true, eager: true })
   pet: Pet;
-  
+
   @Column({ nullable: true })
   paymentId: string;
-  
+
+  // 👇 EKLENEN KARGO ALANLARI (Hataları Çözen Kısım)
+  @Column({ nullable: true })
+  cargoTrackingCode: string;
+
+  @Column({ nullable: true })
+  cargoProvider: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  shippedAt: Date;
+  // ----------------------------------------------
+
   @CreateDateColumn()
   createdAt: Date;
 

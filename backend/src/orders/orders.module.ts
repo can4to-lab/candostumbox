@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm'; // 👈 EKLENDİ
+import { HttpModule } from '@nestjs/axios'; // 👈 EKLENDİ
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
+import { ShippingService } from './shipping.service'; // 👈 EKLENDİ
 import { Order } from './entities/order.entity'; // 👈 EKLENDİ
 import { OrderItem } from './entities/order-item.entity'; // 👈 OrderItem da varsa eklenmeli
 import { JwtModule } from '@nestjs/jwt';
@@ -22,9 +24,11 @@ import { DiscountsModule } from '../discounts/discounts.module'; // 👈 İMPORT
       }),
     }),
     DiscountsModule,
+    HttpModule, // 👈 EKLENDİ
+    ConfigModule, // 👈 EKLENDİ
   ],
   controllers: [OrdersController],
-  providers: [OrdersService], // PrismaService SİLİNDİ
+  providers: [OrdersService, ShippingService], // 👈 ShippingService EKLENDİ
   exports: [OrdersService],
 })
 export class OrdersModule {}
