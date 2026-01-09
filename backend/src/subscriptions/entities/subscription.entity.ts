@@ -16,6 +16,10 @@ export class Subscription {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // 👇 YENİ: Müşterinin bu abonelik için ödediği NET tutar (İndirimli hali)
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  pricePaid: number;
+  
   // Garanti olsun diye string alanlara type: 'text' ekliyoruz
   @Column({ type: 'text', nullable: true })
   paymentType: string; 

@@ -57,6 +57,8 @@ export class OrdersService {
             itemTotal = basePrice * itemDto.quantity; 
         }
 
+        const unitPricePaid = itemTotal / itemDto.quantity
+
         let foundPet: Pet | null = null;
         if (itemDto.petId) {
             foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
@@ -86,18 +88,29 @@ export class OrdersService {
         // ============================================================
         // 🛠️ SENARYO 2: PAKET YÜKSELTME (UPGRADE)
         // ============================================================
-        else if (itemDto.upgradeFromSubId) {
+        if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { 
                 where: { id: itemDto.upgradeFromSubId },
-                relations: ['product']
+                relations: ['product', 'user']
             });
 
-            if (oldSub) {
-                // İade Hesabı
-                const monthlyValue = Number(oldSub.product.price) / (oldSub.totalMonths || 1);
-                const refundValue = monthlyValue * oldSub.remainingMonths;
-                itemTotal = Math.max(0, itemTotal - refundValue);
+           if (oldSub) {
+                // 👇 DÜZELTME: İadeyi GERÇEK ÖDENEN TUTAR üzerinden hesapla
+                // Eğer veritabanında pricePaid varsa onu kullan, yoksa (eski kayıtlar için) ürün fiyatını kullan.
+                const historicalPrice = Number(oldSub.pricePaid) || Number(oldSub.product.price);
+                const oldTotalMonths = oldSub.totalMonths || 1;
                 
+                // Aylık birim maliyet (Müşterinin ödediği rakam üzerinden)
+                const costPerMonth = historicalPrice / oldTotalMonths;
+                
+                // İade edilecek tutar
+                const refundValue = costPerMonth * oldSub.remainingMonths;
+                
+                console.log(`💰 İade Hesabı: Ödenen=${historicalPrice}, Aylık=${costPerMonth}, İade=${refundValue}`);
+
+                // Yeni fiyattan düş
+                itemTotal = Math.max(0, itemTotal - refundValue);
+
                 // Eski aboneliği "YÜKSELTİLDİ" olarak işaretle
                 oldSub.status = SubscriptionStatus.UPGRADED; 
                 await queryRunner.manager.save(Subscription, oldSub);
@@ -106,6 +119,10 @@ export class OrdersService {
                 const newSubscription = new Subscription();
                 newSubscription.user = { id: userId } as User;
                 newSubscription.product = product;
+
+                // 👇 YENİ: Yeni aboneliğin ödenen tutarını kaydet
+                newSubscription.pricePaid = unitPricePaid;
+
                 if (foundPet) newSubscription.pet = foundPet;
                 
                 // ⚠️ Yeni paketin süresi: Satın alınan süre (Örn: 6 ay seçildiyse 6 ay)
@@ -144,6 +161,7 @@ export class OrdersService {
             subscription.remainingMonths = itemDuration;
             subscription.paymentType = paymentType || 'upfront';
             subscription.startDate = new Date();
+            subscription.pricePaid = unitPricePaid;
             
             // İlk kutu hemen çıkacağı için, bir sonraki tarih 1 ay sonra
             const nextDate = new Date();

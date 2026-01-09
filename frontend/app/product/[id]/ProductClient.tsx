@@ -422,19 +422,31 @@ function ProductDetailContent() {
             if (subRes.ok) {
               const subData = await subRes.json();
 
-              // 👇 DÜZELTME: Veriyi Number'a çevirerek garantiye alıyoruz.
-              // Eğer backend "6" (string) dönerse, state güncellenmezdi. Şimdi 6 (number) olacak.
+              // 1. Süre Seçimi (Aynı kalsın)
               const oldDuration = Number(subData.totalMonths) || 1;
-
-              console.log("Eski Süre Algılandı:", oldDuration); // Konsoldan kontrol edebilirsiniz
-
-              setDuration(oldDuration); // Otomatik seçim tetiklenir
+              setDuration(oldDuration);
               setPaymentType("upfront");
 
-              // İade Hesabı
-              if (subData.product && subData.remainingMonths > 0) {
-                const monthlyVal = Number(subData.product.price) / oldDuration;
-                setCalculatedRefund(monthlyVal * subData.remainingMonths);
+              // 2. İade Hesabı (GÜNCELLENMİŞ MANTIK)
+              if (subData.remainingMonths > 0) {
+                // Backend 'pricePaid' gönderiyorsa onu kullan, yoksa ürünün şu anki fiyatını kullan (Fallback)
+                // Not: Backend entity'de pricePaid decimal string dönebilir, Number() ile çevir.
+                const paidAmount = subData.pricePaid
+                  ? Number(subData.pricePaid)
+                  : Number(subData.product?.price || 0);
+
+                // Formül: (Toplam Ödenen / Toplam Ay) * Kalan Ay
+                const monthlyCost = paidAmount / oldDuration;
+                const refund = monthlyCost * subData.remainingMonths;
+
+                console.log("Frontend İade Hesabı:", {
+                  paidAmount,
+                  oldDuration,
+                  remaining: subData.remainingMonths,
+                  refund,
+                });
+
+                setCalculatedRefund(refund);
               }
             }
           }
