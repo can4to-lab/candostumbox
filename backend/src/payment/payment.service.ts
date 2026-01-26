@@ -16,13 +16,17 @@ export class PaymentService {
 
   async startPayment(data: any) {
     console.log("--- ÖDEME SERVİSİ BAŞLADI ---");
-    
-    // 🛠️ DÜZELTME BURADA: 'ip' değişkenini ekledik
     const { price, basketId, ip, card, items, user, address } = data;
 
-    // 👇 LOG: Kullanıcı ID kontrolü
-    const userIdToSave = user?.id || null;
-    console.log(`👤 Kaydedilecek User ID: ${userIdToSave}`);
+    // 👇 ID KONTROLÜ
+    let userIdToSave = null;
+    
+    // Gelen veride ID var mı?
+    if (user && user.id) {
+        userIdToSave = user.id;
+    }
+    
+    console.log(`👤 Kaydedilecek User ID: ${userIdToSave || 'YOK (Misafir)'}`);
 
     // 1. .env AYARLARI
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;

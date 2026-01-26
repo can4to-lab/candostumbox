@@ -8,14 +8,12 @@ export class PaymentController {
 
   @Post('start')
   async startPayment(@Body() body: any, @Req() req: Request, @Res() res: Response) {
-    // IP Adresini al
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const clientIp = Array.isArray(ip) ? ip[0] : ip;
 
-    // 👇 DEBUG: Gelen veriyi kontrol et
-    console.log("📥 PaymentController Body:", JSON.stringify(body.user));
+    // 👇 DEBUG: Backend'e ne geldiğini net görelim
+    console.log("📥 BACKEND ALDI (Controller):", JSON.stringify(body));
 
-    // user ve address bilgilerini service'e olduğu gibi iletiyoruz
     const result = await this.paymentService.startPayment({ 
         ...body, 
         ip: clientIp 
