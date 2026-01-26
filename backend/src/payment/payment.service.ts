@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 import { parseStringPromise } from 'xml2js';
 import * as https from 'https';
 import { OrdersService } from '../orders/orders.service';
-import { OrderStatus } from '../orders/entities/order.entity'; // 👈 Enum eklendi
+import { OrderStatus } from '../orders/entities/order.entity'; 
 
 @Injectable()
 export class PaymentService {
@@ -17,7 +17,11 @@ export class PaymentService {
   // --- ÖDEME BAŞLATMA ---
   async startPayment(data: any) {
     console.log("--- PARAM POS (CANLI) ÖDEME BAŞLATILIYOR ---");
+    // Verileri al
     const { price, basketId, ip, card, items, user, address } = data;
+
+    // DEBUG LOG: Frontend'den ID geliyor mu?
+    console.log(`👤 İşlem Yapan User ID: ${user?.id || 'YOK (Misafir)'}`);
 
     // 1. .env AYARLARI
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
@@ -34,25 +38,23 @@ export class PaymentService {
     let dbOrderId = basketId; 
 
     try {
-        // DTO Formatını Hazırla (CreateOrderDto yapısına uygun olmalı)
         const createOrderDto = {
             addressId: address?.id || null,
-            items: items, // Frontend'den gelen items yapısının DTO ile uyumlu olduğunu varsayıyoruz
-            paymentType: 'credit_card', // veya upfront
+            items: items, 
+            paymentType: 'credit_card', 
             isGuest: !user?.id,
             guestInfo: !user?.id ? user : undefined
         };
 
-        // ordersService.create(userId, createOrderDto) şeklinde çağırıyoruz [cite: 43]
+        // userId'yi (user.id) ilk parametre olarak gönderiyoruz
         const result = await this.ordersService.create(user?.id || null, createOrderDto as any);
         
-        // create metodu { success: true, orderId: '...' } dönüyor [cite: 56]
         if(result && result.orderId) {
             dbOrderId = result.orderId;
-            console.log(`✅ Sipariş veritabanına kaydedildi: ${dbOrderId}`);
+            console.log(`✅ Sipariş Kaydedildi: ${dbOrderId}`);
         }
     } catch (error) {
-        console.error("⚠️ Sipariş ön kaydı hatası:", error.message);
+        console.error("⚠️ Sipariş kaydı hatası:", error.message);
     }
 
     // 3. VERİ HAZIRLIĞI
@@ -154,34 +156,19 @@ export class PaymentService {
     }
   }
 
-  // --- CALLBACK İŞLEME ---
+  // --- CALLBACK ---
   async handleCallback(body: any) {
     console.log("--- PARAM POS CALLBACK GELDİ ---", body);
-
     const status = body.TURKPOS_RETVAL_Sonuc;
     const orderId = body.TURKPOS_RETVAL_Siparis_ID;
 
     if (Number(status) > 0) {
         console.log(`✅ ÖDEME BAŞARILI! Sipariş ID: ${orderId}`);
-
-        try {
-            // Enum kullanarak durumu güncelle [cite: 195]
-            await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
-            console.log(`✅ Sipariş durumu GÜNCELLENDİ: ${orderId}`);
-        } catch (error) {
-            console.error("⚠️ Sipariş güncelleme hatası:", error);
-        }
-
+        await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
         return { status: 'success', orderId };
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
-        
-        try {
-             // Enum kullanarak durumu güncelle [cite: 208]
-             // Not: FAILED enum değeri yoksa CANCELLED kullan
-             await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
-        } catch(e) {}
-
+        await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }
