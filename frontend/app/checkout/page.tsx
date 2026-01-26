@@ -4,13 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import Script from "next/script";
 import NextImage from "next/image";
-import { useCart } from "@/context/CartContext";
+// import { useCart } from "@/context/CartContext"; // CartContext kullanılmıyorsa kaldırılabilir veya tutulabilir
 
 // MODALLAR
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 import AddAddressModal from "../components/modals/AddAddressModal";
-import AddPetModal from "../components/modals/AddPetModal"; // 👈 YENİ: Pet Modalı Eklendi
+import AddPetModal from "../components/modals/AddPetModal";
 import AgreementsModal from "@/components/AgreementsModal";
 
 // --- İKONLAR ---
@@ -39,6 +39,21 @@ const LockIcon = () => (
       strokeLinejoin="round"
       strokeWidth={2}
       d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+    />
+  </svg>
+);
+const CreditCardIcon = () => (
+  <svg
+    className="w-6 h-6 text-gray-400"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
     />
   </svg>
 );
@@ -90,7 +105,7 @@ function CheckoutContent() {
   const [myPets, setMyPets] = useState<Pet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
 
-  // Misafir için Manuel Pet Girişi (Logged-in kullanıcılar Modal kullanacak)
+  // Misafir için Manuel Pet Girişi
   const [isOtherOpen, setIsOtherOpen] = useState(false);
   const [guestPetData, setGuestPetData] = useState({
     name: "",
@@ -121,6 +136,15 @@ function CheckoutContent() {
     district: "",
   });
 
+  // KART BİLGİLERİ STATE (YENİ EKLENDİ)
+  const [cardData, setCardData] = useState({
+    holderName: "",
+    cardNumber: "",
+    expMonth: "",
+    expYear: "",
+    cvc: "",
+  });
+
   // Ödeme & Sözleşme
   const [agreementsAccepted, setAgreementsAccepted] = useState(false);
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
@@ -131,7 +155,7 @@ function CheckoutContent() {
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-  const [isAddPetModalOpen, setIsAddPetModalOpen] = useState(false); // 👈 YENİ: Pet Modal State
+  const [isAddPetModalOpen, setIsAddPetModalOpen] = useState(false);
 
   // --- VERİ ÇEKME ---
   useEffect(() => {
@@ -154,9 +178,7 @@ function CheckoutContent() {
         const token = localStorage.getItem("token");
         if (token) {
           setIsGuest(false);
-          // Petleri Çek
           fetchPets(token);
-          // Adresleri Çek
           fetchAddresses(token);
         } else {
           setIsGuest(true);
@@ -183,10 +205,8 @@ function CheckoutContent() {
         const pData = await petsRes.json();
         const petsList = Array.isArray(pData) ? pData : pData.pets || [];
         setMyPets(petsList);
-        // Eğer hiç seçili yoksa ve liste doluysa ilkini seç
         if (!selectedPetId && petsList.length > 0)
           setSelectedPetId(petsList[0].id);
-        // Eğer yeni eklendiyse son ekleneni seç
         if (petsList.length > 0 && !selectedPetId)
           setSelectedPetId(petsList[petsList.length - 1].id);
       }
@@ -239,12 +259,11 @@ function CheckoutContent() {
 
   // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
-    // Validasyonlar
+    // 1. Validasyonlar
     if (isGuest && (!guestPetData.name || !guestPetData.breed))
       return toast.error("Lütfen dostunuzun bilgilerini girin.");
     if (!isGuest && !selectedPetId)
       return toast.error("Lütfen bir dost seçin veya yeni ekleyin.");
-
     if (
       isGuest &&
       (!guestData.firstName || !guestData.email || !guestData.fullAddress)
@@ -252,6 +271,17 @@ function CheckoutContent() {
       return toast.error("İletişim bilgilerini doldurun.");
     if (!isGuest && !selectedAddressId)
       return toast.error("Teslimat adresi seçin.");
+
+    // Kart Validasyonu
+    if (
+      !cardData.holderName ||
+      !cardData.cardNumber ||
+      !cardData.expMonth ||
+      !cardData.expYear ||
+      !cardData.cvc
+    ) {
+      return toast.error("Lütfen kart bilgilerinizi eksiksiz girin.");
+    }
 
     if (!agreementsAccepted) return toast.error("Lütfen sözleşmeyi onaylayın.");
 
@@ -267,13 +297,11 @@ function CheckoutContent() {
           price: total,
           quantity: 1,
           duration: duration,
-          // Logged-in ise ID, Guest ise Data gönder
           petId: !isGuest ? selectedPetId : undefined,
           petName: isGuest
             ? guestPetData.name
             : myPets.find((p) => p.id === selectedPetId)?.name,
           petBreed: isGuest ? guestPetData.breed : undefined,
-
           upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
         },
       ],
@@ -295,6 +323,14 @@ function CheckoutContent() {
             fullAddress: addresses.find((a) => a.id === selectedAddressId)
               ?.fullAddress,
           },
+      // KART BİLGİLERİNİ BACKEND'E GÖNDERİYORUZ
+      card: {
+        cardHolder: cardData.holderName,
+        cardNumber: cardData.cardNumber.replace(/\s/g, ""), // Boşlukları temizle
+        expireMonth: cardData.expMonth,
+        expireYear: cardData.expYear,
+        cvc: cardData.cvc,
+      },
     };
 
     try {
@@ -310,9 +346,10 @@ function CheckoutContent() {
         },
       );
       const data = await res.json();
+
       if (data.status === "success" && data.token) {
         setIframeToken(data.token);
-        toast.success("Ödeme ekranı hazır! 🚀");
+        toast.success("3D Secure ekranına yönlendiriliyorsunuz! 🔒");
         setTimeout(() => {
           document
             .getElementById("payment-area")
@@ -341,10 +378,19 @@ function CheckoutContent() {
     setIsAddPetModalOpen(false);
   };
 
+  // Kart Numarası Formatlama
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, ""); // Sadece rakam
+    val = val.substring(0, 16);
+    val = val.replace(/(\d{4})/g, "$1 ").trim(); // 4'lü grupla
+    setCardData({ ...cardData, cardNumber: val });
+  };
+
   if (loadingProduct)
     return (
       <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin w-10 h-10 border-4 border-green-500 rounded-full border-t-transparent"></div>
+        {" "}
+        <div className="animate-spin w-10 h-10 border-4 border-green-500 rounded-full border-t-transparent"></div>{" "}
       </div>
     );
 
@@ -354,6 +400,7 @@ function CheckoutContent() {
   return (
     <main className="min-h-screen bg-[#F8F9FA] font-sans pb-24">
       <Toaster position="top-right" />
+
       {/* Modallar */}
       <LoginModal
         isOpen={isLoginOpen}
@@ -383,12 +430,12 @@ function CheckoutContent() {
         isOpen={isAddPetModalOpen}
         onClose={() => setIsAddPetModalOpen(false)}
         onSuccess={handlePetAdded}
-      />{" "}
-      {/* 👈 YENİ: Modal */}
+      />
       <AgreementsModal
         isOpen={isAgreementModalOpen}
         onClose={() => setIsAgreementModalOpen(false)}
       />
+
       {/* NAVBAR */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -407,11 +454,12 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
+
       <div className="max-w-6xl mx-auto px-4 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
           {/* --- SOL TARA (FORM ALANI) --- */}
           <div className="lg:col-span-8 space-y-8">
-            {/* BÖLÜM 1: ABONELİK PLANI */}
+            {/* 1. ABONELİK PLANI (Aynı Kod) */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
                 <span className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm">
@@ -419,7 +467,6 @@ function CheckoutContent() {
                 </span>
                 Abonelik Planını Seçiniz
               </h2>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[1, 3, 6, 12].map((m) => {
                   const rule = discountRules.find(
@@ -430,14 +477,11 @@ function CheckoutContent() {
                   const cost =
                     (Number(product.price) * m * (1 - Number(discount) / 100)) /
                     m;
-
                   return (
                     <div
                       key={m}
                       onClick={() => setDuration(m)}
-                      className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-md flex items-center justify-between
-                                          ${isSelected ? "border-green-500 bg-green-50 ring-1 ring-green-500" : "border-gray-200 hover:border-green-300 bg-white"}
-                                      `}
+                      className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-md flex items-center justify-between ${isSelected ? "border-green-500 bg-green-50 ring-1 ring-green-500" : "border-gray-200 hover:border-green-300 bg-white"}`}
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -470,7 +514,7 @@ function CheckoutContent() {
               </div>
             </section>
 
-            {/* BÖLÜM 2: DOSTUNUN BİLGİLERİ (GÜNCELLENDİ: MODAL KULLANIMI) */}
+            {/* 2. PAKET KİMİN İÇİN (Aynı Kod) */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
@@ -479,7 +523,6 @@ function CheckoutContent() {
                   </span>
                   Paket Kimin İçin?
                 </h2>
-                {/* 🌟 LOGGED IN KULLANICI İÇİN MODAL AÇMA BUTONU */}
                 {!isGuest && (
                   <button
                     onClick={() => setIsAddPetModalOpen(true)}
@@ -489,8 +532,6 @@ function CheckoutContent() {
                   </button>
                 )}
               </div>
-
-              {/* --- DURUM A: ÜYE GİRİŞİ YAPMIŞ KULLANICI --- */}
               {!isGuest ? (
                 myPets.length > 0 ? (
                   <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
@@ -498,13 +539,7 @@ function CheckoutContent() {
                       <button
                         key={pet.id}
                         onClick={() => setSelectedPetId(pet.id)}
-                        className={`px-6 py-4 rounded-2xl border-2 font-bold text-sm whitespace-nowrap transition-all flex flex-col items-center gap-1 min-w-[120px]
-                                            ${
-                                              selectedPetId === pet.id
-                                                ? "border-green-500 bg-green-50 text-green-700 shadow-sm"
-                                                : "border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-                                            }
-                                        `}
+                        className={`px-6 py-4 rounded-2xl border-2 font-bold text-sm whitespace-nowrap transition-all flex flex-col items-center gap-1 min-w-[120px] ${selectedPetId === pet.id ? "border-green-500 bg-green-50 text-green-700 shadow-sm" : "border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50"}`}
                       >
                         <span className="text-2xl">
                           {pet.type === "kopek"
@@ -530,13 +565,10 @@ function CheckoutContent() {
                   </div>
                 )
               ) : (
-                // --- DURUM B: MİSAFİR KULLANICI (INLINE FORM MECBURİ) ---
                 <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
                   <p className="text-xs font-bold text-gray-400 uppercase mb-4">
                     MİSAFİR GİRİŞİ - DOST BİLGİLERİ
                   </p>
-
-                  {/* 1. Tür Seçimi */}
                   <div className="grid grid-cols-3 gap-2 mb-4 font-bold">
                     {["kopek", "kedi"].map((t) => (
                       <button
@@ -546,8 +578,7 @@ function CheckoutContent() {
                           setGuestPetData({ ...guestPetData, type: t });
                           setIsOtherOpen(false);
                         }}
-                        className={`w-full h-12 rounded-xl border-2 transition flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-xs md:text-sm
-                                          ${guestPetData.type === t ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}
+                        className={`w-full h-12 rounded-xl border-2 transition flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 text-xs md:text-sm ${guestPetData.type === t ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}
                       >
                         <span className="text-lg">
                           {t === "kopek" ? "🐶" : "🐱"}
@@ -555,13 +586,11 @@ function CheckoutContent() {
                         <span>{t === "kopek" ? "Köpek" : "Kedi"}</span>
                       </button>
                     ))}
-
                     <div className="relative w-full">
                       <button
                         type="button"
                         onClick={() => setIsOtherOpen(!isOtherOpen)}
-                        className={`w-full h-12 px-2 rounded-xl border-2 transition flex items-center justify-between text-xs md:text-sm
-                                          ${!["kopek", "kedi"].includes(guestPetData.type) ? "border-green-500 bg-white text-green-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}
+                        className={`w-full h-12 px-2 rounded-xl border-2 transition flex items-center justify-between text-xs md:text-sm ${!["kopek", "kedi"].includes(guestPetData.type) ? "border-green-500 bg-white text-green-700" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-100"}`}
                       >
                         <div className="flex items-center gap-1 truncate">
                           <span className="text-lg">
@@ -577,7 +606,6 @@ function CheckoutContent() {
                         </div>
                         <span className="text-[10px]">▼</span>
                       </button>
-
                       {isOtherOpen && (
                         <div className="absolute top-full right-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden min-w-[120px]">
                           {Object.keys(OTHER_ICONS).map((t) => (
@@ -598,8 +626,6 @@ function CheckoutContent() {
                       )}
                     </div>
                   </div>
-
-                  {/* 2. Temel Bilgiler */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <input
                       type="text"
@@ -626,8 +652,6 @@ function CheckoutContent() {
                       placeholder="Irkı (Örn: Golden) *"
                     />
                   </div>
-
-                  {/* 3. Detaylar */}
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 mb-1 block">
@@ -664,8 +688,6 @@ function CheckoutContent() {
                       />
                     </div>
                   </div>
-
-                  {/* 4. Ekstra */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select
                       value={guestPetData.isNeutered}
@@ -697,7 +719,7 @@ function CheckoutContent() {
               )}
             </section>
 
-            {/* BÖLÜM 3: TESLİMAT BİLGİLERİ */}
+            {/* 3. TESLİMAT ADRESİ (Aynı Kod) */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
@@ -715,7 +737,6 @@ function CheckoutContent() {
                   </button>
                 )}
               </div>
-
               {!isGuest ? (
                 addresses.length > 0 ? (
                   <div className="grid grid-cols-1 gap-3">
@@ -828,7 +849,7 @@ function CheckoutContent() {
               )}
             </section>
 
-            {/* BÖLÜM 4: ÖDEME (IFRAME) */}
+            {/* 4. GÜVENLİ ÖDEME (GÜNCELLENDİ: KREDİ KARTI FORMU EKLENDİ) */}
             <section
               className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60"
               id="payment-area"
@@ -841,53 +862,165 @@ function CheckoutContent() {
               </h2>
 
               {!iframeToken ? (
-                <div className="text-center py-8 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                  <p className="text-gray-500 mb-4 text-sm font-medium">
-                    Lütfen yukarıdaki bilgileri kontrol edip sözleşmeyi
-                    onaylayın.
-                  </p>
-
-                  <label className="flex items-center justify-center gap-2 cursor-pointer mb-6 select-none">
-                    <input
-                      type="checkbox"
-                      checked={agreementsAccepted}
-                      onChange={(e) => setAgreementsAccepted(e.target.checked)}
-                      className="w-5 h-5 accent-green-600 rounded"
-                    />
-                    <span className="text-xs text-gray-600">
-                      <span
-                        className="font-bold underline hover:text-green-600"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setIsAgreementModalOpen(true);
-                        }}
-                      >
-                        Mesafeli Satış Sözleşmesi
+                <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 space-y-6">
+                  {/* KART FORMU */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                        <CreditCardIcon /> Kart Bilgileri
                       </span>
-                      'ni okudum, onaylıyorum.
-                    </span>
-                  </label>
+                      <div className="flex gap-2">
+                        {/* Visa/Mastercard Logoları eklenebilir */}
+                        <div className="h-6 w-10 bg-gray-200 rounded"></div>
+                        <div className="h-6 w-10 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
 
-                  <button
-                    onClick={startPayment}
-                    disabled={isPaymentLoading}
-                    className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
-                  >
-                    {isPaymentLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Bağlanıyor...
-                      </>
-                    ) : (
-                      "Ödeme Ekranını Aç 💳"
-                    )}
-                  </button>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                          Kart Sahibi
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ad Soyad"
+                          value={cardData.holderName}
+                          onChange={(e) =>
+                            setCardData({
+                              ...cardData,
+                              holderName: e.target.value,
+                            })
+                          }
+                          className="w-full p-3 rounded-xl border border-gray-300 font-bold text-gray-900 outline-none focus:border-green-500 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                          Kart Numarası
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="0000 0000 0000 0000"
+                          value={cardData.cardNumber}
+                          onChange={handleCardNumberChange}
+                          maxLength={19}
+                          className="w-full p-3 rounded-xl border border-gray-300 font-bold text-gray-900 outline-none focus:border-green-500 bg-white tracking-widest"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            Son Kullanma (Ay/Yıl)
+                          </label>
+                          <div className="flex gap-2">
+                            <select
+                              value={cardData.expMonth}
+                              onChange={(e) =>
+                                setCardData({
+                                  ...cardData,
+                                  expMonth: e.target.value,
+                                })
+                              }
+                              className="w-full p-3 rounded-xl border border-gray-300 font-bold text-gray-900 outline-none focus:border-green-500 bg-white"
+                            >
+                              <option value="">Ay</option>
+                              {Array.from({ length: 12 }, (_, i) =>
+                                String(i + 1).padStart(2, "0"),
+                              ).map((m) => (
+                                <option key={m} value={m}>
+                                  {m}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              value={cardData.expYear}
+                              onChange={(e) =>
+                                setCardData({
+                                  ...cardData,
+                                  expYear: e.target.value,
+                                })
+                              }
+                              className="w-full p-3 rounded-xl border border-gray-300 font-bold text-gray-900 outline-none focus:border-green-500 bg-white"
+                            >
+                              <option value="">Yıl</option>
+                              {Array.from({ length: 15 }, (_, i) =>
+                                String(new Date().getFullYear() + i).slice(-2),
+                              ).map((y) => (
+                                <option key={y} value={y}>
+                                  {y}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            CVC / CVV
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="123"
+                            maxLength={3}
+                            value={cardData.cvc}
+                            onChange={(e) =>
+                              setCardData({
+                                ...cardData,
+                                cvc: e.target.value.replace(/\D/g, ""),
+                              })
+                            }
+                            className="w-full p-3 rounded-xl border border-gray-300 font-bold text-gray-900 outline-none focus:border-green-500 bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SÖZLEŞME VE BUTON */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <label className="flex items-center justify-center gap-2 cursor-pointer mb-6 select-none">
+                      <input
+                        type="checkbox"
+                        checked={agreementsAccepted}
+                        onChange={(e) =>
+                          setAgreementsAccepted(e.target.checked)
+                        }
+                        className="w-5 h-5 accent-green-600 rounded"
+                      />
+                      <span className="text-xs text-gray-600">
+                        <span
+                          className="font-bold underline hover:text-green-600"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setIsAgreementModalOpen(true);
+                          }}
+                        >
+                          Mesafeli Satış Sözleşmesi
+                        </span>
+                        'ni okudum, onaylıyorum.
+                      </span>
+                    </label>
+
+                    <button
+                      onClick={startPayment}
+                      disabled={isPaymentLoading}
+                      className="w-full bg-gray-900 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-black transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
+                    >
+                      {isPaymentLoading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          İşlem Yapılıyor...
+                        </>
+                      ) : (
+                        "Ödemeyi Tamamla 💳"
+                      )}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="w-full h-[600px] border border-gray-200 rounded-2xl overflow-hidden bg-white">
                   <iframe
                     src={iframeToken || ""}
-                    id="paytriframe" // ID kalabilir, sorun değil
+                    id="paytriframe"
                     style={{ width: "100%", height: "100%", border: "none" }}
                   ></iframe>
                 </div>

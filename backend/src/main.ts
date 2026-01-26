@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import axios from 'axios';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -23,7 +24,16 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true, // Çerezler vb. için gerekli olabilir
   });
-
+// 👇 BU KISMI EKLE: SUNUCU IP ADRESİNİ ÖĞRENME
+  try {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    console.log("========================================");
+    console.log(`🔥 SUNUCU ÇIKIŞ IP ADRESİ: ${response.data.ip}`);
+    console.log("========================================");
+  } catch (error) {
+    console.error("IP Adresi alınamadı:", error.message);
+  }
+  // 👆 BURAYA KADAR
   // 3. VERİ KONTROLÜ
   app.useGlobalPipes(
     new ValidationPipe({
