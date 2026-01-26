@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { parseStringPromise } from 'xml2js';
+import * as https from 'https';
 
 @Injectable()
 export class PaymentService {
   
-  // --- ÖDEME BAŞLATMA (TP_Islem_Odeme) ---
   async startPayment(data: any) {
     console.log("--- PARAM POS (CANLI) ÖDEME BAŞLATILIYOR ---");
     const { price, basketId, ip, card, items } = data;
@@ -18,28 +18,24 @@ export class PaymentService {
     const GUID = process.env.PARAM_GUID;
     const MODE = process.env.PARAM_MODE || "PROD"; 
     
-    // Güvenlik Kontrolü
     if(!CLIENT_CODE || !GUID || !card) {
         return { status: 'error', message: 'Eksik bilgi: API anahtarları veya Kart bilgisi yok.' };
     }
 
     // 2. VERİ HAZIRLIĞI
-    // Tutar Formatı: ParamPOS 1000,50 veya 1000.50 ister (String)
     const totalAmount = Number(price).toFixed(2); 
     
     const orderId = basketId || `SIP_${new Date().getTime()}`;
     const installment = "1"; // Tek Çekim
     
-    // Genellikle SanalPOS_ID, Client Code ile aynıdır
     const SANAL_POS_ID = CLIENT_CODE; 
 
-    // Dönüş URL'leri (Backend'e dönecek)
+    // Dönüş URL'leri
     const backendUrl = process.env.BACKEND_URL || 'https://candostumbox-api.onrender.com';
     const successUrl = `${backendUrl}/payment/callback`;
     const failUrl = `${backendUrl}/payment/callback`;
 
-    // 3. HASH HESAPLAMA (Kritik Bölüm)
-    // Sıralama: CLIENT_CODE + GUID + SanalPOS_ID + Taksit + Islem_Tutar + Toplam_Tutar + Siparis_ID + Hata_URL + Basarili_URL
+    // 3. HASH HESAPLAMA
     const hashString = 
         CLIENT_CODE + 
         GUID + 
@@ -51,20 +47,21 @@ export class PaymentService {
         failUrl + 
         successUrl;
 
-    // SHA-256 ve Base64 Encode
     const B64_HASH = crypto
         .createHash('sha256')
         .update(hashString, 'utf-8')
         .digest('base64');
 
-    // 4. API URL
+    // 4. API URL (DÜZELTİLEN KISIM BURASI)
     const isTest = MODE === 'TEST';
-    // Prod URL: https://posservice.param.com.tr/turkpos.ws/service_turkpos_prod.asmx
+    
+    // 🔴 ESKİ (HATALI): posservice.param.com.tr
+    // 🟢 YENİ (DOĞRU): posws.param.com.tr
     const apiUrl = isTest 
-        ? 'https://test-api.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
-        : 'https://posservice.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
+        ? 'https://test-dmz.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
+        : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx'; 
 
-    // 5. XML OLUŞTURMA (SOAP)
+    // 5. XML OLUŞTURMA
     const xmlRequest = `
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
@@ -104,6 +101,11 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
+    // SSL Hatalarını Yoksay (Opsiyonel ama Cloud ortamlarında hayat kurtarır)
+    const httpsAgent = new https.Agent({  
+      rejectUnauthorized: false 
+    });
+
     try {
         console.log(`PARAM POS (${MODE}) ISTEK ATILIYOR... URL: ${apiUrl}`);
         
@@ -111,23 +113,21 @@ export class PaymentService {
             headers: {
                 'Content-Type': 'text/xml; charset=utf-8',
                 'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme'
-            }
+            },
+            httpsAgent: httpsAgent,
+            timeout: 30000 
         });
 
-        // XML Yanıtını Ayrıştır
         const parsed = await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: true });
-        
-        // Yanıt yapısını güvenli al
         const soapBody = parsed['soap:Envelope']?.['soap:Body'] || parsed['soap:Envelope']?.['Body'];
         const result = soapBody?.['TP_Islem_OdemeResponse']?.['TP_Islem_OdemeResult'];
 
         console.log("PARAM POS YANIT:", result);
 
-        // Başarılı ise UCD_URL döner (3D Secure Linki)
         if (result && Number(result.Sonuc) > 0 && result.UCD_URL) {
             return { 
                 status: 'success', 
-                token: result.UCD_URL, // Frontend'e iframe linki olarak döner
+                token: result.UCD_URL, 
                 merchant_oid: orderId 
             };
         } else {
@@ -136,44 +136,27 @@ export class PaymentService {
             return { status: 'error', message: errorMsg };
         }
 
-   // ... try bloğunun sonu ...
-
-    } catch (error) {
+    } catch (error: any) {
         console.log("🔥🔥🔥 PARAM POS BAĞLANTI HATASI DETAYI 🔥🔥🔥");
-        
-        // 1. Ağ veya DNS Hatası mı?
-        if (error.code) {
-            console.error(`❌ HATA KODU (System): ${error.code}`); // Örn: ETIMEDOUT, ENOTFOUND
-        }
-
-        // 2. ParamPOS Sunucusu bir cevap döndü mü? (400, 500 hataları)
+        if (error.code) console.error(`❌ HATA KODU (System): ${error.code}`);
         if (error.response) {
             console.error(`❌ SUNUCU YANIT KODU: ${error.response.status}`);
             console.error(`❌ SUNUCU YANIT VERİSİ:`, error.response.data);
-        } else if (error.request) {
-            console.error("❌ İstek gönderildi ama hiç yanıt gelmedi (Muhtemel IP/Firewall Engeli)");
         } else {
-            console.error("❌ İstek oluşturulurken hata:", error.message);
+            console.error("❌ HATA MESAJI:", error.message);
         }
-
         console.log("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥");
-
-        return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı. Lütfen teknik ekibe haber verin.' };
+        return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı.' };
     }
   }
 
-  // --- CALLBACK İŞLEME (SONUÇ) ---
-  // ParamPOS'tan gelen sonucu karşılar
   async handleCallback(body: any) {
     console.log("--- PARAM POS CALLBACK ---", body);
-
-    const status = body.TURKPOS_RETVAL_Sonuc; // "1" = Başarılı
+    const status = body.TURKPOS_RETVAL_Sonuc;
     const orderId = body.TURKPOS_RETVAL_Siparis_ID;
-    const bankReceipt = body.TURKPOS_RETVAL_Dekont_ID;
 
     if (Number(status) > 0) {
-        console.log(`✅ ÖDEME BAŞARILI! Sipariş: ${orderId}, Dekont: ${bankReceipt}`);
-        // Burada veritabanında sipariş durumunu "PAID" yapabilirsin
+        console.log(`✅ ÖDEME BAŞARILI! Sipariş: ${orderId}`);
         return { status: 'success', orderId };
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
