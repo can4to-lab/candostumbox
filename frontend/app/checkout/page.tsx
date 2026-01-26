@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import Script from "next/script";
 import NextImage from "next/image";
-// import { useCart } from "@/context/CartContext"; // CartContext kullanılmıyorsa kaldırılabilir veya tutulabilir
 
 // MODALLAR
 import LoginModal from "@/components/LoginModal";
@@ -74,6 +73,14 @@ interface DiscountRule {
   durationMonths: number;
   discountPercentage: string;
 }
+// 👇 YENİ: Kullanıcı Profili Tipi
+interface UserProfile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+}
 
 // --- SABİTLER ---
 const OTHER_ICONS: Record<string, string> = {
@@ -83,12 +90,10 @@ const OTHER_ICONS: Record<string, string> = {
   Balık: "🐟",
 };
 
-// --- CHECKOUT İÇERİĞİ ---
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // URL Parametreleri
   const productId = searchParams.get("productId");
   const isUpgradeMode = searchParams.get("mode") === "upgrade";
   const oldSubId = searchParams.get("oldSubId");
@@ -96,16 +101,22 @@ function CheckoutContent() {
   // --- STATE ---
   const [product, setProduct] = useState<any>(null);
   const [loadingProduct, setLoadingProduct] = useState(true);
-
-  // Seçimler
   const [duration, setDuration] = useState(1);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
 
-  // Pet Verileri
+  // Kullanıcı Verileri
   const [myPets, setMyPets] = useState<Pet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    null,
+  );
 
-  // Misafir için Manuel Pet Girişi
+  // 👇 YENİ: Kullanıcı Profil State'i
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // Misafir
+  const [isGuest, setIsGuest] = useState(false);
   const [isOtherOpen, setIsOtherOpen] = useState(false);
   const [guestPetData, setGuestPetData] = useState({
     name: "",
@@ -116,15 +127,6 @@ function CheckoutContent() {
     isNeutered: "false",
     allergies: "",
   });
-
-  const getGuestOtherIcon = () => OTHER_ICONS[guestPetData.type] || "🦜";
-
-  // Adres ve Misafir
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
-    null,
-  );
-  const [isGuest, setIsGuest] = useState(false);
   const [guestData, setGuestData] = useState({
     firstName: "",
     lastName: "",
@@ -136,7 +138,9 @@ function CheckoutContent() {
     district: "",
   });
 
-  // KART BİLGİLERİ STATE (YENİ EKLENDİ)
+  const getGuestOtherIcon = () => OTHER_ICONS[guestPetData.type] || "🦜";
+
+  // Kart Bilgileri
   const [cardData, setCardData] = useState({
     holderName: "",
     cardNumber: "",
@@ -180,6 +184,7 @@ function CheckoutContent() {
           setIsGuest(false);
           fetchPets(token);
           fetchAddresses(token);
+          fetchProfile(token); // 👈 YENİ: Profili çek
         } else {
           setIsGuest(true);
         }
@@ -192,23 +197,20 @@ function CheckoutContent() {
     init();
   }, [productId, router]);
 
-  // Yardımcı Fetch Fonksiyonları
+  // Yardımcı Fetchler
   const fetchPets = async (token: string) => {
     try {
-      const petsRes = await fetch(
+      const res = await fetch(
         "https://candostumbox-api.onrender.com/users/pets",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (petsRes.ok) {
-        const pData = await petsRes.json();
-        const petsList = Array.isArray(pData) ? pData : pData.pets || [];
-        setMyPets(petsList);
-        if (!selectedPetId && petsList.length > 0)
-          setSelectedPetId(petsList[0].id);
-        if (petsList.length > 0 && !selectedPetId)
-          setSelectedPetId(petsList[petsList.length - 1].id);
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.pets || [];
+        setMyPets(list);
+        if (!selectedPetId && list.length > 0) setSelectedPetId(list[0].id);
+        if (list.length > 0 && !selectedPetId)
+          setSelectedPetId(list[list.length - 1].id);
       }
     } catch (e) {
       console.error(e);
@@ -217,18 +219,16 @@ function CheckoutContent() {
 
   const fetchAddresses = async (token: string) => {
     try {
-      const addrRes = await fetch(
+      const res = await fetch(
         "https://candostumbox-api.onrender.com/users/addresses",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (addrRes.ok) {
-        const aData = await addrRes.json();
-        if (Array.isArray(aData)) {
-          setAddresses(aData);
-          if (!selectedAddressId && aData.length > 0)
-            setSelectedAddressId(aData[0].id);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setAddresses(data);
+          if (!selectedAddressId && data.length > 0)
+            setSelectedAddressId(data[0].id);
         }
       }
     } catch (e) {
@@ -236,7 +236,23 @@ function CheckoutContent() {
     }
   };
 
-  // --- HESAPLAMALAR ---
+  // 👇 YENİ: Profil Çekme Fonksiyonu (ID almak için şart)
+  const fetchProfile = async (token: string) => {
+    try {
+      const res = await fetch(
+        "https://candostumbox-api.onrender.com/users/profile",
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setUserProfile(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Hesaplamalar
   const calculateTotal = () => {
     if (!product)
       return { total: 0, discountRate: 0, monthlyPrice: 0, rawTotal: 0 };
@@ -254,12 +270,11 @@ function CheckoutContent() {
       rawTotal: totalRaw,
     };
   };
-
-  const { total, discountRate, rawTotal, monthlyPrice } = calculateTotal();
+  const { total, discountRate, rawTotal } = calculateTotal();
 
   // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
-    // 1. Validasyonlar
+    // Validasyonlar
     if (isGuest && (!guestPetData.name || !guestPetData.breed))
       return toast.error("Lütfen dostunuzun bilgilerini girin.");
     if (!isGuest && !selectedPetId)
@@ -271,23 +286,20 @@ function CheckoutContent() {
       return toast.error("İletişim bilgilerini doldurun.");
     if (!isGuest && !selectedAddressId)
       return toast.error("Teslimat adresi seçin.");
-
-    // Kart Validasyonu
     if (
       !cardData.holderName ||
       !cardData.cardNumber ||
       !cardData.expMonth ||
       !cardData.expYear ||
       !cardData.cvc
-    ) {
-      return toast.error("Lütfen kart bilgilerinizi eksiksiz girin.");
-    }
-
+    )
+      return toast.error("Kart bilgileri eksik.");
     if (!agreementsAccepted) return toast.error("Lütfen sözleşmeyi onaylayın.");
 
     setIsPaymentLoading(true);
     const token = localStorage.getItem("token");
 
+    // 👇 KRİTİK DÜZELTME: User Objesini Dolu Gönderiyoruz
     const payload = {
       price: total,
       items: [
@@ -305,6 +317,7 @@ function CheckoutContent() {
           upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
         },
       ],
+      // Eğer misafir değilse, profilden gelen ID ve Adı gönderiyoruz
       user: isGuest
         ? {
             firstName: guestData.firstName,
@@ -312,7 +325,14 @@ function CheckoutContent() {
             email: guestData.email,
             phone: guestData.phone,
           }
-        : {},
+        : {
+            id: userProfile?.id, // 👈 İŞTE BU ID SAYESİNDE SİPARİŞ PROFİLE DÜŞECEK
+            firstName: userProfile?.firstName,
+            lastName: userProfile?.lastName,
+            email: userProfile?.email,
+            phone: userProfile?.phone,
+          },
+      // Adres ID'sini de gönderiyoruz
       address: isGuest
         ? {
             fullAddress: guestData.fullAddress,
@@ -320,13 +340,13 @@ function CheckoutContent() {
             district: guestData.district,
           }
         : {
+            id: selectedAddressId, // 👈 Kayıtlı adres ID'si
             fullAddress: addresses.find((a) => a.id === selectedAddressId)
               ?.fullAddress,
           },
-      // KART BİLGİLERİNİ BACKEND'E GÖNDERİYORUZ
       card: {
         cardHolder: cardData.holderName,
-        cardNumber: cardData.cardNumber.replace(/\s/g, ""), // Boşlukları temizle
+        cardNumber: cardData.cardNumber.replace(/\s/g, ""),
         expireMonth: cardData.expMonth,
         expireYear: cardData.expYear,
         cvc: cardData.cvc,
@@ -346,7 +366,6 @@ function CheckoutContent() {
         },
       );
       const data = await res.json();
-
       if (data.status === "success" && data.token) {
         setIframeToken(data.token);
         toast.success("3D Secure ekranına yönlendiriliyorsunuz! 🔒");
@@ -365,32 +384,30 @@ function CheckoutContent() {
     }
   };
 
-  // --- MODAL CALLBACKLERİ ---
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, "");
+    val = val
+      .substring(0, 16)
+      .replace(/(\d{4})/g, "$1 ")
+      .trim();
+    setCardData({ ...cardData, cardNumber: val });
+  };
+
   const handleAddressAdded = () => {
-    const token = localStorage.getItem("token");
-    if (token) fetchAddresses(token);
+    const t = localStorage.getItem("token");
+    if (t) fetchAddresses(t);
     setIsAddressModalOpen(false);
   };
-
   const handlePetAdded = () => {
-    const token = localStorage.getItem("token");
-    if (token) fetchPets(token);
+    const t = localStorage.getItem("token");
+    if (t) fetchPets(t);
     setIsAddPetModalOpen(false);
-  };
-
-  // Kart Numarası Formatlama
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ""); // Sadece rakam
-    val = val.substring(0, 16);
-    val = val.replace(/(\d{4})/g, "$1 ").trim(); // 4'lü grupla
-    setCardData({ ...cardData, cardNumber: val });
   };
 
   if (loadingProduct)
     return (
       <div className="h-screen flex items-center justify-center">
-        {" "}
-        <div className="animate-spin w-10 h-10 border-4 border-green-500 rounded-full border-t-transparent"></div>{" "}
+        <div className="animate-spin w-10 h-10 border-4 border-green-500 rounded-full border-t-transparent"></div>
       </div>
     );
 
@@ -400,8 +417,6 @@ function CheckoutContent() {
   return (
     <main className="min-h-screen bg-[#F8F9FA] font-sans pb-24">
       <Toaster position="top-right" />
-
-      {/* Modallar */}
       <LoginModal
         isOpen={isLoginOpen}
         onClose={() => setLoginOpen(false)}
@@ -436,7 +451,6 @@ function CheckoutContent() {
         onClose={() => setIsAgreementModalOpen(false)}
       />
 
-      {/* NAVBAR */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -457,9 +471,8 @@ function CheckoutContent() {
 
       <div className="max-w-6xl mx-auto px-4 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
-          {/* --- SOL TARA (FORM ALANI) --- */}
           <div className="lg:col-span-8 space-y-8">
-            {/* 1. ABONELİK PLANI (Aynı Kod) */}
+            {/* BÖLÜM 1: PLAN */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
                 <span className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm">
@@ -514,7 +527,7 @@ function CheckoutContent() {
               </div>
             </section>
 
-            {/* 2. PAKET KİMİN İÇİN (Aynı Kod) */}
+            {/* BÖLÜM 2: PET */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
@@ -559,9 +572,6 @@ function CheckoutContent() {
                   >
                     <div className="text-2xl mb-2">🐾</div>
                     <p>Henüz kayıtlı dostunuz yok.</p>
-                    <p className="text-green-600 font-bold text-sm mt-1">
-                      Eklemek için tıklayın
-                    </p>
                   </div>
                 )
               ) : (
@@ -719,7 +729,7 @@ function CheckoutContent() {
               )}
             </section>
 
-            {/* 3. TESLİMAT ADRESİ (Aynı Kod) */}
+            {/* BÖLÜM 3: ADRES */}
             <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-black text-gray-900 flex items-center gap-3">
@@ -849,7 +859,7 @@ function CheckoutContent() {
               )}
             </section>
 
-            {/* 4. GÜVENLİ ÖDEME (GÜNCELLENDİ: KREDİ KARTI FORMU EKLENDİ) */}
+            {/* BÖLÜM 4: ÖDEME */}
             <section
               className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60"
               id="payment-area"
@@ -860,22 +870,14 @@ function CheckoutContent() {
                 </span>
                 Güvenli Ödeme
               </h2>
-
               {!iframeToken ? (
                 <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 space-y-6">
-                  {/* KART FORMU */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
                       <span className="font-bold text-gray-700 text-sm flex items-center gap-2">
                         <CreditCardIcon /> Kart Bilgileri
                       </span>
-                      <div className="flex gap-2">
-                        {/* Visa/Mastercard Logoları eklenebilir */}
-                        <div className="h-6 w-10 bg-gray-200 rounded"></div>
-                        <div className="h-6 w-10 bg-gray-200 rounded"></div>
-                      </div>
                     </div>
-
                     <div className="space-y-4">
                       <div>
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
@@ -910,7 +912,7 @@ function CheckoutContent() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
-                            Son Kullanma (Ay/Yıl)
+                            Son Kullanma
                           </label>
                           <div className="flex gap-2">
                             <select
@@ -974,8 +976,6 @@ function CheckoutContent() {
                       </div>
                     </div>
                   </div>
-
-                  {/* SÖZLEŞME VE BUTON */}
                   <div className="pt-4 border-t border-gray-200">
                     <label className="flex items-center justify-center gap-2 cursor-pointer mb-6 select-none">
                       <input
@@ -999,7 +999,6 @@ function CheckoutContent() {
                         'ni okudum, onaylıyorum.
                       </span>
                     </label>
-
                     <button
                       onClick={startPayment}
                       disabled={isPaymentLoading}
@@ -1028,7 +1027,7 @@ function CheckoutContent() {
             </section>
           </div>
 
-          {/* --- SAĞ TARA (ÖZET KARTI - STICKY) --- */}
+          {/* SAĞ TARA: ÖZET */}
           <div className="lg:col-span-4">
             <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-200 sticky top-24">
               <div className="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
@@ -1055,7 +1054,6 @@ function CheckoutContent() {
                   </p>
                 </div>
               </div>
-
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>Paket Tutarı</span>
@@ -1074,7 +1072,6 @@ function CheckoutContent() {
                   <span className="font-bold text-green-600">Bedava</span>
                 </div>
               </div>
-
               <div className="border-t border-gray-100 pt-4">
                 <div className="flex justify-between items-end">
                   <span className="text-sm font-bold text-gray-400 uppercase">
@@ -1088,7 +1085,6 @@ function CheckoutContent() {
                   KDV Dahildir
                 </p>
               </div>
-
               <div className="mt-6 flex flex-col gap-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <CheckCircleIcon /> %100 İade Garantisi
