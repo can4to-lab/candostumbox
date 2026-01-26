@@ -8,11 +8,18 @@ export class PaymentController {
 
   @Post('start')
   async startPayment(@Body() body: any, @Req() req: Request, @Res() res: Response) {
-    // Gerçek IP adresini al
+    // IP Adresini al
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const clientIp = Array.isArray(ip) ? ip[0] : ip;
 
-    const result = await this.paymentService.startPayment({ ...body, ip: clientIp });
+    // 👇 DEBUG: Gelen veriyi kontrol et
+    console.log("📥 PaymentController Body:", JSON.stringify(body.user));
+
+    // user ve address bilgilerini service'e olduğu gibi iletiyoruz
+    const result = await this.paymentService.startPayment({ 
+        ...body, 
+        ip: clientIp 
+    });
 
     if (result.status === 'success') {
       return res.status(HttpStatus.OK).json(result);
@@ -25,11 +32,10 @@ export class PaymentController {
   async callback(@Body() body: any, @Res() res: Response) {
     const result = await this.paymentService.handleCallback(body);
 
-    // .env'den Frontend adresini al veya manuel yaz
     const FRONTEND_URL = process.env.FRONTEND_URL || 'https://candostumbox.com';
 
     if (result.status === 'success') {
-      return res.redirect(`${FRONTEND_URL}/payment/success`);
+      return res.redirect(`${FRONTEND_URL}/payment/success?orderId=${result.orderId}`);
     } else {
       const errorMsg = encodeURIComponent(result.message || 'Ödeme başarısız');
       return res.redirect(`${FRONTEND_URL}/checkout?status=fail&msg=${errorMsg}`);

@@ -299,58 +299,63 @@ function CheckoutContent() {
     setIsPaymentLoading(true);
     const token = localStorage.getItem("token");
 
-    // 👇 Kullanıcı ve Adres Bilgilerini Hazırla
-    let userDataToSend = null;
-    let addressDataToSend = null;
+    // 👇 GÜNCELLEME: Kullanıcı ID'sini garantile
+    let finalUserId = null;
+    let finalUserData = null;
 
-    if (isGuest) {
-      userDataToSend = {
-        firstName: guestData.firstName,
-        lastName: guestData.lastName,
-        email: guestData.email,
-        phone: guestData.phone,
-      };
-      addressDataToSend = {
-        fullAddress: guestData.fullAddress,
-        city: guestData.city,
-        district: guestData.district,
-      };
-    } else {
-      // KAYITLI KULLANICI İÇİN
-      // Eğer userProfile boşsa (internet yavaşsa vb.), localStorage'dan kurtarmayı dene
-      if (!userProfile?.id && token) {
-        // Acil durum: Token var ama profil state'i boş. FetchProfile'ı bekle.
+    if (!isGuest) {
+      // Eğer state'te ID varsa kullan
+      if (userProfile?.id) {
+        finalUserId = userProfile.id;
+        finalUserData = {
+          id: userProfile.id,
+          firstName: userProfile.firstName,
+          lastName: userProfile.lastName,
+          email: userProfile.email,
+          phone: userProfile.phone,
+        };
+      }
+      // State boşsa ama Token varsa, Token'dan ID çözmeyi backend'e bırak veya manuel al
+      else if (token) {
+        // Acil durum: Profil fetch edilmediyse bile token varsa backend bunu halledebilir
+        // Ama biz işimizi sağlama alalım, ID'yi profil fetch'ten bekleyelim
         try {
           const res = await fetch(
             "https://candostumbox-api.onrender.com/users/profile",
             { headers: { Authorization: `Bearer ${token}` } },
           );
           const data = await res.json();
-          userDataToSend = {
+          finalUserId = data.id;
+          finalUserData = {
             id: data.id,
             firstName: data.firstName,
             lastName: data.lastName,
             email: data.email,
+            phone: data.phone,
           };
         } catch (e) {
-          console.error("Acil profil çekme hatası", e);
+          console.error("Profil fetch hatası", e);
         }
-      } else {
-        // Normal durum: State dolu
-        userDataToSend = {
-          id: userProfile?.id,
-          firstName: userProfile?.firstName,
-          lastName: userProfile?.lastName,
-          email: userProfile?.email,
-          phone: userProfile?.phone,
-        };
       }
+    } else {
+      // Misafir verisi
+      finalUserData = {
+        firstName: guestData.firstName,
+        lastName: guestData.lastName,
+        email: guestData.email,
+        phone: guestData.phone,
+      };
+    }
 
-      // Seçili adresi bul
-      const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
-      addressDataToSend = {
-        id: selectedAddressId,
-        fullAddress: selectedAddr?.fullAddress || "Adres Bulunamadı",
+    // Adres Verisi
+    let finalAddressData = null;
+    if (!isGuest) {
+      finalAddressData = { id: selectedAddressId }; // Sadece ID yeterli, backend DB'den çekecek
+    } else {
+      finalAddressData = {
+        fullAddress: guestData.fullAddress,
+        city: guestData.city,
+        district: guestData.district,
       };
     }
 
@@ -358,6 +363,7 @@ function CheckoutContent() {
       price: total,
       items: [
         {
+          // ... (ürün bilgileri aynı)
           productId: product.id,
           productName: product.name,
           price: total,
@@ -371,8 +377,8 @@ function CheckoutContent() {
           upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
         },
       ],
-      user: userDataToSend, // Hazırladığımız veriyi gönderiyoruz
-      address: addressDataToSend, // Hazırladığımız veriyi gönderiyoruz
+      user: finalUserData, // Hazırladığımız dolu veriyi gönderiyoruz
+      address: finalAddressData,
       card: {
         cardHolder: cardData.holderName,
         cardNumber: cardData.cardNumber.replace(/\s/g, ""),
@@ -382,7 +388,7 @@ function CheckoutContent() {
       },
     };
 
-    console.log("📤 GÖNDERİLEN PAYLOAD:", payload); // Konsoldan kontrol et
+    console.log("🚀 START PAYMENT PAYLOAD:", payload); // Bunu konsolda mutlaka gör
 
     try {
       const res = await fetch(
