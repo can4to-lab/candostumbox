@@ -274,71 +274,52 @@ function CheckoutContent() {
 
   // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
-    // Validasyonlar
-    if (isGuest && (!guestPetData.name || !guestPetData.breed))
-      return toast.error("Lütfen dostunuzun bilgilerini girin.");
-    if (!isGuest && !selectedPetId)
-      return toast.error("Lütfen bir dost seçin veya yeni ekleyin.");
-    if (
-      isGuest &&
-      (!guestData.firstName || !guestData.email || !guestData.fullAddress)
-    )
-      return toast.error("İletişim bilgilerini doldurun.");
-    if (!isGuest && !selectedAddressId)
-      return toast.error("Teslimat adresi seçin.");
-    if (
-      !cardData.holderName ||
-      !cardData.cardNumber ||
-      !cardData.expMonth ||
-      !cardData.expYear ||
-      !cardData.cvc
-    )
-      return toast.error("Kart bilgileri eksik.");
-    if (!agreementsAccepted) return toast.error("Lütfen sözleşmeyi onaylayın.");
-
-    setIsPaymentLoading(true);
     const token = localStorage.getItem("token");
 
-    // 👇 GÜNCELLEME: Kullanıcı ID'sini garantile
+    // 1. KULLANICI ID'SİNİ BUL (En garantili yöntem)
     let finalUserId = null;
     let finalUserData = null;
 
-    if (!isGuest) {
-      // Eğer state'te ID varsa kullan
-      if (userProfile?.id) {
-        finalUserId = userProfile.id;
-        finalUserData = {
-          id: userProfile.id,
-          firstName: userProfile.firstName,
-          lastName: userProfile.lastName,
-          email: userProfile.email,
-          phone: userProfile.phone,
-        };
+    if (token) {
+      // Token'ı decode et ve içindeki 'sub' veya 'userId' yi al
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          window
+            .atob(base64)
+            .split("")
+            .map(function (c) {
+              return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join(""),
+        );
+
+        const decoded = JSON.parse(jsonPayload);
+        finalUserId = decoded.sub || decoded.userId || decoded.id;
+        console.log("🔓 Token'dan Çözülen ID:", finalUserId);
+      } catch (e) {
+        console.error("Token decode hatası:", e);
       }
-      // State boşsa ama Token varsa, Token'dan ID çözmeyi backend'e bırak veya manuel al
-      else if (token) {
-        // Acil durum: Profil fetch edilmediyse bile token varsa backend bunu halledebilir
-        // Ama biz işimizi sağlama alalım, ID'yi profil fetch'ten bekleyelim
-        try {
-          const res = await fetch(
-            "https://candostumbox-api.onrender.com/users/profile",
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          const data = await res.json();
-          finalUserId = data.id;
-          finalUserData = {
-            id: data.id,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            phone: data.phone,
-          };
-        } catch (e) {
-          console.error("Profil fetch hatası", e);
-        }
-      }
+    }
+
+    // Eğer token'dan bulamadıysak state'e bak
+    if (!finalUserId && userProfile?.id) {
+      finalUserId = userProfile.id;
+    }
+
+    // Kullanıcı verisini hazırla
+    if (finalUserId) {
+      // Giriş yapmış kullanıcı
+      finalUserData = {
+        id: finalUserId, // 👈 EN ÖNEMLİSİ BU
+        firstName: userProfile?.firstName || "",
+        lastName: userProfile?.lastName || "",
+        email: userProfile?.email || "",
+        phone: userProfile?.phone || "",
+      };
     } else {
-      // Misafir verisi
+      // Misafir
       finalUserData = {
         firstName: guestData.firstName,
         lastName: guestData.lastName,
@@ -347,10 +328,10 @@ function CheckoutContent() {
       };
     }
 
-    // Adres Verisi
+    // Adres verisi
     let finalAddressData = null;
-    if (!isGuest) {
-      finalAddressData = { id: selectedAddressId }; // Sadece ID yeterli, backend DB'den çekecek
+    if (finalUserId && selectedAddressId) {
+      finalAddressData = { id: selectedAddressId };
     } else {
       finalAddressData = {
         fullAddress: guestData.fullAddress,
@@ -363,7 +344,6 @@ function CheckoutContent() {
       price: total,
       items: [
         {
-          // ... (ürün bilgileri aynı)
           productId: product.id,
           productName: product.name,
           price: total,
@@ -388,7 +368,7 @@ function CheckoutContent() {
       },
     };
 
-    console.log("🚀 START PAYMENT PAYLOAD:", payload); // Bunu konsolda mutlaka gör
+    console.log("📤 FRONTEND GÖNDERİYOR:", payload);
 
     try {
       const res = await fetch(
