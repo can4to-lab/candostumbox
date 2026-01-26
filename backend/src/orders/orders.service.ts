@@ -32,12 +32,13 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. KULLANICIYI BUL
+      // 1. KULLANICIYI BUL (Kritik Düzeltme)
       let userEntity: User | null = null;
       if (userId) {
+          // İlişkiyi ID stringiyle değil, Entity nesnesiyle kuracağız
           userEntity = await queryRunner.manager.findOne(User, { where: { id: userId } });
           if (userEntity) {
-              this.logger.log(`✅ Sipariş kullanıcısı bulundu: ${userEntity.firstName} ${userEntity.lastName}`);
+              this.logger.log(`✅ Sipariş kullanıcısı bulundu: ${userEntity.firstName} ${userEntity.lastName} (${userId})`);
           } else {
               this.logger.warn(`⚠️ User ID (${userId}) geldi ama DB'de yok!`);
           }
@@ -52,8 +53,6 @@ export class OrdersService {
              this.logger.warn(`Adres ID ${addressId} bulunamadı.`);
              if (guestInfo) addressSnapshot = { ...guestInfo, title: 'Guest Address' };
           } else {
-             // 🛠️ DÜZELTME BURADA YAPILDI:
-             // address.phone olmadığı için userEntity.phone kullanıyoruz veya boş geçiyoruz.
              addressSnapshot = {
                 title: address.title,
                 fullAddress: address.fullAddress,
@@ -97,7 +96,7 @@ export class OrdersService {
 
         // --- ABONELİK İŞLEMLERİ ---
         if (itemDto.subscriptionId) {
-            const existingSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.subscriptionId } });
+            const existingSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.subscriptionId }, relations: ['product'] });
             if (existingSub) {
                 existingSub.totalMonths += itemDuration;
                 existingSub.remainingMonths += itemDuration;
@@ -163,7 +162,7 @@ export class OrdersService {
       const order = new Order();
       
       if (userEntity) {
-          order.user = userEntity; 
+          order.user = userEntity; // ✅ User Entity Nesnesini bağlıyoruz (Sadece ID değil)
       }
       
       order.shippingAddressSnapshot = addressSnapshot; 

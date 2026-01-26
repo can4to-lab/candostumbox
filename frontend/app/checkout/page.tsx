@@ -73,7 +73,6 @@ interface DiscountRule {
   durationMonths: number;
   discountPercentage: string;
 }
-// 👇 YENİ: Kullanıcı Profili Tipi
 interface UserProfile {
   id: string;
   firstName: string;
@@ -112,11 +111,11 @@ function CheckoutContent() {
     null,
   );
 
-  // 👇 YENİ: Kullanıcı Profil State'i
+  // Profil State'i
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // Misafir
-  const [isGuest, setIsGuest] = useState(false);
+  const [isGuest, setIsGuest] = useState(true); // Varsayılan true, useEffect'te token varsa false olacak
   const [isOtherOpen, setIsOtherOpen] = useState(false);
   const [guestPetData, setGuestPetData] = useState({
     name: "",
@@ -184,7 +183,7 @@ function CheckoutContent() {
           setIsGuest(false);
           fetchPets(token);
           fetchAddresses(token);
-          fetchProfile(token); // 👈 YENİ: Profili çek
+          fetchProfile(token); // Profili çek
         } else {
           setIsGuest(true);
         }
@@ -236,7 +235,7 @@ function CheckoutContent() {
     }
   };
 
-  // 👇 YENİ: Profil Çekme Fonksiyonu (ID almak için şart)
+  // 🛠️ PROFİL VERİSİNİ ÇEKME VE STATE'E KAYDETME
   const fetchProfile = async (token: string) => {
     try {
       const res = await fetch(
@@ -245,6 +244,7 @@ function CheckoutContent() {
       );
       if (res.ok) {
         const data = await res.json();
+        console.log("🔥 CHECKOUT PROFİL VERİSİ:", data); // Konsolda ID'yi kontrol et
         setUserProfile(data);
       }
     } catch (e) {
@@ -299,7 +299,61 @@ function CheckoutContent() {
     setIsPaymentLoading(true);
     const token = localStorage.getItem("token");
 
-    // 👇 KRİTİK DÜZELTME: User Objesini Dolu Gönderiyoruz
+    // 👇 Kullanıcı ve Adres Bilgilerini Hazırla
+    let userDataToSend = null;
+    let addressDataToSend = null;
+
+    if (isGuest) {
+      userDataToSend = {
+        firstName: guestData.firstName,
+        lastName: guestData.lastName,
+        email: guestData.email,
+        phone: guestData.phone,
+      };
+      addressDataToSend = {
+        fullAddress: guestData.fullAddress,
+        city: guestData.city,
+        district: guestData.district,
+      };
+    } else {
+      // KAYITLI KULLANICI İÇİN
+      // Eğer userProfile boşsa (internet yavaşsa vb.), localStorage'dan kurtarmayı dene
+      if (!userProfile?.id && token) {
+        // Acil durum: Token var ama profil state'i boş. FetchProfile'ı bekle.
+        try {
+          const res = await fetch(
+            "https://candostumbox-api.onrender.com/users/profile",
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          const data = await res.json();
+          userDataToSend = {
+            id: data.id,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+          };
+        } catch (e) {
+          console.error("Acil profil çekme hatası", e);
+        }
+      } else {
+        // Normal durum: State dolu
+        userDataToSend = {
+          id: userProfile?.id,
+          firstName: userProfile?.firstName,
+          lastName: userProfile?.lastName,
+          email: userProfile?.email,
+          phone: userProfile?.phone,
+        };
+      }
+
+      // Seçili adresi bul
+      const selectedAddr = addresses.find((a) => a.id === selectedAddressId);
+      addressDataToSend = {
+        id: selectedAddressId,
+        fullAddress: selectedAddr?.fullAddress || "Adres Bulunamadı",
+      };
+    }
+
     const payload = {
       price: total,
       items: [
@@ -317,33 +371,8 @@ function CheckoutContent() {
           upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
         },
       ],
-      // Eğer misafir değilse, profilden gelen ID ve Adı gönderiyoruz
-      user: isGuest
-        ? {
-            firstName: guestData.firstName,
-            lastName: guestData.lastName,
-            email: guestData.email,
-            phone: guestData.phone,
-          }
-        : {
-            id: userProfile?.id, // 👈 İŞTE BU ID SAYESİNDE SİPARİŞ PROFİLE DÜŞECEK
-            firstName: userProfile?.firstName,
-            lastName: userProfile?.lastName,
-            email: userProfile?.email,
-            phone: userProfile?.phone,
-          },
-      // Adres ID'sini de gönderiyoruz
-      address: isGuest
-        ? {
-            fullAddress: guestData.fullAddress,
-            city: guestData.city,
-            district: guestData.district,
-          }
-        : {
-            id: selectedAddressId, // 👈 Kayıtlı adres ID'si
-            fullAddress: addresses.find((a) => a.id === selectedAddressId)
-              ?.fullAddress,
-          },
+      user: userDataToSend, // Hazırladığımız veriyi gönderiyoruz
+      address: addressDataToSend, // Hazırladığımız veriyi gönderiyoruz
       card: {
         cardHolder: cardData.holderName,
         cardNumber: cardData.cardNumber.replace(/\s/g, ""),
@@ -352,6 +381,8 @@ function CheckoutContent() {
         cvc: cardData.cvc,
       },
     };
+
+    console.log("📤 GÖNDERİLEN PAYLOAD:", payload); // Konsoldan kontrol et
 
     try {
       const res = await fetch(
