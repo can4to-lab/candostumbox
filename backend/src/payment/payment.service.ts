@@ -1,17 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { parseStringPromise } from 'xml2js';
 import * as https from 'https';
+import { OrdersService } from '../orders/orders.service';
+import { OrderStatus } from '../orders/entities/order.entity'; // 👈 Enum eklendi
 
 @Injectable()
 export class PaymentService {
   
+  constructor(
+    @Inject(forwardRef(() => OrdersService))
+    private ordersService: OrdersService,
+  ) {}
+
+  // --- ÖDEME BAŞLATMA ---
   async startPayment(data: any) {
     console.log("--- PARAM POS (CANLI) ÖDEME BAŞLATILIYOR ---");
-    const { price, basketId, ip, card, items } = data;
+    const { price, basketId, ip, card, items, user, address } = data;
 
-    // 1. AYARLARI AL
+    // 1. .env AYARLARI
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
     const CLIENT_USERNAME = process.env.PARAM_CLIENT_USERNAME;
     const CLIENT_PASSWORD = process.env.PARAM_CLIENT_PASSWORD;
@@ -22,13 +30,35 @@ export class PaymentService {
         return { status: 'error', message: 'Eksik bilgi: API anahtarları veya Kart bilgisi yok.' };
     }
 
-    // 2. VERİ HAZIRLIĞI
-    // ParamPOS nokta değil virgül ister (Örn: 1250,50)
+    // 2. SİPARİŞİ VERİTABANINA KAYDET (PENDING)
+    let dbOrderId = basketId; 
+
+    try {
+        // DTO Formatını Hazırla (CreateOrderDto yapısına uygun olmalı)
+        const createOrderDto = {
+            addressId: address?.id || null,
+            items: items, // Frontend'den gelen items yapısının DTO ile uyumlu olduğunu varsayıyoruz
+            paymentType: 'credit_card', // veya upfront
+            isGuest: !user?.id,
+            guestInfo: !user?.id ? user : undefined
+        };
+
+        // ordersService.create(userId, createOrderDto) şeklinde çağırıyoruz [cite: 43]
+        const result = await this.ordersService.create(user?.id || null, createOrderDto as any);
+        
+        // create metodu { success: true, orderId: '...' } dönüyor [cite: 56]
+        if(result && result.orderId) {
+            dbOrderId = result.orderId;
+            console.log(`✅ Sipariş veritabanına kaydedildi: ${dbOrderId}`);
+        }
+    } catch (error) {
+        console.error("⚠️ Sipariş ön kaydı hatası:", error.message);
+    }
+
+    // 3. VERİ HAZIRLIĞI
     const totalAmount = Number(price).toFixed(2).replace('.', ','); 
-    
-    const orderId = basketId || `SIP_${new Date().getTime()}`;
-    const installment = "1"; // Tek Çekim
-    
+    const orderId = dbOrderId || `SIP_${new Date().getTime()}`; 
+    const installment = "1"; 
     const SANAL_POS_ID = CLIENT_CODE; 
 
     // Dönüş URL'leri
@@ -36,8 +66,7 @@ export class PaymentService {
     const successUrl = `${backendUrl}/payment/callback`;
     const failUrl = `${backendUrl}/payment/callback`;
 
-    // 3. HASH HESAPLAMA (SHA-1'e ÇEVRİLDİ)
-    // Sıralama: CLIENT_CODE + GUID + SanalPOS_ID + Taksit + Islem_Tutar + Toplam_Tutar + Siparis_ID + Hata_URL + Basarili_URL
+    // 4. HASH HESAPLAMA (SHA-1)
     const hashString = 
         CLIENT_CODE + 
         GUID + 
@@ -49,19 +78,15 @@ export class PaymentService {
         failUrl + 
         successUrl;
 
-    // ⚠️ KRİTİK DÜZELTME: SHA-256 YERİNE SHA-1 KULLANILIYOR
-    const B64_HASH = crypto
-        .createHash('sha1') // ParamPOS SHA-1 istiyor
-        .update(hashString, 'utf-8')
-        .digest('base64');
+    const B64_HASH = crypto.createHash('sha1').update(hashString, 'utf-8').digest('base64');
 
-    // 4. API URL
+    // 5. API URL
     const isTest = MODE === 'TEST';
     const apiUrl = isTest 
         ? 'https://test-dmz.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
         : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
 
-    // 5. XML OLUŞTURMA
+    // 6. XML OLUŞTURMA
     const xmlRequest = `
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
@@ -101,19 +126,12 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
-    // SSL Hatalarını Yoksay
-    const httpsAgent = new https.Agent({  
-      rejectUnauthorized: false 
-    });
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
     try {
-        console.log(`PARAM POS (${MODE}) ISTEK ATILIYOR... URL: ${apiUrl}`);
-        
+        console.log(`PARAM POS ISTEK ATILIYOR... URL: ${apiUrl}`);
         const response = await axios.post(apiUrl, xmlRequest, {
-            headers: {
-                'Content-Type': 'text/xml; charset=utf-8',
-                'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme'
-            },
+            headers: { 'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' },
             httpsAgent: httpsAgent,
             timeout: 30000 
         });
@@ -125,41 +143,45 @@ export class PaymentService {
         console.log("PARAM POS YANIT:", result);
 
         if (result && Number(result.Sonuc) > 0 && result.UCD_URL) {
-            return { 
-                status: 'success', 
-                token: result.UCD_URL, 
-                merchant_oid: orderId 
-            };
+            return { status: 'success', token: result.UCD_URL, merchant_oid: orderId };
         } else {
-            const errorMsg = result?.Sonuc_Str || 'ParamPOS Bilinmeyen Hata';
-            console.error("PARAM POS HATASI:", errorMsg);
-            return { status: 'error', message: errorMsg };
+            return { status: 'error', message: result?.Sonuc_Str || 'ParamPOS Hatası' };
         }
 
     } catch (error: any) {
-        console.log("🔥🔥🔥 PARAM POS BAĞLANTI HATASI DETAYI 🔥🔥🔥");
-        if (error.code) console.error(`❌ HATA KODU (System): ${error.code}`);
-        if (error.response) {
-            console.error(`❌ SUNUCU YANIT KODU: ${error.response.status}`);
-            console.error(`❌ SUNUCU YANIT VERİSİ:`, error.response.data);
-        } else {
-            console.error("❌ HATA MESAJI:", error.message);
-        }
-        console.log("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥");
+        console.error("BAĞLANTI HATASI:", error.message);
         return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı.' };
     }
   }
 
+  // --- CALLBACK İŞLEME ---
   async handleCallback(body: any) {
-    console.log("--- PARAM POS CALLBACK ---", body);
+    console.log("--- PARAM POS CALLBACK GELDİ ---", body);
+
     const status = body.TURKPOS_RETVAL_Sonuc;
     const orderId = body.TURKPOS_RETVAL_Siparis_ID;
 
     if (Number(status) > 0) {
-        console.log(`✅ ÖDEME BAŞARILI! Sipariş: ${orderId}`);
+        console.log(`✅ ÖDEME BAŞARILI! Sipariş ID: ${orderId}`);
+
+        try {
+            // Enum kullanarak durumu güncelle [cite: 195]
+            await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
+            console.log(`✅ Sipariş durumu GÜNCELLENDİ: ${orderId}`);
+        } catch (error) {
+            console.error("⚠️ Sipariş güncelleme hatası:", error);
+        }
+
         return { status: 'success', orderId };
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
+        
+        try {
+             // Enum kullanarak durumu güncelle [cite: 208]
+             // Not: FAILED enum değeri yoksa CANCELLED kullan
+             await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
+        } catch(e) {}
+
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }
