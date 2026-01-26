@@ -6,13 +6,12 @@ import { Request, Response } from 'express';
 export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
-  // Frontend bu adrese istek atıp Token alacak
+  // 1. Ödeme Başlatma
   @Post('start')
   async startPayment(@Body() body: any, @Req() req: Request, @Res() res: Response) {
-    // Gerçek IP adresini al (Render/Proxy arkasında x-forwarded-for kullanılır)
+    // Gerçek kullanıcı IP'sini al (Render/Proxy için önemlidir)
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     
-    // Servise IP'yi de gönderiyoruz
     const result = await this.paymentService.startPayment({ ...body, ip });
 
     if (result.status === 'success') {
@@ -22,9 +21,21 @@ export class PaymentController {
     }
   }
 
-  // PayTR buraya sonuç bildirir (Webhook)
+  // 2. ParamPOS Sonuç Dönüşü (Callback)
   @Post('callback')
-  async callback(@Body() body: any) {
-    return this.paymentService.handleCallback(body);
+  async callback(@Body() body: any, @Res() res: Response) {
+    const result = await this.paymentService.handleCallback(body);
+
+    // 🔴 DİKKAT: Buraya CANLI FRONTEND (Site) adresini yaz!
+    // Sonu '/' ile bitmesin.
+    const frontendUrl = 'https://candostumbox.com'; 
+
+    if (result.status === 'success') {
+      // Başarılı ise Teşekkür Sayfasına git
+      return res.redirect(`${frontendUrl}/payment/success`);
+    } else {
+      // Hata ise Checkout'a geri dön ve hata göster
+      return res.redirect(`${frontendUrl}/checkout?status=fail`);
+    }
   }
 }

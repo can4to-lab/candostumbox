@@ -1,41 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import * as crypto from 'crypto';
-import { parseStringPromise } from 'xml2js'; // npm install xml2js
+import { parseStringPromise } from 'xml2js';
 
 @Injectable()
 export class PaymentService {
   
+  // --- 1. ÖDEME BAŞLATMA ---
   async startPayment(data: any) {
-    console.log("--- PARAM POS ÖDEME BAŞLATILIYOR ---");
+    console.log("--- PARAM POS (CANLI) BAŞLATILIYOR ---");
     const { user, price, basketId, ip, items } = data;
 
-    // 1. .env Ayarları
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
     const CLIENT_USERNAME = process.env.PARAM_CLIENT_USERNAME;
     const CLIENT_PASSWORD = process.env.PARAM_CLIENT_PASSWORD;
     const GUID = process.env.PARAM_GUID;
-    const MODE = process.env.PARAM_MODE || "TEST"; // "PROD" veya "TEST"
-
-    if(!CLIENT_CODE || !GUID) {
-        return { status: 'error', message: 'ParamPOS API anahtarları eksik.' };
+    
+    // Güvenlik Önlemi: Eksik bilgi varsa durdur
+    if(!CLIENT_CODE || !GUID || !CLIENT_USERNAME || !CLIENT_PASSWORD) {
+        return { status: 'error', message: 'ParamPOS API anahtarları sunucuda eksik.' };
     }
 
-    // 2. Veri Hazırlığı
-    // ParamPOS Kuruş değil, 1000,00 şeklinde string ister. (Örn: 100.50)
-    // Ancak JavaScript number formatını Param'ın istediği "100,50" formatına çevirmeliyiz (Nokta yerine virgül olabilir, dokümana göre değişir ama genelde number gönderilir).
+    // Tutar Formatı: Param "100,50" veya "100.50" ister.
     const totalAmount = Number(price).toFixed(2); 
     
     const orderId = basketId || `SIP_${new Date().getTime()}`;
-    const installment = "1"; // Tek Çekim varsayılan
+    const installment = "1"; // Tek Çekim
 
-    // URL'ler (Frontend'de oluşturduğun başarılı/başarısız sayfaları)
-    const successUrl = 'https://candostumbox-l2dy.onrender.com/payment/success';
-    const failUrl = 'https://candostumbox-l2dy.onrender.com/checkout?status=fail';
+    // 🔴 DİKKAT: Burası senin Render Backend adresin olmalı!
+    const backendUrl = 'https://candostumbox-api.onrender.com'; 
+    
+    // ParamPOS işlem bitince sonucu bu adreslere POST eder
+    const successUrl = `${backendUrl}/payment/callback`;
+    const failUrl = `${backendUrl}/payment/callback`;
 
-    // 3. Hash Hesaplama (SHA-2S56)
-    // Kural: CLIENT_CODE + GUID + Taksit + Islem_Tutar + Toplam_Tutar + Siparis_ID + Hata_URL + Basarili_URL
-    // Dikkat: ParamPOS dokümantasyonuna göre sıralama çok önemlidir.
+    // Hash Hesaplama (Sıralama ParamPOS için sabittir, değiştirilemez)
     const hashString = 
         CLIENT_CODE + 
         GUID + 
@@ -48,10 +47,12 @@ export class PaymentService {
 
     const B64_HASH = crypto
         .createHash('sha256')
-        .update(hashString, 'utf8') // Param genelde ISO-8859-9 ister ama Node'da utf8 genelde çalışır
+        .update(hashString, 'utf8')
         .digest('base64');
 
-    // 4. XML Oluşturma
+    // CANLI SUNUCU URL'Sİ
+    const apiUrl = 'https://posservice.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
+
     const xmlRequest = `
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
@@ -61,7 +62,7 @@ export class PaymentService {
             <CLIENT_USERNAME>${CLIENT_USERNAME}</CLIENT_USERNAME>
             <CLIENT_PASSWORD>${CLIENT_PASSWORD}</CLIENT_PASSWORD>
           </G>
-          <SanalPOS_ID>${MODE === 'TEST' ? '10066' : ''}</SanalPOS_ID> 
+          <SanalPOS_ID>${CLIENT_CODE}</SanalPOS_ID> 
           <GUID>${GUID}</GUID>
           <KK_Sahibi></KK_Sahibi>
           <KK_No></KK_No>
@@ -72,7 +73,7 @@ export class PaymentService {
           <Hata_URL>${failUrl}</Hata_URL>
           <Basarili_URL>${successUrl}</Basarili_URL>
           <Siparis_ID>${orderId}</Siparis_ID>
-          <Siparis_Aciklama>Can Dostum Box Abonelik - ${items?.[0]?.productName || 'Paket'}</Siparis_Aciklama>
+          <Siparis_Aciklama>Can Dostum Box - ${items?.[0]?.productName || 'Abonelik'}</Siparis_Aciklama>
           <Taksit>${installment}</Taksit>
           <Islem_Tutar>${totalAmount}</Islem_Tutar>
           <Toplam_Tutar>${totalAmount}</Toplam_Tutar>
@@ -81,7 +82,7 @@ export class PaymentService {
           <Islem_ID></Islem_ID>
           <IPAdr>${ip || '85.85.85.85'}</IPAdr>
           <Ref_URL></Ref_URL>
-          <Data1></Data1>
+          <Data1>WEB</Data1>
           <Data2></Data2>
           <Data3></Data3>
           <Data4></Data4>
@@ -91,12 +92,9 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
-    // 5. Param API'ye İstek Atma
-    const apiUrl = MODE === 'TEST' 
-        ? 'https://test-api.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
-        : 'https://api.param.com.tr/turkpos.ws/service_turkpos_prod.asmx'; // Prod URL'si değişebilir, dokümana bakılmalı.
-
     try {
+        console.log(`PARAM POS ISTEK ATILIYOR... URL: ${apiUrl}`);
+        
         const response = await axios.post(apiUrl, xmlRequest, {
             headers: {
                 'Content-Type': 'text/xml; charset=utf-8',
@@ -104,27 +102,51 @@ export class PaymentService {
             }
         });
 
-        // 6. XML Yanıtını Çözümleme
         const parsed = await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: true });
-        const result = parsed['soap:Envelope']['soap:Body']['TP_Islem_OdemeResponse']['TP_Islem_OdemeResult'];
+        
+        // XML Yanıtını güvenli şekilde çözümle
+        const soapBody = parsed['soap:Envelope']?.['soap:Body'] || parsed['soap:Envelope']?.['Body'];
+        const result = soapBody?.['TP_Islem_OdemeResponse']?.['TP_Islem_OdemeResult'];
 
         console.log("PARAM YANIT:", result);
 
-        if (result.Sonuc === '1' && result.UCD_URL) {
-            // Başarılı! Param bize bir yönlendirme linki (UCD_URL) verdi.
-            // Frontend'de bu linki iframe içine koyacağız.
+        if (result && result.Sonuc === '1' && result.UCD_URL) {
             return { 
                 status: 'success', 
-                token: result.UCD_URL, // Frontend "token" bekliyor, biz URL gönderiyoruz.
+                token: result.UCD_URL, // Frontend bu linki iframe içinde açacak
                 merchant_oid: orderId 
             };
         } else {
-            return { status: 'error', message: result.Sonuc_Str || 'ParamPOS hatası' };
+            const errorMsg = result?.Sonuc_Str || 'ParamPOS Bilinmeyen Hata';
+            console.error("PARAM POS HATASI:", errorMsg);
+            return { status: 'error', message: errorMsg };
         }
 
     } catch (error) {
         console.error('ParamPOS Bağlantı Hatası:', error);
-        return { status: 'error', message: 'Ödeme servisine bağlanılamadı.' };
+        return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı.' };
+    }
+  }
+
+  // --- 2. CALLBACK İŞLEME (SONUÇ) ---
+  async handleCallback(body: any) {
+    console.log("--- PARAM POS CALLBACK GELDİ ---", body);
+
+    // ParamPOS'tan gelen kritik veriler
+    const status = body.TURKPOS_RETVAL_Sonuc; // "1" = Başarılı
+    const orderId = body.TURKPOS_RETVAL_Siparis_ID;
+    const bankReceipt = body.TURKPOS_RETVAL_Dekont_ID;
+
+    if (status === "1") {
+        console.log(`✅ ÖDEME ONAYLANDI! Sipariş: ${orderId}, Dekont: ${bankReceipt}`);
+        
+        // BURADA SİPARİŞ DURUMUNU GÜNCELLE
+        // Örn: await this.ordersService.markAsPaid(orderId);
+
+        return { status: 'success', orderId };
+    } else {
+        console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
+        return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }
 }
