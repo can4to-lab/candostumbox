@@ -1,114 +1,130 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { parseStringPromise } from 'xml2js'; // npm install xml2js
 
 @Injectable()
 export class PaymentService {
   
   async startPayment(data: any) {
-    console.log("--- PAYTR START PAYMENT BAŞLADI ---");
-    const { user, price, basketId, ip } = data; // items'ı buradan çıkardık, aşağıda manuel oluşturacağız.
+    console.log("--- PARAM POS ÖDEME BAŞLATILIYOR ---");
+    const { user, price, basketId, ip, items } = data;
 
-    // .env Kontrolü
-    const merchant_id = process.env.PAYTR_MERCHANT_ID || '';
-    const merchant_key = process.env.PAYTR_MERCHANT_KEY || '';
-    const merchant_salt = process.env.PAYTR_MERCHANT_SALT || '';
+    // 1. .env Ayarları
+    const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
+    const CLIENT_USERNAME = process.env.PARAM_CLIENT_USERNAME;
+    const CLIENT_PASSWORD = process.env.PARAM_CLIENT_PASSWORD;
+    const GUID = process.env.PARAM_GUID;
+    const MODE = process.env.PARAM_MODE || "TEST"; // "PROD" veya "TEST"
 
-    if(!merchant_id || !merchant_key || !merchant_salt) {
-        console.error("HATA: .env dosyasında PayTR anahtarları eksik!");
-        return { status: 'error', message: 'Sunucu PayTR ayarları eksik.' };
+    if(!CLIENT_CODE || !GUID) {
+        return { status: 'error', message: 'ParamPOS API anahtarları eksik.' };
     }
 
-    // 1. Veri Hazırlığı
-    const email = user.email || 'musteri@candostum.com';
-    const payment_amount = Math.round(price * 100); // Kuruş çevrimi (Örn: 297.50 -> 29750)
-    const merchant_oid = basketId || `SIP_${new Date().getTime()}`; 
-    const user_name = `${user.firstName || 'Misafir'} ${user.lastName || 'Kullanici'}`;
-    const user_address = data.address?.fullAddress || 'Teslimat Adresi Girilmedi';
-    const user_phone = user.phone ? user.phone.replace(/[^0-9]/g, '') : '05555555555'; // Sadece rakamlar
-    const user_ip = ip || '85.85.85.85'; 
+    // 2. Veri Hazırlığı
+    // ParamPOS Kuruş değil, 1000,00 şeklinde string ister. (Örn: 100.50)
+    // Ancak JavaScript number formatını Param'ın istediği "100,50" formatına çevirmeliyiz (Nokta yerine virgül olabilir, dokümana göre değişir ama genelde number gönderilir).
+    const totalAmount = Number(price).toFixed(2); 
+    
+    const orderId = basketId || `SIP_${new Date().getTime()}`;
+    const installment = "1"; // Tek Çekim varsayılan
 
-    // URL'ler
-    const merchant_ok_url = 'https://candostumbox-l2dy.onrender.com/payment/success';
-    const merchant_fail_url = 'https://candostumbox-l2dy.onrender.com/checkout?status=fail';
+    // URL'ler (Frontend'de oluşturduğun başarılı/başarısız sayfaları)
+    const successUrl = 'https://candostumbox-l2dy.onrender.com/payment/success';
+    const failUrl = 'https://candostumbox-l2dy.onrender.com/checkout?status=fail';
 
-    // 2. SEPET MANTIĞI (GARANTİ YÖNTEM) 🛡️
-    // Hata almamak için PayTR'ye "Sipariş Toplamı" adında tek bir kalem ürün gönderiyoruz.
-    // Böylece (Toplam Tutar === Sepet Tutarı) kesinleşiyor.
-    const user_basket = [
-        ["Can Dostum Box Sipariş Toplamı", String(price), 1] // [Ad, Fiyat(TL), Adet]
-    ];
+    // 3. Hash Hesaplama (SHA-2S56)
+    // Kural: CLIENT_CODE + GUID + Taksit + Islem_Tutar + Toplam_Tutar + Siparis_ID + Hata_URL + Basarili_URL
+    // Dikkat: ParamPOS dokümantasyonuna göre sıralama çok önemlidir.
+    const hashString = 
+        CLIENT_CODE + 
+        GUID + 
+        installment + 
+        totalAmount + 
+        totalAmount + 
+        orderId + 
+        failUrl + 
+        successUrl;
 
-    const user_basket_json = JSON.stringify(user_basket);
-    const user_basket_b64 = Buffer.from(user_basket_json).toString('base64');
+    const B64_HASH = crypto
+        .createHash('sha256')
+        .update(hashString, 'utf8') // Param genelde ISO-8859-9 ister ama Node'da utf8 genelde çalışır
+        .digest('base64');
 
-    const currency = 'TL';
-    const no_installment = 0; 
-    const max_installment = 0;
-    const debug_on = 1; // Hataları görmek için her zaman 1
-    const test_mode = 1; // Test modu
-    const timeout_limit = 300;
+    // 4. XML Oluşturma
+    const xmlRequest = `
+    <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Body>
+        <TP_Islem_Odeme xmlns="https://turkpos.com.tr/">
+          <G>
+            <CLIENT_CODE>${CLIENT_CODE}</CLIENT_CODE>
+            <CLIENT_USERNAME>${CLIENT_USERNAME}</CLIENT_USERNAME>
+            <CLIENT_PASSWORD>${CLIENT_PASSWORD}</CLIENT_PASSWORD>
+          </G>
+          <SanalPOS_ID>${MODE === 'TEST' ? '10066' : ''}</SanalPOS_ID> 
+          <GUID>${GUID}</GUID>
+          <KK_Sahibi></KK_Sahibi>
+          <KK_No></KK_No>
+          <KK_SK_Ay></KK_SK_Ay>
+          <KK_SK_Yil></KK_SK_Yil>
+          <KK_CVC></KK_CVC>
+          <KK_Sahibi_GSM></KK_Sahibi_GSM>
+          <Hata_URL>${failUrl}</Hata_URL>
+          <Basarili_URL>${successUrl}</Basarili_URL>
+          <Siparis_ID>${orderId}</Siparis_ID>
+          <Siparis_Aciklama>Can Dostum Box Abonelik - ${items?.[0]?.productName || 'Paket'}</Siparis_Aciklama>
+          <Taksit>${installment}</Taksit>
+          <Islem_Tutar>${totalAmount}</Islem_Tutar>
+          <Toplam_Tutar>${totalAmount}</Toplam_Tutar>
+          <Islem_Hash>${B64_HASH}</Islem_Hash>
+          <Islem_Guvenlik_Tip>3D</Islem_Guvenlik_Tip>
+          <Islem_ID></Islem_ID>
+          <IPAdr>${ip || '85.85.85.85'}</IPAdr>
+          <Ref_URL></Ref_URL>
+          <Data1></Data1>
+          <Data2></Data2>
+          <Data3></Data3>
+          <Data4></Data4>
+          <Data5></Data5>
+        </TP_Islem_Odeme>
+      </soap:Body>
+    </soap:Envelope>
+    `;
 
-    // 3. Token Hesaplama
-    const hash_str =
-      merchant_id +
-      user_ip +
-      merchant_oid +
-      email +
-      payment_amount +
-      user_basket_b64 +
-      no_installment +
-      max_installment +
-      currency +
-      test_mode;
-
-    const paytr_token = crypto
-      .createHmac('sha256', merchant_key)
-      .update(hash_str + merchant_salt)
-      .digest('base64');
-
-    // 4. İstek Gönderme
-    const formData = new URLSearchParams();
-    formData.append('merchant_id', merchant_id);
-    formData.append('user_ip', user_ip);
-    formData.append('merchant_oid', merchant_oid);
-    formData.append('email', email);
-    formData.append('payment_amount', String(payment_amount));
-    formData.append('paytr_token', paytr_token);
-    formData.append('user_basket', user_basket_json);
-    formData.append('debug_on', String(debug_on));
-    formData.append('no_installment', String(no_installment));
-    formData.append('max_installment', String(max_installment));
-    formData.append('user_name', user_name);
-    formData.append('user_address', user_address);
-    formData.append('user_phone', user_phone);
-    formData.append('merchant_ok_url', merchant_ok_url);
-    formData.append('merchant_fail_url', merchant_fail_url);
-    formData.append('timeout_limit', String(timeout_limit));
-    formData.append('currency', currency);
-    formData.append('test_mode', String(test_mode));
-
-    console.log("PAYTR ISTEK GÖNDERİLİYOR...", { merchant_oid, payment_amount, user_ip });
+    // 5. Param API'ye İstek Atma
+    const apiUrl = MODE === 'TEST' 
+        ? 'https://test-api.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
+        : 'https://api.param.com.tr/turkpos.ws/service_turkpos_prod.asmx'; // Prod URL'si değişebilir, dokümana bakılmalı.
 
     try {
-      const response = await axios.post('https://www.paytr.com/odeme/api/get-token', formData);
-      
-      console.log("PAYTR CEVABI:", response.data); // <--- BURASI ÇOK ÖNEMLİ
+        const response = await axios.post(apiUrl, xmlRequest, {
+            headers: {
+                'Content-Type': 'text/xml; charset=utf-8',
+                'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme'
+            }
+        });
 
-      if (response.data.status === 'success') {
-        return { status: 'success', token: response.data.token, merchant_oid };
-      } else {
-        return { status: 'error', message: response.data.reason }; // PayTR'nin verdiği gerçek hatayı döndür
-      }
+        // 6. XML Yanıtını Çözümleme
+        const parsed = await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: true });
+        const result = parsed['soap:Envelope']['soap:Body']['TP_Islem_OdemeResponse']['TP_Islem_OdemeResult'];
+
+        console.log("PARAM YANIT:", result);
+
+        if (result.Sonuc === '1' && result.UCD_URL) {
+            // Başarılı! Param bize bir yönlendirme linki (UCD_URL) verdi.
+            // Frontend'de bu linki iframe içine koyacağız.
+            return { 
+                status: 'success', 
+                token: result.UCD_URL, // Frontend "token" bekliyor, biz URL gönderiyoruz.
+                merchant_oid: orderId 
+            };
+        } else {
+            return { status: 'error', message: result.Sonuc_Str || 'ParamPOS hatası' };
+        }
+
     } catch (error) {
-      console.error('Bağlantı Hatası:', error);
-      throw new Error('PayTR sunucusuna bağlanılamadı.');
+        console.error('ParamPOS Bağlantı Hatası:', error);
+        return { status: 'error', message: 'Ödeme servisine bağlanılamadı.' };
     }
-  }
-
-  // Callback
-  async handleCallback(body: any) {
-    // ... (Callback kodu aynı kalabilir, yukarıdakiyle aynı)
-    return 'OK';
   }
 }

@@ -87,12 +87,15 @@ export default function AdminProducts() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
+
+  // FORM DATASI (Features eklendi)
   const [formData, setFormData] = useState({
     name: "",
     price: "",
     stock: "",
     description: "",
     imageUrl: "",
+    features: "", // Virgülle ayrılmış string olarak tutacağız
   });
 
   // --- 1. VERİ ÇEKME ---
@@ -105,7 +108,11 @@ export default function AdminProducts() {
       const res = await fetch("https://candostumbox-api.onrender.com/products");
       if (res.ok) {
         const data = await res.json();
-        setProducts(data);
+        // Gelen veriyi (order'a göre) sırala
+        const sortedData = Array.isArray(data)
+          ? data.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+          : [];
+        setProducts(sortedData);
       }
     } catch (error) {
       toast.error("Ürünler yüklenemedi.");
@@ -127,7 +134,7 @@ export default function AdminProducts() {
         {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (res.ok) {
@@ -147,12 +154,22 @@ export default function AdminProducts() {
     const token = localStorage.getItem("token");
     const loadingToast = toast.loading("Kaydediliyor...");
 
+    // Özellikleri (String) -> Diziye (Array) çevir
+    // Örnek: "Mama, Oyuncak" -> ["Mama", "Oyuncak"]
+    const featuresArray = formData.features
+      ? formData.features
+          .split(",")
+          .map((item) => item.trim())
+          .filter((item) => item !== "")
+      : [];
+
     const payload = {
       name: formData.name,
       price: Number(formData.price),
       stock: Number(formData.stock),
       description: formData.description,
       imageUrl: formData.imageUrl || "https://placehold.co/400",
+      features: featuresArray, // Backend'e dizi olarak gönderiyoruz
     };
 
     try {
@@ -168,7 +185,7 @@ export default function AdminProducts() {
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify(payload),
-          }
+          },
         );
       } else {
         // YENİ EKLEME
@@ -186,12 +203,15 @@ export default function AdminProducts() {
         const savedProduct = await res.json();
         toast.success(
           editingProduct ? "Ürün Güncellendi" : "Yeni Ürün Eklendi",
-          { id: loadingToast }
+          { id: loadingToast },
         );
 
+        // Listeyi güncelle (tekrar fetch etmeye gerek kalmadan)
         if (editingProduct) {
           setProducts(
-            products.map((p) => (p.id === editingProduct.id ? savedProduct : p))
+            products.map((p) =>
+              p.id === editingProduct.id ? savedProduct : p,
+            ),
           );
         } else {
           setProducts([savedProduct, ...products]);
@@ -209,20 +229,30 @@ export default function AdminProducts() {
   const openModal = (product: any = null) => {
     setEditingProduct(product);
     if (product) {
+      // Düzenleme modunda, mevcut özellikleri dizi -> string'e çevir
+      // ["a", "b"] -> "a, b"
+      const featuresString =
+        product.features && Array.isArray(product.features)
+          ? product.features.join(", ")
+          : "";
+
       setFormData({
         name: product.name,
         price: product.price,
         stock: product.stock,
         description: product.description,
-        imageUrl: product.imageUrl,
+        imageUrl: product.imageUrl || product.image, // Farklı isimlendirme ihtimaline karşı
+        features: featuresString,
       });
     } else {
+      // Yeni ürün modu
       setFormData({
         name: "",
         price: "",
         stock: "",
         description: "",
         imageUrl: "",
+        features: "",
       });
     }
     setIsModalOpen(true);
@@ -235,7 +265,7 @@ export default function AdminProducts() {
 
   // --- FİLTRELEME ---
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // --- İSTATİSTİKLER ---
@@ -244,7 +274,7 @@ export default function AdminProducts() {
     lowStock: products.filter((p) => p.stock < 10).length,
     totalValue: products.reduce(
       (acc, p) => acc + Number(p.price) * Number(p.stock),
-      0
+      0,
     ),
   };
 
@@ -421,6 +451,7 @@ export default function AdminProducts() {
               className="p-8 overflow-y-auto space-y-6"
             >
               <div className="grid grid-cols-2 gap-6">
+                {/* ÜRÜN ADI */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Ürün Adı
@@ -436,6 +467,7 @@ export default function AdminProducts() {
                   />
                 </div>
 
+                {/* FİYAT */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Fiyat (₺)
@@ -452,6 +484,7 @@ export default function AdminProducts() {
                   />
                 </div>
 
+                {/* STOK */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Stok Adedi
@@ -468,6 +501,25 @@ export default function AdminProducts() {
                   />
                 </div>
 
+                {/* ÖZELLİKLER (FEATURES) - YENİ EKLENEN ALAN */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                    Paket Özellikleri (Virgülle Ayırın)
+                  </label>
+                  <textarea
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 font-medium min-h-[80px]"
+                    value={formData.features}
+                    onChange={(e) =>
+                      setFormData({ ...formData, features: e.target.value })
+                    }
+                    placeholder="Örn: 5 Adet Oyuncak, Doğal Mama, Ücretsiz Kargo, Veteriner Onaylı"
+                  />
+                  <p className="text-xs text-gray-400 mt-1 pl-1">
+                    Her bir maddeyi virgül (,) ile ayırarak yazınız.
+                  </p>
+                </div>
+
+                {/* GÖRSEL URL */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Görsel URL
@@ -481,7 +533,7 @@ export default function AdminProducts() {
                       }
                       placeholder="https://..."
                     />
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
                       {formData.imageUrl && (
                         <img
                           src={formData.imageUrl}
@@ -492,17 +544,18 @@ export default function AdminProducts() {
                   </div>
                 </div>
 
+                {/* AÇIKLAMA */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Açıklama
+                    Kısa Açıklama (Alt Başlık)
                   </label>
                   <textarea
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 min-h-[100px]"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 min-h-[80px]"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    placeholder="Ürün içeriği ve detayları..."
+                    placeholder="Ürün başlığının altında görünecek kısa açıklama..."
                   />
                 </div>
               </div>

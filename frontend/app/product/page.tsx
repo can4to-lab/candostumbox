@@ -1,357 +1,481 @@
 "use client";
-import { useState, useEffect, Suspense } from "react"; 
-import { useRouter, useSearchParams } from "next/navigation"; 
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster } from "react-hot-toast";
+import Image from "next/image";
+import { Disclosure, Transition } from "@headlessui/react";
+import { ChevronUpIcon } from "@heroicons/react/20/solid";
 
 // --- NAVBAR & LOGIN İÇİN GEREKLİ ---
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
 
 interface Product {
-  id: string; // UUID String
+  id: string;
   name: string;
   price: number;
   description: string;
   stock: number;
-  features: string[]; 
+  features: string[];
   image?: string;
   order: number;
 }
 
-function ProductContent() { 
+function ProductContent() {
   const router = useRouter();
-  const searchParams = useSearchParams(); 
+  const searchParams = useSearchParams();
 
   // --- UPGRADE MODU DEĞİŞKENLERİ ---
-  const isUpgradeMode = searchParams.get('mode') === 'upgrade';
-  const urlOldPrice = Number(searchParams.get('oldPrice')); // URL'den gelen fiyat
-  const oldSubId = searchParams.get('oldSubId');
-  const petName = searchParams.get('petName') || "Dostun";
+  const isUpgradeMode = searchParams.get("mode") === "upgrade";
+  const urlOldPrice = Number(searchParams.get("oldPrice"));
+  const oldSubId = searchParams.get("oldSubId");
+  const petName = searchParams.get("petName") || "Dostun";
 
   // --- STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // 👇 YENİ: Filtreleme Eşiği (URL'de yoksa veritabanından bulacağız)
   const [filterThreshold, setFilterThreshold] = useState(urlOldPrice || 0);
 
   // Auth State
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("");
 
-  // --- 1. VERİ ÇEKME VE KULLANICI KONTROLÜ ---
+  // --- 1. VERİ ÇEKME ---
   useEffect(() => {
     const initPage = async () => {
-        // Kullanıcı Kontrolü
-        const token = localStorage.getItem("token");
-        if (token) {
-            setIsLoggedIn(true);
-            try {
-                const res = await fetch("https://candostumbox-api.onrender.com/auth/profile", {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                const data = await res.json();
-                setUserName(data.name || "Dostum");
-            } catch (e) {}
-        }
+      const token = localStorage.getItem("token");
+      if (token) setIsLoggedIn(true);
 
-        // Ürünleri Çekme
-        try {
-            const res = await fetch("https://candostumbox-api.onrender.com/products");
-            const data = await res.json();
-            // Sıralama
-            const sortedProducts = Array.isArray(data) 
-                ? data.sort((a:any, b:any) => (a.order || 0) - (b.order || 0)) 
-                : [];
-            setProducts(sortedProducts);
-        } catch (error) {
-            console.error("Paketler yüklenemedi:", error);
-        } finally {
-            setLoading(false);
-        }
+      try {
+        const res = await fetch(
+          "https://candostumbox-api.onrender.com/products",
+        );
+        const data = await res.json();
+        const sortedProducts = Array.isArray(data)
+          ? data.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+          : [];
+        setProducts(sortedProducts);
+      } catch (error) {
+        console.error("Paketler yüklenemedi:", error);
+      } finally {
+        setLoading(false);
+      }
     };
-
     initPage();
   }, []);
 
-  // 👇 DÜZELTME: FİYAT BULMA SİGORTASI (URL'DE YOKSA BACKEND'DEN BUL) 🧠
-  // URL'de oldPrice yoksa, oldSubId kullanarak veritabanından fiyatı öğreniyoruz.
+  // --- 2. UPGRADE FİYAT KONTROLÜ ---
   useEffect(() => {
-      if (isUpgradeMode && filterThreshold === 0 && oldSubId) {
-          const fetchOldSubPrice = async () => {
-              const token = localStorage.getItem("token");
-              if (!token) return;
-              try {
-                  // Eski aboneliği çekip fiyatını öğreniyoruz
-                  const res = await fetch(`https://candostumbox-api.onrender.com/subscriptions/${oldSubId}`, {
-                      headers: { "Authorization": `Bearer ${token}` }
-                  });
-                  if (res.ok) {
-                      const subData = await res.json();
-                      if (subData.product && subData.product.price) {
-                          console.log("Eski paket fiyatı bulundu:", subData.product.price);
-                          // State'i güncelliyoruz, böylece filtreleme tetikleniyor
-                          setFilterThreshold(Number(subData.product.price));
-                      }
-                  }
-              } catch (e) {
-                  console.error("Eski abonelik fiyatı çekilemedi", e);
-              }
-          };
-          fetchOldSubPrice();
-      }
+    if (isUpgradeMode && filterThreshold === 0 && oldSubId) {
+      const fetchOldSubPrice = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+          const res = await fetch(
+            `https://candostumbox-api.onrender.com/subscriptions/${oldSubId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          if (res.ok) {
+            const subData = await res.json();
+            if (subData.product && subData.product.price) {
+              setFilterThreshold(Number(subData.product.price));
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchOldSubPrice();
+    }
   }, [isUpgradeMode, filterThreshold, oldSubId]);
 
-
-  // 👇 DÜZELTME: FİLTRELEME MANTIĞI
-  // 'oldPrice' yerine artık güncellediğimiz 'filterThreshold' değerini kullanıyoruz.
-  const displayedProducts = isUpgradeMode 
-      ? products.filter(p => Number(p.price) > filterThreshold)
-      : products;
+  const displayedProducts = isUpgradeMode
+    ? products.filter((p) => Number(p.price) > filterThreshold)
+    : products;
 
   const handleSelectPackage = (id: string) => {
-      if (isUpgradeMode) {
-          const currentParams = new URLSearchParams(Array.from(searchParams.entries()));
-          
-          // Eğer oldPrice URL'de yoksa ama biz bulduysak, URL'ye de ekleyelim ki detay sayfası da bilsin
-          if (!currentParams.has('oldPrice') && filterThreshold > 0) {
-              currentParams.set('oldPrice', filterThreshold.toString());
-          }
-          
-          router.push(`/product/${id}?${currentParams.toString()}`);
-      } else {
-          router.push(`/product/${id}`);
+    if (isUpgradeMode) {
+      const currentParams = new URLSearchParams(
+        Array.from(searchParams.entries()),
+      );
+      if (!currentParams.has("oldPrice") && filterThreshold > 0) {
+        currentParams.set("oldPrice", filterThreshold.toString());
       }
+      router.push(`/product/${id}?${currentParams.toString()}`);
+    } else {
+      router.push(`/product/${id}`);
+    }
   };
 
+  const faqData = [
+    {
+      q: "Aboneliği istediğim zaman iptal edebilir miyim?",
+      a: "Kesinlikle! Taahhüt veya cayma bedeli yoktur. Profilinizden tek tıkla, anında iptal edebilirsiniz.",
+    },
+    {
+      q: "Kutunun içindekileri ben seçebilir miyim?",
+      a: "Kutularımız 'sürpriz' konseptlidir. Ancak kayıt sırasında dostunuzun ırkını, yaşını ve alerjilerini belirtirseniz, uzmanlarımız ona en uygun ürünleri seçecektir.",
+    },
+    {
+      q: "Ödeme ne zaman ve nasıl alınır?",
+      a: "İlk ödeme sipariş anında alınır. Sonraki ödemeler, her ayın aynı gününde kayıtlı kartınızdan otomatik ve güvenli bir şekilde (ParamPOS altyapısıyla) tahsil edilir.",
+    },
+    {
+      q: "Kargo ücreti var mı?",
+      a: "Hayır, tüm abonelik paketlerimizde kargo Türkiye'nin her yerine tamamen ücretsizdir.",
+    },
+  ];
+
   return (
-    <main className="min-h-screen bg-[#f8f9fa] font-sans pb-20">
+    <main className="min-h-screen bg-white font-sans pb-20 text-[#111827]">
       <Toaster position="top-right" />
-
-      {/* --- MODALLAR --- */}
-      <LoginModal isOpen={isLoginOpen} onClose={() => setLoginOpen(false)} onSwitchToRegister={() => {setLoginOpen(false); setRegisterOpen(true);}} onLoginSuccess={() => window.location.reload()} />
-      <RegisterModal isOpen={isRegisterOpen} onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => {setRegisterOpen(false); setLoginOpen(true);}} initialData={null} onRegisterSuccess={() => window.location.reload()} />
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSwitchToRegister={() => {
+          setLoginOpen(false);
+          setRegisterOpen(true);
+        }}
+        onLoginSuccess={() => window.location.reload()}
+      />
+      <RegisterModal
+        isOpen={isRegisterOpen}
+        onClose={() => setRegisterOpen(false)}
+        onSwitchToLogin={() => {
+          setRegisterOpen(false);
+          setLoginOpen(true);
+        }}
+        initialData={null}
+        onRegisterSuccess={() => window.location.reload()}
+      />
 
       {/* ================================================================== */}
-      {/* 📦 HEADER BÖLÜMÜ 📦 */}
+      {/* 🦸‍♂️ HERO BÖLÜMÜ (Orijinal Canlı Tasarım) 🦸‍♂️ */}
       {/* ================================================================== */}
-      <div className="pt-20 pb-12 bg-white border-b border-gray-100">
-        <div className="container mx-auto px-4 text-center">
-            
-            {/* 🚀 UPGRADE MODU UYARISI */}
-            {isUpgradeMode ? (
-                 <div className="mb-6 inline-block animate-fade-in-up">
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 max-w-2xl mx-auto shadow-sm">
-                        <div className="text-4xl mb-2">🚀</div>
-                        <h2 className="text-2xl font-black text-blue-900 mb-2">Paket Yükseltme Zamanı!</h2>
-                        <p className="text-blue-700 font-medium">
-                            <span className="font-bold">{petName}</span> için daha kapsamlı bir paket seçiyorsun. 
-                            Aşağıda sadece mevcut paketinden <strong className="text-blue-900 bg-blue-100 px-1 rounded">daha üstün</strong> olan paketleri listeledik.
-                        </p>
-                    </div>
-                 </div>
-            ) : (
-                <span className="inline-block py-1 px-3 rounded-full bg-green-50 text-green-600 font-bold text-xs tracking-wider uppercase mb-4 animate-fade-in-up">
-                    MUTLULUK KUTULARI
-                </span>
-            )}
+      <div className="relative pt-28 pb-16 lg:pt-36 lg:pb-24 overflow-hidden">
+        {/* Arkaplan Deseni */}
+        <div className="absolute inset-0 bg-white">
+          <div className="absolute inset-0 opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+        </div>
 
-            {!isUpgradeMode && (
-                <>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 mb-6 tracking-tight animate-fade-in-up delay-100 leading-tight">
-                    Dostun İçin <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-500">En İyisini</span> Seç
-                </h1>
-                <p className="text-lg text-gray-500 font-medium max-w-2xl mx-auto leading-relaxed animate-fade-in-up delay-200">
-                    Her bütçeye uygun paketlerimizle düzenli mutluluk kapında.
+        <div className="container mx-auto px-4 text-center relative z-10">
+          {isUpgradeMode ? (
+            <div className="inline-block animate-fade-in-up mb-8">
+              <div className="bg-blue-50 border border-blue-200 rounded-3xl p-6 md:p-8 max-w-3xl mx-auto shadow-sm">
+                <div className="text-5xl mb-4">🚀</div>
+                <h2 className="text-2xl md:text-3xl font-black text-blue-900 mb-3">
+                  Seviye Atlatma Zamanı!
+                </h2>
+                <p className="text-blue-700 md:text-lg leading-relaxed">
+                  <span className="font-bold">{petName}</span> bu değişimi çok
+                  sevecek. Mevcut paketinden daha kapsamlı, daha dolu ve daha
+                  eğlenceli paketleri senin için sıraladık.
                 </p>
-                </>
-            )}
-
-            {/* GÜVEN BARI (ICONS) */}
-            <div className="flex flex-wrap justify-center gap-4 md:gap-8 mt-8 animate-fade-in-up delay-300">
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                    <span>🚚</span> Ücretsiz Kargo
-                </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                    <span>💳</span> 12 Taksit İmkanı
-                </div>
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-700 bg-gray-50 px-4 py-2 rounded-xl border border-gray-100">
-                    <span>🔄</span> İstediğin Zaman İptal
-                </div>
+              </div>
             </div>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-2 py-2 px-4 rounded-full bg-green-100/50 border border-green-200 text-green-700 font-bold text-xs tracking-wider uppercase mb-6 animate-fade-in-up hover:scale-105 transition cursor-default">
+                <span>✨</span> Mutluluk Garantili Kutular
+              </span>
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-gray-900 mb-6 tracking-tight animate-fade-in-up delay-100 leading-[1.1]">
+                Dostun İçin{" "}
+                <span className="relative inline-block">
+                  <span className="relative z-10 text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-500">
+                    Kusursuz
+                  </span>
+                  <span className="absolute bottom-2 left-0 w-full h-3 bg-green-100/50 -z-0 -rotate-1"></span>
+                </span>{" "}
+                <br className="hidden md:block" />
+                Paketi Seç
+              </h1>
+              <p className="text-lg md:text-xl text-gray-500 font-medium max-w-2xl mx-auto leading-relaxed animate-fade-in-up delay-200">
+                Her ay yenilenen temalar, veteriner onaylı ürünler ve sürpriz
+                hediyeler. Üstelik iptal etmek istediğin an tek tıkla özgürsün.
+              </p>
+            </>
+          )}
+
+          {/* GÜVEN BARI */}
+          <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-10 animate-fade-in-up delay-300">
+            {[
+              { icon: "🚚", text: "Ücretsiz Kargo", sub: "Tüm Türkiye'ye" },
+              { icon: "🛡️", text: "Güvenli Ödeme", sub: "256-bit SSL & Param" },
+              { icon: "↩️", text: "Kolay İptal", sub: "Cayma bedeli yok" },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition cursor-default"
+              >
+                <span className="text-2xl">{item.icon}</span>
+                <div className="text-left">
+                  <div className="font-bold text-gray-900 text-sm">
+                    {item.text}
+                  </div>
+                  <div className="text-xs text-gray-500">{item.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* ================================================================== */}
-      {/* 📦 PAKETLER LİSTESİ 📦 */}
+      {/* 2. PAKETLER (Figma Tarzı Fiyatlandırma Tablosu) */}
       {/* ================================================================== */}
-      <div className="py-16 container mx-auto px-4 md:px-6">
-            
-            {loading && (
-                <div className="flex justify-center items-center h-64">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
-                        <span className="text-gray-500 font-bold">Paketler hazırlanıyor...</span>
+      <div className="py-12 container mx-auto px-4 md:px-6">
+        {loading && (
+          <div className="flex flex-col justify-center items-center h-64 gap-4">
+            <div className="w-12 h-12 border-4 border-gray-200 border-t-[#10b981] rounded-full animate-spin"></div>
+            <p className="text-gray-500 font-medium">Paketler yükleniyor...</p>
+          </div>
+        )}
+
+        {!loading && displayedProducts.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
+            {displayedProducts.map((product, index) => {
+              // Orta paketi (index === 1) veya ismi 'Premium' olanı "Popüler" olarak işaretle
+              const isPopular =
+                product.name.toLowerCase().includes("premium") || index === 1;
+              const hasStock = product.stock > 0;
+
+              return (
+                <div
+                  key={product.id}
+                  className={`flex flex-col p-8 rounded-3xl bg-white transition-all duration-300 border
+                    ${!hasStock ? "grayscale opacity-70 cursor-not-allowed" : ""}
+                    ${
+                      isPopular
+                        ? "border-[#10b981] shadow-xl scale-105 z-10 relative" // Popüler paket vurgusu
+                        : "border-gray-200 shadow-sm hover:shadow-md"
+                    }
+                  `}
+                >
+                  {isPopular && hasStock && (
+                    <div className="absolute top-0 inset-x-0 -mt-4 flex justify-center">
+                      <span className="bg-[#10b981] text-white text-sm font-bold py-1 px-4 rounded-full uppercase tracking-wider">
+                        En Çok Tercih Edilen
+                      </span>
                     </div>
-                </div>
-            )}
+                  )}
 
-            {/* UPGRADE İÇİN BOŞ DURUM (DAHA PAHALI PAKET YOKSA) */}
-            {!loading && isUpgradeMode && displayedProducts.length === 0 && (
-                <div className="text-center py-12 bg-gray-50 rounded-3xl border border-gray-200 max-w-2xl mx-auto">
-                    <div className="text-5xl mb-4">🏆</div>
-                    <h3 className="text-xl font-bold text-gray-900">Zaten Zirvedesin!</h3>
-                    <p className="text-gray-500 mt-2">
-                        Şu an en kapsamlı paketimizi kullanıyorsun. Daha üst bir paket bulunmuyor.
+                  <div className="mb-8">
+                    <h3 className="text-2xl font-bold mb-4">{product.name}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed min-h-[48px]">
+                      {product.description || "Aylık mutluluk dozunuz."}
                     </p>
-                    <button onClick={() => router.push('/profile')} className="mt-6 bg-gray-900 text-white px-6 py-3 rounded-xl font-bold">
-                        Profilime Dön
-                    </button>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-5xl font-bold tracking-tight">
+                        ₺{Number(product.price).toFixed(0)}
+                      </span>
+                      <span className="text-gray-500 font-medium">/ ay</span>
+                    </div>
+                    <p className="text-sm text-gray-400 mt-1 font-medium">
+                      (KDV Dahil)
+                    </p>
+                    {isUpgradeMode && (
+                      <p className="text-sm text-[#10b981] mt-2 font-medium">
+                        * İade tutarı ödemede düşülecek
+                      </p>
+                    )}
+                  </div>
+
+                  <ul className="space-y-4 mb-10 flex-grow">
+                    {product.features && product.features.length > 0 ? (
+                      product.features.map((feature, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 text-sm text-gray-700"
+                        >
+                          {/* Figma tarzı yeşil tik */}
+                          <svg
+                            className={`w-5 h-5 flex-shrink-0 ${isPopular ? "text-[#10b981]" : "text-gray-400"}`}
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="font-medium leading-tight pt-0.5">
+                            {feature}
+                          </span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-sm text-gray-500 italic">
+                        Özellikler yükleniyor...
+                      </li>
+                    )}
+                  </ul>
+
+                  <button
+                    onClick={() => handleSelectPackage(product.id)}
+                    disabled={!hasStock}
+                    className={`w-full py-4 rounded-xl font-bold text-base transition-all active:scale-95
+                        ${
+                          !hasStock
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            : isPopular
+                              ? "bg-[#10b981] text-white hover:bg-[#059669] shadow-md" // Popüler paket butonu (Yeşil)
+                              : "bg-[#111827] text-white hover:bg-black" // Diğerleri (Koyu Gri)
+                        }
+                    `}
+                  >
+                    {!hasStock
+                      ? "Stok Dışı"
+                      : isUpgradeMode
+                        ? "Paketi Yükselt"
+                        : "Hemen Başla"}
+                  </button>
                 </div>
-            )}
-
-            {/* PAKETLER GRID */}
-            {!loading && displayedProducts.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-                    {displayedProducts.map((product) => {
-                        const isPopular = product.name.toLowerCase().includes('premium') || product.name.toLowerCase().includes('süper') || product.order === 2;
-                        const hasStock = product.stock > 0;
-
-                        return (
-                            <div 
-                                key={product.id} 
-                                className={`relative flex flex-col transition-all duration-500 group rounded-[2rem] overflow-hidden
-                                    ${!hasStock ? 'grayscale opacity-70' : ''}
-                                    ${isPopular 
-                                        ? 'bg-white border-2 border-green-500 shadow-2xl scale-100 lg:scale-105 z-10' 
-                                        : 'bg-white border border-gray-100 shadow-xl hover:shadow-2xl hover:-translate-y-2' 
-                                    }
-                                `}
-                            >
-                                {isPopular && hasStock && (
-                                    <div className="absolute top-0 w-full bg-green-500 text-white text-xs font-bold py-1.5 text-center uppercase tracking-widest z-20">
-                                        En Çok Tercih Edilen
-                                    </div>
-                                )}
-
-                                <div className={`p-8 flex flex-col h-full ${isPopular ? 'pt-10' : ''}`}>
-                                    <div className="text-center mb-6">
-                                        <h3 className="text-2xl font-black text-gray-900 mb-3 leading-tight">{product.name}</h3>
-                                        <p className="text-gray-500 text-sm leading-relaxed line-clamp-3 min-h-[60px]">
-                                            {product.description || "Can dostun için harika sürprizler içeren dolu dolu bir kutu."}
-                                        </p>
-                                    </div>
-
-                                    <div className="flex justify-center gap-2 mb-6 flex-wrap">
-                                        <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-100 flex items-center gap-1">
-                                            💳 Taksit İmkanı
-                                        </span>
-                                        <span className="bg-orange-50 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-orange-100 flex items-center gap-1">
-                                            🔥 Yıllık İndirim
-                                        </span>
-                                    </div>
-
-                                    <div className="text-center mb-8 pb-8 border-b border-gray-100">
-                                        <div className="flex items-center justify-center gap-1">
-                                            <span className="text-2xl font-bold text-gray-400 self-start mt-2">₺</span>
-                                            <span className="text-6xl font-black text-gray-900 tracking-tighter">{Number(product.price).toFixed(0)}</span>
-                                        </div>
-                                        {isUpgradeMode && (
-                                             <div className="mt-2 text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
-                                                 İade tutarı sepette düşülecek
-                                             </div>
-                                        )}
-                                        {!isUpgradeMode && (
-                                            <span className="text-gray-400 font-bold text-sm block mt-1">/ ay (Başlayan fiyatlarla)</span>
-                                        )}
-                                    </div>
-
-                                    <ul className="space-y-3 mb-8 px-2 flex-grow">
-                                        {product.features && product.features.length > 0 ? (
-                                            product.features.map((feature, i) => (
-                                                <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
-                                                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold mt-0.5">✓</span>
-                                                    <span className="font-medium">{feature}</span>
-                                                </li>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Orijinal Lisanslı Ürünler</span></li>
-                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Veteriner Hekim Seçimi</span></li>
-                                                <li className="flex items-center gap-3 text-sm text-gray-600"><span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">✓</span><span>Sürpriz Hediyeler</span></li>
-                                            </>
-                                        )}
-                                    </ul>
-
-                                    <button 
-                                        onClick={() => handleSelectPackage(product.id)}
-                                        disabled={!hasStock}
-                                        className={`w-full py-4 rounded-xl font-bold text-base transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 group-hover:shadow-xl
-                                            ${!hasStock 
-                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
-                                                : isPopular 
-                                                    ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-200' 
-                                                    : 'bg-gray-900 text-white hover:bg-black shadow-gray-200'
-                                            }
-                                        `}
-                                    >
-                                        {!hasStock 
-                                            ? "Stoklar Tükendi" 
-                                            : isUpgradeMode 
-                                                ? "Bu Pakete Yükselt ⚡" 
-                                                : "İncele & Satın Al 👉"
-                                        }
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ================================================================== */}
-      {/* ℹ️ NASIL ÇALIŞIR? (EK BİLGİ ALANI) ℹ️ */}
+      {/* 3. KUTU İÇERİĞİ (Figma Tarzı Görsel + Liste Bölümü) */}
       {/* ================================================================== */}
       {!isUpgradeMode && (
-        <div className="container mx-auto px-4 py-12 border-t border-gray-200 mt-12">
-            <div className="text-center mb-10">
-                <h2 className="text-2xl font-black text-gray-900">Nasıl Çalışır?</h2>
-                <p className="text-gray-500">Mutluluk sadece 3 adım uzakta.</p>
+        <div className="py-24 bg-gray-50">
+          <div className="container mx-auto px-4 md:px-6 max-w-6xl">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              {/* SOL TARA: GÖRSEL */}
+              <div className="relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl">
+                {/* Buraya gerçek bir kutu açılımı veya mutlu hayvan görseli koymalısın.
+                      Örnek olarak placeholder kullanıyorum. */}
+                <Image
+                  src="/kutu_icerik.png"
+                  alt="Can Dostum Box Kutu İçeriği"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+
+              {/* SAĞ TARAF: İÇERİK LİSTESİ */}
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
+                  Kutunun İçinde Neler Var?
+                </h2>
+                <p className="text-lg text-gray-600 mb-12 leading-relaxed">
+                  Her ay veteriner hekimlerimiz ve uzman eğitmenlerimiz
+                  tarafından, dostunuzun ihtiyaçlarına özel olarak seçilen
+                  sürpriz ürünler.
+                </p>
+
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">
+                      🦴 Doğal & Sağlıklı Atıştırmalıklar
+                    </h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Katkı maddesi içermeyen, eğitimde veya ödül olarak
+                      kullanabileceğiniz, tamamen doğal ve besleyici
+                      atıştırmalıklar.
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">
+                      🧸 Zeka & Aktivite Oyuncakları
+                    </h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Dostunuzun zihinsel gelişimini destekleyen, sıkılmasını
+                      önleyen, dayanıklı ve interaktif oyuncaklar.
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">
+                      🧴 Faydalı Bakım Ürünleri
+                    </h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Tüy ve deri sağlığını destekleyen şampuanlar, pati
+                      kremleri veya hayatı kolaylaştıran pratik bakım gereçleri.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-                <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mb-4">📦</div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">Paketini Seç</h3>
-                    <p className="text-sm text-gray-500">Bütçene uygun paketi seç, ister aylık ister yıllık avantajlı öde.</p>
-                </div>
-                <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center text-3xl mb-4">🐶</div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">Dostunu Tanıt</h3>
-                    <p className="text-sm text-gray-500">Köpeğini, kedini veya kuşunu sisteme kaydet, ona özel ürünler hazırlayalım.</p>
-                </div>
-                <div className="flex flex-col items-center text-center p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                    <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center text-3xl mb-4">🎉</div>
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">Mutluluk Kapında</h3>
-                    <p className="text-sm text-gray-500">Her ay düzenli olarak sürpriz kutun kapına gelsin, pati şenliği başlasın!</p>
-                </div>
-            </div>
+          </div>
         </div>
       )}
 
+      {/* ================================================================== */}
+      {/* 4. SIKÇA SORULAN SORULAR (Figma Tarzı Akordiyon) */}
+      {/* ================================================================== */}
+      {!isUpgradeMode && (
+        <div className="py-24 container mx-auto px-4 md:px-6 max-w-3xl">
+          <h2 className="text-3xl font-bold text-center mb-12">
+            Sıkça Sorulan Sorular
+          </h2>
+          <div className="space-y-4">
+            {faqData.map((item, index) => (
+              <Disclosure
+                key={index}
+                as="div"
+                className="border-b border-gray-200 pb-4"
+              >
+                {({ open }: { open: boolean }) => (
+                  <>
+                    <Disclosure.Button className="flex justify-between w-full px-4 py-2 text-lg font-medium text-left text-[#111827] bg-white hover:text-[#10b981] transition-colors focus:outline-none focus-visible:ring focus-visible:ring-[#10b981] focus-visible:ring-opacity-75">
+                      <span>{item.q}</span>
+                      <ChevronUpIcon
+                        className={`${open ? "transform rotate-180" : ""} w-6 h-6 text-gray-400 transition-transform duration-200`}
+                      />
+                    </Disclosure.Button>
+                    <Transition
+                      enter="transition duration-200 ease-out"
+                      enterFrom="transform scale-95 opacity-0"
+                      enterTo="transform scale-100 opacity-100"
+                      leave="transition duration-100 ease-out"
+                      leaveFrom="transform scale-100 opacity-100"
+                      leaveTo="transform scale-95 opacity-0"
+                    >
+                      <Disclosure.Panel className="px-4 pt-2 pb-2 text-gray-600 leading-relaxed">
+                        {item.a}
+                      </Disclosure.Panel>
+                    </Transition>
+                  </>
+                )}
+              </Disclosure>
+            ))}
+          </div>
+          <div className="text-center mt-12">
+            <p className="text-gray-600">
+              Başka bir sorunuz mu var?{" "}
+              <a
+                href="mailto:destek@candostum.com"
+                className="text-[#10b981] font-bold hover:underline"
+              >
+                Bize ulaşın.
+              </a>
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
 
-// ⚠️ Next.js 13+ App Router'da useSearchParams kullanan bileşenler
-// Suspense içine alınmalıdır, yoksa build hatası verebilir.
 export default function PaketlerPage() {
-    return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#f8f9fa]"><div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div></div>}>
-            <ProductContent />
-        </Suspense>
-    );
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-[#10b981] rounded-full animate-spin"></div>
+        </div>
+      }
+    >
+      <ProductContent />
+    </Suspense>
+  );
 }
