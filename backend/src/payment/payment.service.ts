@@ -22,7 +22,7 @@ export class PaymentService {
         return { status: 'error', message: 'Eksik bilgi: API anahtarları veya Kart bilgisi yok.' };
     }
 
-    // 2. VERİ HAZIRLIĞI (DÜZELTME BURADA)
+    // 2. VERİ HAZIRLIĞI
     // ParamPOS nokta değil virgül ister (Örn: 1250,50)
     const totalAmount = Number(price).toFixed(2).replace('.', ','); 
     
@@ -36,8 +36,8 @@ export class PaymentService {
     const successUrl = `${backendUrl}/payment/callback`;
     const failUrl = `${backendUrl}/payment/callback`;
 
-    // 3. HASH HESAPLAMA
-    // Hash hesaplarken de virgüllü tutar kullanılmalı!
+    // 3. HASH HESAPLAMA (SHA-1'e ÇEVRİLDİ)
+    // Sıralama: CLIENT_CODE + GUID + SanalPOS_ID + Taksit + Islem_Tutar + Toplam_Tutar + Siparis_ID + Hata_URL + Basarili_URL
     const hashString = 
         CLIENT_CODE + 
         GUID + 
@@ -49,14 +49,14 @@ export class PaymentService {
         failUrl + 
         successUrl;
 
+    // ⚠️ KRİTİK DÜZELTME: SHA-256 YERİNE SHA-1 KULLANILIYOR
     const B64_HASH = crypto
-        .createHash('sha256')
+        .createHash('sha1') // ParamPOS SHA-1 istiyor
         .update(hashString, 'utf-8')
         .digest('base64');
 
     // 4. API URL
     const isTest = MODE === 'TEST';
-    // Doğru Canlı URL: posws.param.com.tr
     const apiUrl = isTest 
         ? 'https://test-dmz.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
         : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
@@ -101,7 +101,7 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
-    // SSL Hatalarını Yoksay (Opsiyonel)
+    // SSL Hatalarını Yoksay
     const httpsAgent = new https.Agent({  
       rejectUnauthorized: false 
     });
