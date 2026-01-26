@@ -136,9 +136,29 @@ export class PaymentService {
             return { status: 'error', message: errorMsg };
         }
 
+   // ... try bloğunun sonu ...
+
     } catch (error) {
-        console.error('ParamPOS Bağlantı Hatası:', error);
-        return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı.' };
+        console.log("🔥🔥🔥 PARAM POS BAĞLANTI HATASI DETAYI 🔥🔥🔥");
+        
+        // 1. Ağ veya DNS Hatası mı?
+        if (error.code) {
+            console.error(`❌ HATA KODU (System): ${error.code}`); // Örn: ETIMEDOUT, ENOTFOUND
+        }
+
+        // 2. ParamPOS Sunucusu bir cevap döndü mü? (400, 500 hataları)
+        if (error.response) {
+            console.error(`❌ SUNUCU YANIT KODU: ${error.response.status}`);
+            console.error(`❌ SUNUCU YANIT VERİSİ:`, error.response.data);
+        } else if (error.request) {
+            console.error("❌ İstek gönderildi ama hiç yanıt gelmedi (Muhtemel IP/Firewall Engeli)");
+        } else {
+            console.error("❌ İstek oluşturulurken hata:", error.message);
+        }
+
+        console.log("🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥");
+
+        return { status: 'error', message: 'Ödeme sunucusuna bağlanılamadı. Lütfen teknik ekibe haber verin.' };
     }
   }
 
