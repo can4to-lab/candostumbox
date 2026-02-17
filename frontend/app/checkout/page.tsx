@@ -96,6 +96,7 @@ function CheckoutContent() {
   const productId = searchParams.get("productId");
   const isUpgradeMode = searchParams.get("mode") === "upgrade";
   const oldSubId = searchParams.get("oldSubId");
+  const extendSubId = searchParams.get("extendSubId");
 
   // --- STATE ---
   const [product, setProduct] = useState<any>(null);
@@ -355,6 +356,7 @@ function CheckoutContent() {
             : myPets.find((p) => p.id === selectedPetId)?.name,
           petBreed: isGuest ? guestPetData.breed : undefined,
           upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
+          subscriptionId: extendSubId || undefined,
         },
       ],
       user: finalUserData, // Hazırladığımız dolu veriyi gönderiyoruz
