@@ -1,6 +1,8 @@
 import { Controller, Get, Body, Put, UseGuards } from '@nestjs/common';
 import { DiscountsService } from './discounts.service';
-// import { AdminGuard } from '...'; // İleride Admin koruması eklenecek
+import { AuthGuard } from '@nestjs/passport'; // EKLENDİ
+import { RolesGuard } from '../auth/roles.guard'; // EKLENDİ
+import { Roles } from '../auth/roles.decorator'; // EKLENDİ
 
 @Controller('discounts')
 export class DiscountsController {
@@ -11,7 +13,9 @@ export class DiscountsController {
     return this.discountsService.findAll();
   }
 
-  // Örn: { "duration": 12, "percentage": 25 } gönderince günceller
+  // 👇 EKLENDİ: Sadece giriş yapmış Adminler erişebilir
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles('admin')
   @Put()
   update(@Body() body: { duration: number; percentage: number }) {
     return this.discountsService.update(body.duration, body.percentage);

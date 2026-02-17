@@ -44,11 +44,11 @@ export class PaymentService {
             addressId: address?.id || null, // Kayıtlı adres ID'si
             items: items, 
             paymentType: 'credit_card',
-            isGuest: !userIdToSave, // ID yoksa misafirdir
-            guestInfo: !userIdToSave ? user : undefined // Misafir bilgilerini ekle
+            isGuest: !userIdToSave,
+            // 🛠️ Misafir için user ve address bilgilerini BİRLEŞTİRİYORUZ
+            guestInfo: !userIdToSave ? { ...user, ...address } : undefined 
         };
 
-        // 👇 KESİN DÜZELTME: userIdToSave değişkenini kullanıyoruz
         const result = await this.ordersService.create(userIdToSave, createOrderDto as any);
         
         if(result && result.orderId) {
@@ -128,12 +128,13 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
-    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-
-    try {
+try {
         const response = await axios.post(apiUrl, xmlRequest, {
-            headers: { 'Content-Type': 'text/xml; charset=utf-8', 'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' },
-            httpsAgent: httpsAgent
+            headers: { 
+                'Content-Type': 'text/xml; charset=utf-8', 
+                'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' 
+            }
+            // httpsAgent satırı buradan silindi! Artık tamamen güvenli.
         });
 
         const parsed = await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: true });
@@ -151,14 +152,24 @@ export class PaymentService {
   }
 
   async handleCallback(body: any) {
+    console.log("--- PARAM POS CALLBACK GELDİ ---", body);
     const status = body.TURKPOS_RETVAL_Sonuc;
     const orderId = body.TURKPOS_RETVAL_Siparis_ID;
-
+    
+    // 🛠️ DÜZELTME: updateStatus metodu kullanılıyor
     if (Number(status) > 0) {
-        await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
+        console.log(`✅ ÖDEME BAŞARILI! Sipariş ID: ${orderId}`);
+        try {
+            await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
+        } catch (e) {
+            console.error("Sipariş güncellenirken hata oluştu:", e);
+        }
         return { status: 'success', orderId };
     } else {
-        await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
+        console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
+        try {
+            await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
+        } catch(e) {}
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }

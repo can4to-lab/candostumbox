@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -111,13 +111,18 @@ export class AuthService {
     };
   }
 
-  // 3. ADMİN GİRİŞİ
+ // 3. ADMİN GİRİŞİ
   async adminLogin(data: { email: string; password: string }) {
     const { email, password } = data;
     const user = await this.userRepository.findOne({ where: { email } });
     
     if (!user || !(await bcrypt.compare(password, user.password))) {
        throw new UnauthorizedException('Giriş bilgileri hatalı.');
+    }
+
+    // 👇 DÜZELTİLEN KISIM: Düz string yerine Enum (UserRole.ADMIN) kullanıyoruz
+    if (user.role !== UserRole.ADMIN) {
+      throw new UnauthorizedException('Bu panele giriş yetkiniz bulunmamaktadır.');
     }
 
     const payload = { sub: user.id, email: user.email, type: 'admin' };

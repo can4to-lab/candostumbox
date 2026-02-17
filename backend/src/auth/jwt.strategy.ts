@@ -14,15 +14,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   // Bu fonksiyon Token doğrulandığı an çalışır.
-  // Return ettiği obje, Controller'larda "req.user" olarak kullanılır.
   async validate(payload: any) {
     console.log("🔓 Token Stratejisi (Payload):", payload); 
 
-    // Veritabanı sorgusu YOK. Token ne diyorsa doğru kabul edip içeri alıyoruz.
     return { 
         userId: payload.sub, 
         email: payload.email, 
-        type: payload.type // RolesGuard'ın kontrol edeceği 'admin' veya 'customer' bilgisi
+        type: payload.type,
+        role: payload.type // 👇 EKLENDİ: RolesGuard'ın aradığı 'role' bilgisi artık burada!
     };
   }
 }
