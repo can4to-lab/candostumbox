@@ -39,7 +39,7 @@ export default function CancellationRefundPolicy() {
             </h3>
             <p className="mb-2">
               <strong>Tek Seferlik Siparişler:</strong> Siparişiniz kargoya
-              verilmeden önce <strong>destek@candostum.com</strong> adresine
+              verilmeden önce <strong>destek@candostumbox.com</strong> adresine
               yazarak veya <strong>0 533 513 62 60</strong> numaralı hattımızdan
               bize ulaşarak siparişinizi tamamen iptal edebilirsiniz. Ücret
               iadesi, ödeme yaptığınız karta 1-3 iş günü içinde yansıtılır.

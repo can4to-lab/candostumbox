@@ -148,7 +148,7 @@ export default function AdminOrders() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ provider: "Basit Kargo" }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -165,7 +165,7 @@ export default function AdminOrders() {
                 cargoProvider: data.provider,
                 shippedAt: new Date().toISOString(),
               }
-            : o
+            : o,
         );
         setOrders(updatedOrders);
 
@@ -192,7 +192,7 @@ export default function AdminOrders() {
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     if (
       !confirm(
-        `Siparişi '${newStatus}' olarak güncellemek istediğinize emin misiniz?`
+        `Siparişi '${newStatus}' olarak güncellemek istediğinize emin misiniz?`,
       )
     )
       return;
@@ -210,7 +210,7 @@ export default function AdminOrders() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ status: newStatus }),
-        }
+        },
       );
 
       if (res.ok) {
@@ -218,7 +218,7 @@ export default function AdminOrders() {
 
         // Listeyi güncelle
         const updatedOrders = orders.map((o) =>
-          o.id === orderId ? { ...o, status: newStatus } : o
+          o.id === orderId ? { ...o, status: newStatus } : o,
         );
         setOrders(updatedOrders);
 
@@ -288,8 +288,8 @@ export default function AdminOrders() {
                 <div class="value">
                   ${address?.fullAddress || address?.address}<br>
                   ${address?.district ? address.district + " / " : ""} ${
-      address?.city
-    }<br>
+                    address?.city
+                  }<br>
                   <strong>Türkiye</strong>
                 </div>
               </div>
@@ -315,7 +315,7 @@ export default function AdminOrders() {
                           (i: any) =>
                             `<li>${i.productNameSnapshot} (x${i.quantity}) ${
                               i.pet ? "- 🐾 " + i.pet.name : ""
-                            }</li>`
+                            }</li>`,
                         )
                         .join("")}
                     </ul>
@@ -357,7 +357,7 @@ export default function AdminOrders() {
   const stats = {
     totalRevenue: orders.reduce((acc, o) => acc + Number(o.totalPrice), 0),
     pendingCount: orders.filter(
-      (o) => o.status === "PAID" || o.status === "PREPARING"
+      (o) => o.status === "PAID" || o.status === "PREPARING",
     ).length,
     shippedCount: orders.filter((o) => o.status === "SHIPPED").length,
   };
@@ -535,7 +535,7 @@ export default function AdminOrders() {
                                   month: "long",
                                   hour: "2-digit",
                                   minute: "2-digit",
-                                }
+                                },
                               )}
                             </div>
                           </div>
@@ -556,12 +556,12 @@ export default function AdminOrders() {
                             isPaid
                               ? "bg-orange-50 text-orange-600 border-orange-100"
                               : isShipped
-                              ? "bg-blue-50 text-blue-600 border-blue-100"
-                              : isCompleted
-                              ? "bg-green-50 text-green-600 border-green-100"
-                              : isCancelled
-                              ? "bg-red-50 text-red-600 border-red-100"
-                              : "bg-gray-50 text-gray-600 border-gray-200"
+                                ? "bg-blue-50 text-blue-600 border-blue-100"
+                                : isCompleted
+                                  ? "bg-green-50 text-green-600 border-green-100"
+                                  : isCancelled
+                                    ? "bg-red-50 text-red-600 border-red-100"
+                                    : "bg-gray-50 text-gray-600 border-gray-200"
                           }`}
                         >
                           <span
@@ -569,21 +569,21 @@ export default function AdminOrders() {
                               isPaid
                                 ? "bg-orange-500"
                                 : isShipped
-                                ? "bg-blue-500"
-                                : isCompleted
-                                ? "bg-green-500"
-                                : isCancelled
-                                ? "bg-red-500"
-                                : "bg-gray-400"
+                                  ? "bg-blue-500"
+                                  : isCompleted
+                                    ? "bg-green-500"
+                                    : isCancelled
+                                      ? "bg-red-500"
+                                      : "bg-gray-400"
                             }`}
                           ></span>
                           {order.status === "PAID"
                             ? "Hazırlanıyor"
                             : order.status === "PREPARING"
-                            ? "Hazırlanıyor"
-                            : order.status === "CANCELLED"
-                            ? "İptal Edildi"
-                            : order.status}
+                              ? "Hazırlanıyor"
+                              : order.status === "CANCELLED"
+                                ? "İptal Edildi"
+                                : order.status}
                         </span>
                       </td>
                       <td className="p-6 font-bold text-gray-900 text-sm">
@@ -712,7 +712,7 @@ export default function AdminOrders() {
                           <div className="text-[10px] text-green-800 mt-2">
                             Kargolandı:{" "}
                             {new Date(selectedOrder.shippedAt).toLocaleString(
-                              "tr-TR"
+                              "tr-TR",
                             )}
                           </div>
                         </div>
@@ -771,18 +771,21 @@ export default function AdminOrders() {
                             <div className="w-14 h-14 bg-white border border-gray-200 rounded-xl flex items-center justify-center text-2xl shadow-sm">
                               🎁
                             </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-gray-900 text-sm leading-tight">
-                                {item.productNameSnapshot}
-                              </p>
-                              <div className="flex justify-between items-center mt-1">
-                                <p className="text-xs font-bold text-gray-500">
-                                  x{item.quantity} Adet
-                                </p>
-                                <p className="text-sm font-bold text-gray-900">
-                                  ₺{Number(item.priceAtPurchase).toFixed(2)}
-                                </p>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-bold text-gray-900 text-base">
+                                  {item.productNameSnapshot}
+                                </h4>
+                                {/* 👇 YENİ EKLENDİ: Eğer paket 1 aydan fazlaysa Mor renkli şık bir etiket basar */}
+                                {item.duration > 1 && (
+                                  <span className="inline-block mt-1 bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                    {item.duration} Aylık Paket
+                                  </span>
+                                )}
                               </div>
+                              <span className="font-bold text-gray-900">
+                                ₺{Number(item.priceAtPurchase).toFixed(2)}
+                              </span>
                             </div>
                           </div>
 
@@ -864,7 +867,7 @@ export default function AdminOrders() {
                                           >
                                             {allergy}
                                           </span>
-                                        )
+                                        ),
                                       )}
                                     </div>
                                   </div>

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule'; // 👈 EKLE
+import { MailerModule } from '@nestjs-modules/mailer';
 
 // Modüller
 import { UsersModule } from './users/users.module';
@@ -13,6 +14,8 @@ import { AddressesModule } from './addresses/addresses.module';
 import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
+import { PromoCodesModule } from './promo-codes/promo-codes.module';
+
 
 @Module({
   imports: [
@@ -32,6 +35,25 @@ import { ReviewsModule } from './reviews/reviews.module';
       }),
     }),
 
+MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        transport: {
+          host: config.get('MAIL_HOST'),
+          port: config.get('MAIL_PORT'),
+          secure: true, // SSL için true
+          auth: {
+            user: config.get('MAIL_USER'),
+            pass: config.get('MAIL_PASS'),
+          },
+        },
+        defaults: {
+          from: config.get('MAIL_FROM'),
+        },
+      }),
+      inject: [ConfigService],
+    }),
+
     UsersModule,
     ProductsModule,
     PetsModule,
@@ -41,6 +63,8 @@ import { ReviewsModule } from './reviews/reviews.module';
     AuthModule,
     PaymentModule,
     ReviewsModule,
+    PromoCodesModule,
+    MailerModule,
     
   ],
   controllers: [],

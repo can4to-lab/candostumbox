@@ -28,4 +28,7 @@ export class OrderItem {
   @Column({ nullable: true })
   productNameSnapshot: string;
 
+  @Column({ type: 'int', default: 1 })
+  duration: number;
+
 }

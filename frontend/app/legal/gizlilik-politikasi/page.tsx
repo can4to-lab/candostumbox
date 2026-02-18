@@ -102,7 +102,7 @@ export default function PrivacyPolicy() {
               KVKK’nın 11. maddesi uyarınca, verilerinizin işlenip işlenmediğini
               öğrenme, yanlışsa düzeltilmesini isteme, silinmesini talep etme
               hakkına sahipsiniz. Taleplerinizi{" "}
-              <strong>destek@candostum.com</strong> adresine iletebilirsiniz.
+              <strong>destek@candostumbox.com</strong> adresine iletebilirsiniz.
             </p>
           </section>
         </div>

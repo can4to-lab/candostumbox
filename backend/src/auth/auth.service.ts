@@ -11,6 +11,7 @@ export class AuthService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
+    
   ) {}
 
   // 1. MÜŞTERİ KAYDI

@@ -184,7 +184,7 @@ function ProfileContent() {
         "https://candostumbox-api.onrender.com/auth/profile",
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (res.ok) {
         const data = await res.json();
@@ -238,7 +238,7 @@ function ProfileContent() {
         "https://candostumbox-api.onrender.com/subscriptions",
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (res.ok) {
         const data = await res.json();
@@ -316,7 +316,7 @@ function ProfileContent() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ reason: "Kullanıcı panelinden iptal" }),
-        }
+        },
       );
 
       const data = await res.json();
@@ -361,7 +361,7 @@ function ProfileContent() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const data = await res.json();
@@ -398,7 +398,7 @@ function ProfileContent() {
       });
       if (res.ok) {
         toast.success(
-          type === "address" ? "Adres silindi." : "Dostun silindi."
+          type === "address" ? "Adres silindi." : "Dostun silindi.",
         );
         fetchProfile();
       } else {
@@ -444,7 +444,7 @@ function ProfileContent() {
             currentPassword: passData.current,
             newPassword: passData.new,
           }),
-        }
+        },
       );
       if (res.ok) {
         toast.success("Şifreniz değiştirildi! 🔒", { id: toastId });
@@ -591,7 +591,7 @@ function ProfileContent() {
                       const completed = total - remaining;
                       const progressPercent = Math.min(
                         100,
-                        Math.max(0, (completed / total) * 100)
+                        Math.max(0, (completed / total) * 100),
                       );
 
                       // 👇 DURUM KONTROLÜ (YENİ YAPI)
@@ -663,8 +663,8 @@ function ProfileContent() {
                                 {sub.pet?.type === "kopek"
                                   ? "🐶"
                                   : sub.pet?.type === "kedi"
-                                  ? "🐱"
-                                  : "🐦"}
+                                    ? "🐱"
+                                    : "🐦"}
                               </div>
                               <div>
                                 <h3 className="font-bold text-gray-900 text-sm">
@@ -726,7 +726,7 @@ function ProfileContent() {
                                       {statusConfig.isActive
                                         ? sub.nextDeliveryDate
                                           ? new Date(
-                                              sub.nextDeliveryDate
+                                              sub.nextDeliveryDate,
                                             ).toLocaleDateString("tr-TR")
                                           : "Hesaplanıyor"
                                         : "-"}
@@ -740,7 +740,7 @@ function ProfileContent() {
                                       {statusConfig.isActive
                                         ? sub.nextDeliveryDate
                                           ? new Date(
-                                              sub.nextDeliveryDate
+                                              sub.nextDeliveryDate,
                                             ).toLocaleDateString("tr-TR")
                                           : "Hesaplanıyor"
                                         : "-"}
@@ -899,7 +899,7 @@ function ProfileContent() {
                                   {isDelivered
                                     ? "Teslim Edildi"
                                     : `Tahmini Teslimat: ${deliveryDate.toLocaleDateString(
-                                        "tr-TR"
+                                        "tr-TR",
                                       )}`}
                                 </h3>
 
@@ -930,8 +930,8 @@ function ProfileContent() {
                                             {item.pet.type === "kopek"
                                               ? "🐶"
                                               : item.pet.type === "kedi"
-                                              ? "🐱"
-                                              : "🦜"}
+                                                ? "🐱"
+                                                : "🦜"}
                                           </span>
                                           <span className="text-xs font-bold text-orange-700">
                                             {item.pet.name} için
@@ -1276,17 +1276,17 @@ function ProfileContent() {
                                   const hasActiveSub = subs.find(
                                     (s) =>
                                       s.pet?.id === pet.id &&
-                                      s.status === "active"
+                                      s.status === "active",
                                   );
                                   if (hasActiveSub) {
                                     setActiveTab("abonelik");
                                     toast(
                                       "Abonelik detaylarına yönlendiriliyorsunuz...",
-                                      { icon: "🚀" }
+                                      { icon: "🚀" },
                                     );
                                   } else {
                                     toast.success(
-                                      `${pet.name} için harika bir kutu seçelim!`
+                                      `${pet.name} için harika bir kutu seçelim!`,
                                     );
                                     router.push("/product");
                                   }
@@ -1296,7 +1296,7 @@ function ProfileContent() {
                                 {subs.find(
                                   (s) =>
                                     s.pet?.id === pet.id &&
-                                    s.status === "active"
+                                    s.status === "active",
                                 )
                                   ? "⚙️ Paketi Yönet"
                                   : "🎁 Paket Satın Al"}
@@ -1431,10 +1431,10 @@ function ProfileContent() {
                   <div className="bg-white border border-gray-100 rounded-2xl p-8 shadow-sm">
                     <h3 className="font-bold text-gray-900 mb-2">E-Posta ✉️</h3>
                     <a
-                      href="mailto:destek@candostum.com"
+                      href="mailto:destek@candostumbox.com"
                       className="text-green-600 font-bold"
                     >
-                      destek@candostum.com
+                      destek@candostumbox.com
                     </a>
                   </div>
                 </div>

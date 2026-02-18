@@ -48,7 +48,7 @@ export default function DistanceSalesAgreement() {
                 <strong>Telefon:</strong> 0 533 513 62 60
               </li>
               <li>
-                <strong>E-Posta:</strong> destek@candostum.com
+                <strong>E-Posta:</strong> destek@candostumbox.com
               </li>
               <li>
                 <strong>Vergi Dairesi / No:</strong> ÇEŞME / 4310063976

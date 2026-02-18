@@ -89,9 +89,27 @@ export class OrdersService {
 
         const unitPricePaid = itemTotal / quantity;
 
+       // 👇 GÜNCELLENEN PET BULMA VEYA YARATMA MANTIĞI
         let foundPet: Pet | null = null;
         if (itemDto.petId) {
+            // Kayıtlı kullanıcının kayıtlı pet'i
             foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
+        } 
+        else if (itemDto.petName) {
+            // MİSAFİR MÜŞTERİ: Veritabanına yeni bir pet olarak kaydet
+            const newPet = new Pet();
+            newPet.name = itemDto.petName;
+            newPet.type = itemDto.petType || 'kopek';
+            newPet.breed = itemDto.petBreed || '';
+            newPet.birthDate = itemDto.petBirthDate ? new Date(itemDto.petBirthDate) : new Date();
+            newPet.weight = itemDto.petWeight ? String(itemDto.petWeight) : '0';
+            newPet.isNeutered = itemDto.petIsNeutered || false;
+            // Alerjileri diziye (array) çevir
+            newPet.allergies = itemDto.petAllergies ? itemDto.petAllergies.split(',').map(a => a.trim()) : [];
+            
+            // Veritabanına yaz ve oluşan ID ile foundPet'e eşitle
+            foundPet = await queryRunner.manager.save(Pet, newPet);
+            this.logger.log(`🐾 Misafir için yeni pet oluşturuldu: ${newPet.name} (ID: ${foundPet.id})`);
         }
 
         // --- ABONELİK İŞLEMLERİ ---
@@ -151,6 +169,7 @@ export class OrdersService {
         orderItem.quantity = quantity;
         orderItem.priceAtPurchase = Number(product.price); 
         orderItem.productNameSnapshot = product.name;
+        orderItem.duration = itemDuration;
         if (foundPet) orderItem.pet = foundPet;
         orderItems.push(orderItem);
 

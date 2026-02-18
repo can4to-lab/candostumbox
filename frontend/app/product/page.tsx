@@ -453,7 +453,7 @@ function ProductContent() {
             <p className="text-gray-600">
               Başka bir sorunuz mu var?{" "}
               <a
-                href="mailto:destek@candostum.com"
+                href="mailto:destek@candostumbox.com"
                 className="text-[#10b981] font-bold hover:underline"
               >
                 Bize ulaşın.

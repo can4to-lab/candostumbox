@@ -50,10 +50,10 @@ export default function Footer() {
                   ✉️
                 </span>
                 <a
-                  href="mailto:destek@candostum.com"
+                  href="mailto:destek@candostumbox.com"
                   className="hover:text-white transition decoration-green-500/30 hover:decoration-green-500 underline underline-offset-4"
                 >
-                  destek@candostum.com
+                  destek@candostumbox.com
                 </a>
               </div>
             </div>

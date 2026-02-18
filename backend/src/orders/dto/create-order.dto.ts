@@ -41,7 +41,14 @@ export class OrderItemDto {
   @IsOptional()
   @IsString() // <--- UUID string olduğu için burası String olmalı
   petId?: string; 
-
+// 👇 MİSAFİR PET BİLGİLERİ İÇİN EKLENDİ
+  @IsOptional() @IsString() petName?: string;
+  @IsOptional() @IsString() petType?: string;
+  @IsOptional() @IsString() petBreed?: string;
+  @IsOptional() @IsString() petBirthDate?: string;
+  @IsOptional() @IsString() petWeight?: string;
+  @IsOptional() @IsBoolean() petIsNeutered?: boolean;
+  @IsOptional() @IsString() petAllergies?: string;
   @IsString()
   @IsOptional()
   upgradeFromSubId?: string;
