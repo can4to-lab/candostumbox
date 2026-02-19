@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity'; // 👈 2. EKLENDİ
 import { JwtStrategy } from './jwt.strategy'; 
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'; 
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
       }),
       inject: [ConfigService],
     }),
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard], // PrismaService kaldırıldı
