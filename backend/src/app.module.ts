@@ -15,6 +15,7 @@ import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
+import { MailModule } from './mail/mail.module';
 
 
 @Module({
@@ -65,7 +66,8 @@ MailerModule.forRootAsync({
     ReviewsModule,
     PromoCodesModule,
     MailerModule,
-    
+    MailModule,
+
   ],
   controllers: [],
   providers: [],
