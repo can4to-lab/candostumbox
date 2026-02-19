@@ -18,14 +18,14 @@ export class PromoCodesService {
 
     if (!promo) throw new NotFoundException('Geçersiz veya aktif olmayan indirim kodu.');
 
-    // 1. Tarih Kontrolü
-    if (promo.expiryDate && new Date() > promo.expiryDate) {
-      throw new BadRequestException('Bu kodun kullanım süresi dolmuştur.');
+   // 1. TARİH KONTROLÜ (Eğer tarih girilmişse ve günümüzü geçmişse iptal et)
+    if (promo.expiryDate && new Date() > new Date(promo.expiryDate)) {
+        throw new BadRequestException('Bu kampanya kodunun süresi dolmuştur.');
     }
 
-    // 2. Toplam Kullanım Limiti Kontrolü
+    // 2. SAYISAL LİMİT KONTROLÜ (0'dan büyük bir limit girilmişse ve kullanım bu limite ulaştıysa iptal et)
     if (promo.usageLimit > 0 && promo.usedCount >= promo.usageLimit) {
-      throw new BadRequestException('Bu kodun kullanım limiti dolmuştur.');
+        throw new BadRequestException('Bu kampanya kodunun kullanım limiti dolmuştur.');
     }
 
     // 3. Minimum Sepet Tutarı Kontrolü

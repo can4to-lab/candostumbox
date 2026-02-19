@@ -52,7 +52,12 @@ export default function AdminPromoCodes() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(formData),
+          body: JSON.stringify({
+            ...formData,
+            usageLimit: Number(formData.usageLimit), // Sayısal değere çeviriyoruz
+            minBasketAmount: Number(formData.minBasketAmount),
+            discountValue: Number(formData.discountValue),
+          }),
         },
       );
 
@@ -311,7 +316,23 @@ export default function AdminPromoCodes() {
                   }
                 />
               </div>
-
+              <div>
+                <label className="text-xs font-bold text-gray-400 ml-2">
+                  KULLANIM LİMİTİ (0 = Sınırsız)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.usageLimit}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      usageLimit: e.target.value,
+                    })
+                  }
+                />
+              </div>
               <div>
                 <label className="text-xs font-bold text-gray-400 ml-2">
                   BİTİŞ TARİHİ
