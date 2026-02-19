@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole } from '../users/entities/user.entity';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -11,7 +12,7 @@ export class AuthService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
-    
+    private mailService: MailService,
   ) {}
 
   // 1. MÜŞTERİ KAYDI
@@ -79,6 +80,12 @@ export class AuthService {
 
     try {
         const savedUser = await this.userRepository.save(newUser);
+        try {
+             await this.mailService.sendWelcomeEmail(savedUser.email, savedUser.firstName);
+             console.log("Hoş geldin maili gönderildi: ", savedUser.email);
+        } catch (mailError) {
+             console.error("Mail gönderim hatası:", mailError);
+        }
         const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
         
         return {

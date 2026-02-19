@@ -240,4 +240,11 @@ export class OrdersService {
     order.status = status;
     return await this.dataSource.getRepository(Order).save(order);
   }
+
+  async findOne(id: string) {
+    return await this.orderRepository.findOne({ 
+      where: { id }, 
+      relations: ['user'] // Mail atarken user bilgisi lazım olduğu için relations ekliyoruz
+    });
+  }
 }

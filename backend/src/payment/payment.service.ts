@@ -5,6 +5,7 @@ import { parseStringPromise } from 'xml2js';
 import * as https from 'https';
 import { OrdersService } from '../orders/orders.service';
 import { OrderStatus } from '../orders/entities/order.entity';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PaymentService {
@@ -12,6 +13,7 @@ export class PaymentService {
   constructor(
     @Inject(forwardRef(() => OrdersService))
     private ordersService: OrdersService,
+    private mailService: MailService,
   ) {}
 
   async startPayment(data: any) {
@@ -156,13 +158,31 @@ try {
     const status = body.TURKPOS_RETVAL_Sonuc;
     const orderId = body.TURKPOS_RETVAL_Siparis_ID;
     
-    // 🛠️ DÜZELTME: updateStatus metodu kullanılıyor
     if (Number(status) > 0) {
         console.log(`✅ ÖDEME BAŞARILI! Sipariş ID: ${orderId}`);
         try {
+            // 1. Siparişin durumunu ÖDENDİ yap
             await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
+
+            // 👇 3. MAİL GÖNDERİMİ İÇİN SİPARİŞİ BUL VE MAİLLERİ AT
+            // Sipariş tutarını ve kullanıcının e-postasını bulmak için siparişi çekiyoruz
+            const order = await this.ordersService.findOne(orderId); 
+            
+            if (order) {
+                // Admine mail at
+                await this.mailService.sendAdminOrderNotification(order.id, order.totalPrice);
+                
+                // Kullanıcı üye ise (emaili varsa) müşteriye mail at
+                if (order.user && order.user.email) {
+                    await this.mailService.sendOrderConfirmation(order.user.email, order.id, order.totalPrice);
+                } else if (order.shippingAddressSnapshot && order.shippingAddressSnapshot.email) {
+                    // Kullanıcı misafir ise adresteki emaili kullan
+                    await this.mailService.sendOrderConfirmation(order.shippingAddressSnapshot.email, order.id, order.totalPrice);
+                }
+            }
+
         } catch (e) {
-            console.error("Sipariş güncellenirken hata oluştu:", e);
+            console.error("Sipariş güncellenirken veya mail atılırken hata oluştu:", e);
         }
         return { status: 'success', orderId };
     } else {

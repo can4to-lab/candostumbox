@@ -59,6 +59,17 @@ export default function AdminPromoCodes() {
       if (res.ok) {
         toast.success("İndirim kodu başarıyla oluşturuldu.");
         setIsModalOpen(false);
+        // Formu sıfırla
+        setFormData({
+          code: "",
+          discountType: "percentage",
+          discountValue: "",
+          sourceType: "GENERAL",
+          sourceName: "",
+          expiryDate: "",
+          minBasketAmount: "0",
+          usageLimit: "0",
+        });
         fetchCodes();
       }
     } catch (err) {
@@ -99,7 +110,7 @@ export default function AdminPromoCodes() {
         </button>
       </div>
 
-      {/* İSTATİSTİK ÖZETİ (TAKİP İÇİN) */}
+      {/* İSTATİSTİK ÖZETİ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
           <p className="text-gray-400 text-xs font-bold uppercase">
@@ -114,8 +125,10 @@ export default function AdminPromoCodes() {
             En Popüler Kaynak
           </p>
           <p className="text-xl font-black text-gray-800">
-            {codes.sort((a, b) => b.usedCount - a.usedCount)[0]?.sourceName ||
-              "-"}
+            {codes.length > 0
+              ? [...codes].sort((a, b) => b.usedCount - a.usedCount)[0]
+                  ?.sourceName || "-"
+              : "-"}
           </p>
         </div>
       </div>
@@ -166,13 +179,23 @@ export default function AdminPromoCodes() {
                 <td className="p-6">
                   <button
                     onClick={() => handleDelete(c.id)}
-                    className="text-red-400 hover:text-red-600 transition"
+                    className="text-red-400 hover:text-red-600 transition font-bold"
                   >
                     Sil
                   </button>
                 </td>
               </tr>
             ))}
+            {codes.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="p-6 text-center text-gray-500 font-medium"
+                >
+                  Henüz indirim kodu oluşturulmamış.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -184,7 +207,9 @@ export default function AdminPromoCodes() {
             onSubmit={handleCreate}
             className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg space-y-4 shadow-2xl"
           >
-            <h2 className="text-2xl font-black mb-4">Yeni Kampanya Kodu</h2>
+            <h2 className="text-2xl font-black mb-4 text-gray-900">
+              Yeni Kampanya Kodu
+            </h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -193,7 +218,8 @@ export default function AdminPromoCodes() {
                 </label>
                 <input
                   required
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100"
+                  value={formData.code}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -208,7 +234,8 @@ export default function AdminPromoCodes() {
                   TÜR
                 </label>
                 <select
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none"
+                  value={formData.discountType}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({ ...formData, discountType: e.target.value })
                   }
@@ -225,7 +252,8 @@ export default function AdminPromoCodes() {
                 <input
                   required
                   type="number"
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none"
+                  value={formData.discountValue}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({ ...formData, discountValue: e.target.value })
                   }
@@ -237,7 +265,8 @@ export default function AdminPromoCodes() {
                   KAYNAK
                 </label>
                 <select
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none"
+                  value={formData.sourceType}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -257,7 +286,8 @@ export default function AdminPromoCodes() {
                   KAYNAK ADI (Takip)
                 </label>
                 <input
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none"
+                  value={formData.sourceName}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   placeholder="Örn: Instagram"
                   onChange={(e) =>
                     setFormData({ ...formData, sourceName: e.target.value })
@@ -271,7 +301,8 @@ export default function AdminPromoCodes() {
                 </label>
                 <input
                   type="number"
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none"
+                  value={formData.minBasketAmount}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -287,7 +318,8 @@ export default function AdminPromoCodes() {
                 </label>
                 <input
                   type="date"
-                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none text-sm"
+                  value={formData.expiryDate}
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-200 text-gray-900 font-bold text-sm focus:border-purple-500 transition"
                   onChange={(e) =>
                     setFormData({ ...formData, expiryDate: e.target.value })
                   }
@@ -299,13 +331,13 @@ export default function AdminPromoCodes() {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="flex-1 p-4 font-bold text-gray-400"
+                className="flex-1 p-4 font-bold text-gray-600 hover:bg-gray-100 rounded-2xl transition"
               >
                 İptal
               </button>
               <button
                 type="submit"
-                className="flex-1 bg-purple-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-purple-200"
+                className="flex-1 bg-purple-600 text-white p-4 rounded-2xl font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition"
               >
                 Kodu Yayınla
               </button>

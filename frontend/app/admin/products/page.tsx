@@ -88,14 +88,14 @@ export default function AdminProducts() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
-  // FORM DATASI (Features eklendi)
+  // FORM DATASI (Değişken adları backend'e uyumlu hale getirildi)
   const [formData, setFormData] = useState({
     name: "",
     price: "",
     stock: "",
     description: "",
-    imageUrl: "",
-    features: "", // Virgülle ayrılmış string olarak tutacağız
+    image: "", // imageUrl yerine image
+    features: "",
   });
 
   // --- 1. VERİ ÇEKME ---
@@ -108,7 +108,6 @@ export default function AdminProducts() {
       const res = await fetch("https://candostumbox-api.onrender.com/products");
       if (res.ok) {
         const data = await res.json();
-        // Gelen veriyi (order'a göre) sırala
         const sortedData = Array.isArray(data)
           ? data.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
           : [];
@@ -154,8 +153,6 @@ export default function AdminProducts() {
     const token = localStorage.getItem("token");
     const loadingToast = toast.loading("Kaydediliyor...");
 
-    // Özellikleri (String) -> Diziye (Array) çevir
-    // Örnek: "Mama, Oyuncak" -> ["Mama", "Oyuncak"]
     const featuresArray = formData.features
       ? formData.features
           .split(",")
@@ -163,19 +160,19 @@ export default function AdminProducts() {
           .filter((item) => item !== "")
       : [];
 
+    // 👇 KRİTİK DEĞİŞİKLİK: imageUrl yerine image yazıldı
     const payload = {
       name: formData.name,
       price: Number(formData.price),
       stock: Number(formData.stock),
       description: formData.description,
-      imageUrl: formData.imageUrl || "https://placehold.co/400",
-      features: featuresArray, // Backend'e dizi olarak gönderiyoruz
+      image: formData.image || "https://placehold.co/400", // Backend 'image' bekliyor
+      features: featuresArray,
     };
 
     try {
       let res;
       if (editingProduct) {
-        // GÜNCELLEME
         res = await fetch(
           `https://candostumbox-api.onrender.com/products/${editingProduct.id}`,
           {
@@ -188,7 +185,6 @@ export default function AdminProducts() {
           },
         );
       } else {
-        // YENİ EKLEME
         res = await fetch("https://candostumbox-api.onrender.com/products", {
           method: "POST",
           headers: {
@@ -206,7 +202,6 @@ export default function AdminProducts() {
           { id: loadingToast },
         );
 
-        // Listeyi güncelle (tekrar fetch etmeye gerek kalmadan)
         if (editingProduct) {
           setProducts(
             products.map((p) =>
@@ -229,8 +224,6 @@ export default function AdminProducts() {
   const openModal = (product: any = null) => {
     setEditingProduct(product);
     if (product) {
-      // Düzenleme modunda, mevcut özellikleri dizi -> string'e çevir
-      // ["a", "b"] -> "a, b"
       const featuresString =
         product.features && Array.isArray(product.features)
           ? product.features.join(", ")
@@ -241,17 +234,16 @@ export default function AdminProducts() {
         price: product.price,
         stock: product.stock,
         description: product.description,
-        imageUrl: product.imageUrl || product.image, // Farklı isimlendirme ihtimaline karşı
+        image: product.image || product.imageUrl || "", // Veritabanından gelen image
         features: featuresString,
       });
     } else {
-      // Yeni ürün modu
       setFormData({
         name: "",
         price: "",
         stock: "",
         description: "",
-        imageUrl: "",
+        image: "",
         features: "",
       });
     }
@@ -268,7 +260,6 @@ export default function AdminProducts() {
     p.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  // --- İSTATİSTİKLER ---
   const stats = {
     totalProducts: products.length,
     lowStock: products.filter((p) => p.stock < 10).length,
@@ -358,10 +349,11 @@ export default function AdminProducts() {
                 >
                   <td className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0">
-                        {product.imageUrl ? (
+                      <div className="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
+                        {/* 👇 KRİTİK DEĞİŞİKLİK: product.imageUrl yerine product.image kullanıldı */}
+                        {product.image ? (
                           <img
-                            src={product.imageUrl}
+                            src={product.image}
                             alt={product.name}
                             className="w-full h-full object-cover"
                           />
@@ -451,7 +443,6 @@ export default function AdminProducts() {
               className="p-8 overflow-y-auto space-y-6"
             >
               <div className="grid grid-cols-2 gap-6">
-                {/* ÜRÜN ADI */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Ürün Adı
@@ -467,7 +458,6 @@ export default function AdminProducts() {
                   />
                 </div>
 
-                {/* FİYAT */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Fiyat (₺)
@@ -484,7 +474,6 @@ export default function AdminProducts() {
                   />
                 </div>
 
-                {/* STOK */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Stok Adedi
@@ -501,7 +490,6 @@ export default function AdminProducts() {
                   />
                 </div>
 
-                {/* ÖZELLİKLER (FEATURES) - YENİ EKLENEN ALAN */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Paket Özellikleri (Virgülle Ayırın)
@@ -514,12 +502,8 @@ export default function AdminProducts() {
                     }
                     placeholder="Örn: 5 Adet Oyuncak, Doğal Mama, Ücretsiz Kargo, Veteriner Onaylı"
                   />
-                  <p className="text-xs text-gray-400 mt-1 pl-1">
-                    Her bir maddeyi virgül (,) ile ayırarak yazınız.
-                  </p>
                 </div>
 
-                {/* GÖRSEL URL */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Görsel URL
@@ -527,16 +511,16 @@ export default function AdminProducts() {
                   <div className="flex gap-4">
                     <input
                       className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 text-sm"
-                      value={formData.imageUrl}
+                      value={formData.image}
                       onChange={(e) =>
-                        setFormData({ ...formData, imageUrl: e.target.value })
+                        setFormData({ ...formData, image: e.target.value })
                       }
                       placeholder="https://..."
                     />
                     <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                      {formData.imageUrl && (
+                      {formData.image && (
                         <img
-                          src={formData.imageUrl}
+                          src={formData.image}
                           className="w-full h-full object-cover"
                         />
                       )}
@@ -544,7 +528,6 @@ export default function AdminProducts() {
                   </div>
                 </div>
 
-                {/* AÇIKLAMA */}
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Kısa Açıklama (Alt Başlık)
