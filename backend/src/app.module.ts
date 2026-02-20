@@ -37,23 +37,27 @@ import { MailModule } from './mail/mail.module';
     }),
 
 MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        transport: {
-          host: config.get('MAIL_HOST'),
-          port: config.get('MAIL_PORT'),
-          secure: true, // SSL için true
-          auth: {
-            user: config.get('MAIL_USER'),
-            pass: config.get('MAIL_PASS'),
-          },
-        },
-        defaults: {
-          from: config.get('MAIL_FROM'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    transport: {
+      host: config.get('MAIL_HOST'),
+      port: Number(config.get('MAIL_PORT')), // 465
+      secure: true, // SSL aktif
+      auth: {
+        user: config.get('MAIL_USER'),
+        pass: config.get('MAIL_PASS'),
+      },
+      // 👇 EKLENEN KRİTİK AYAR (Bağlantı hatalarını önler)
+      tls: {
+        rejectUnauthorized: false
+      }
+    },
+    defaults: {
+      from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
+    },
+  }),
+  inject: [ConfigService],
+}),
 
     UsersModule,
     ProductsModule,
@@ -66,7 +70,7 @@ MailerModule.forRootAsync({
     ReviewsModule,
     PromoCodesModule,
     MailerModule,
-    MailModule,
+    
 
   ],
   controllers: [],
