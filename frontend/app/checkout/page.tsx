@@ -248,6 +248,33 @@ function CheckoutContent() {
     }
   };
 
+  // --- ÖDEME SONUCUNU DİNLEME (IFRAME'DEN GELEN MESAJ) ---
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Sadece bizim belirlediğimiz mesaj tipini dinle
+      if (event.data && event.data.type === "PARAM_PAYMENT_RESULT") {
+        // Modal'ı (Iframe penceresini) kapat
+        setIframeToken(null);
+
+        if (event.data.status === "success") {
+          toast.success("Ödemeniz başarıyla alındı! 🎉");
+          // Başarılı sayfasına yönlendir
+          router.push(`/payment/success?orderId=${event.data.orderId}`);
+        } else {
+          toast.error(
+            "Ödeme başarısız oldu: " + (event.data.message || "Hata"),
+          );
+        }
+      }
+    };
+
+    // Dinleyiciyi pencereye ekle
+    window.addEventListener("message", handleMessage);
+
+    // Component ekrandan silinirken dinleyiciyi temizle
+    return () => window.removeEventListener("message", handleMessage);
+  }, [router]);
+
   // --- HESAPLAMALAR (PROMO KOD DAHİL) ---
   const calculateTotal = () => {
     if (!product)

@@ -26,17 +26,31 @@ export class PaymentController {
     }
   }
 
-  @Post('callback')
+ @Post('callback')
   async callback(@Body() body: any, @Res() res: Response) {
     const result = await this.paymentService.handleCallback(body);
 
     const FRONTEND_URL = process.env.FRONTEND_URL || 'https://candostumbox.com';
 
-    if (result.status === 'success') {
-      return res.redirect(`${FRONTEND_URL}/payment/success?orderId=${result.orderId}`);
-    } else {
-      const errorMsg = encodeURIComponent(result.message || 'Ödeme başarısız');
-      return res.redirect(`${FRONTEND_URL}/checkout?status=fail&msg=${errorMsg}`);
-    }
+    // JSON veya Redirect yerine, ana siteye mesaj fırlatan bir HTML döndürüyoruz
+    const htmlTemplate = `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body>
+          <script>
+            // Üst pencereye (senin React sitene) sonucu fısıldıyoruz
+            window.parent.postMessage({
+              type: 'PARAM_PAYMENT_RESULT',
+              status: '${result.status}',
+              orderId: '${result.orderId || ''}',
+              message: '${result.message || ''}'
+            }, '*');
+          </script>
+        </body>
+      </html>
+    `;
+
+    return res.status(200).send(htmlTemplate);
   }
 }

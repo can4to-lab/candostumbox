@@ -1,11 +1,13 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { parseStringPromise } from 'xml2js';
-import * as https from 'https';
 import { OrdersService } from '../orders/orders.service';
 import { OrderStatus } from '../orders/entities/order.entity';
 import { MailService } from '../mail/mail.service';
+import { PaymentSession } from './entities/payment-session.entity'; // YENİ GEÇİCİ TABLOMUZ
 
 @Injectable()
 export class PaymentService {
@@ -14,21 +16,18 @@ export class PaymentService {
     @Inject(forwardRef(() => OrdersService))
     private ordersService: OrdersService,
     private mailService: MailService,
+    @InjectRepository(PaymentSession)
+    private sessionRepo: Repository<PaymentSession>, // SİSTEME EKLENDİ
   ) {}
 
   async startPayment(data: any) {
-    console.log("--- ÖDEME SERVİSİ BAŞLADI ---");
+    console.log("--- ÖDEME SERVİSİ BAŞLADI (SESSION MANTIĞI) ---");
     const { price, basketId, ip, card, items, user, address } = data;
 
     // 👇 ID KONTROLÜ
-    let userIdToSave = null;
-    
-    // Gelen veride ID var mı?
-    if (user && user.id) {
-        userIdToSave = user.id;
-    }
-    
-    console.log(`👤 Kaydedilecek User ID: ${userIdToSave || 'YOK (Misafir)'}`);
+    let userIdToSave = user?.id || null;
+   
+    console.log(`👤 İşlem Yapan: ${userIdToSave ? 'Kayıtlı Kullanıcı: ' + userIdToSave : 'Misafir'}`);
 
     // 1. .env AYARLARI
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
@@ -38,32 +37,26 @@ export class PaymentService {
         return { status: 'error', message: 'Eksik bilgi: API anahtarları veya Kart bilgisi yok.' };
     }
 
-    // --- SİPARİŞİ OLUŞTUR (PENDING) ---
-    let dbOrderId = basketId; 
+    // --- 2. GERÇEK SİPARİŞ YERİNE GEÇİCİ OTURUM (SESSION) OLUŞTURUYORUZ ---
+    const createOrderDto = {
+        addressId: address?.id || null, 
+        items: items, 
+        paymentType: 'credit_card',
+        isGuest: !userIdToSave,
+        guestInfo: !userIdToSave ? { ...user, ...address } : undefined 
+    };
 
-    try {
-        const createOrderDto = {
-            addressId: address?.id || null, // Kayıtlı adres ID'si
-            items: items, 
-            paymentType: 'credit_card',
-            isGuest: !userIdToSave,
-            // 🛠️ Misafir için user ve address bilgilerini BİRLEŞTİRİYORUZ
-            guestInfo: !userIdToSave ? { ...user, ...address } : undefined 
-        };
+    // Verileri beklemeye alıyoruz. (Henüz Orders tablosuna gitmiyor!)
+    const session = this.sessionRepo.create({
+        payload: { userIdToSave, createOrderDto }
+    });
+    await this.sessionRepo.save(session);
 
-        const result = await this.ordersService.create(userIdToSave, createOrderDto as any);
-        
-        if(result && result.orderId) {
-            dbOrderId = result.orderId;
-            console.log(`✅ Sipariş DB'ye yazıldı: ${dbOrderId}`);
-        }
-    } catch (error) {
-        console.error("⚠️ Sipariş kayıt hatası:", error.message);
-    }
+    console.log(`✅ Geçici Ödeme Oturumu Açıldı: ${session.id}`);
 
     // 3. VERİ HAZIRLIĞI
     const totalAmount = Number(price).toFixed(2).replace('.', ','); 
-    const orderId = dbOrderId || `SIP_${new Date().getTime()}`; 
+    const orderId = session.id; // 👈 DİKKAT: ParamPOS'a geçici session ID'mizi yolluyoruz!
     const installment = "1"; 
     const SANAL_POS_ID = CLIENT_CODE; 
     
@@ -130,13 +123,12 @@ export class PaymentService {
     </soap:Envelope>
     `;
 
-try {
+    try {
         const response = await axios.post(apiUrl, xmlRequest, {
             headers: { 
                 'Content-Type': 'text/xml; charset=utf-8', 
                 'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' 
             }
-            // httpsAgent satırı buradan silindi! Artık tamamen güvenli.
         });
 
         const parsed = await parseStringPromise(response.data, { explicitArray: false, ignoreAttrs: true });
@@ -156,40 +148,58 @@ try {
   async handleCallback(body: any) {
     console.log("--- PARAM POS CALLBACK GELDİ ---", body);
     const status = body.TURKPOS_RETVAL_Sonuc;
-    const orderId = body.TURKPOS_RETVAL_Siparis_ID;
+    const sessionId = body.TURKPOS_RETVAL_Siparis_ID; // Bu artık bizim session ID'miz
     
-    if (Number(status) > 0) {
-        console.log(`✅ ÖDEME BAŞARILI! Sipariş ID: ${orderId}`);
-        try {
-            // 1. Siparişin durumunu ÖDENDİ yap
-            await this.ordersService.updateStatus(orderId, OrderStatus.PAID); 
+    // Geçici oturumu bul
+    const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
+    
+    if (!session) {
+        console.error("❌ Hata: İlgili geçici ödeme oturumu bulunamadı.");
+        return { status: 'fail', message: 'Geçersiz veya süresi dolmuş ödeme işlemi.' };
+    }
 
-            // 👇 3. MAİL GÖNDERİMİ İÇİN SİPARİŞİ BUL VE MAİLLERİ AT
-            // Sipariş tutarını ve kullanıcının e-postasını bulmak için siparişi çekiyoruz
-            const order = await this.ordersService.findOne(orderId); 
+    if (Number(status) > 0) {
+        console.log(`✅ ÖDEME BAŞARILI! Gerçek Sipariş Oluşturuluyor...`);
+        let finalOrderId: string = "";
+
+        try {
+            // 1. ÖDEME ALINDI, ŞİMDİ GERÇEK SİPARİŞİ YARAT (Verileri session'dan çekiyoruz)
+            const { userIdToSave, createOrderDto } = session.payload;
+            const newOrderResult = await this.ordersService.create(userIdToSave, createOrderDto as any);
+            finalOrderId = newOrderResult.orderId;
+
+            console.log(`✅ Gerçek Sipariş DB'ye yazıldı: ${finalOrderId}`);
+
+            // 2. Siparişin durumunu ÖDENDİ yap
+            await this.ordersService.updateStatus(finalOrderId, OrderStatus.PAID); 
+
+            // 3. MAİL GÖNDERİMİ
+            const order = await this.ordersService.findOne(finalOrderId); 
             
             if (order) {
-                // Admine mail at
                 await this.mailService.sendAdminOrderNotification(order.id, order.totalPrice);
                 
-                // Kullanıcı üye ise (emaili varsa) müşteriye mail at
                 if (order.user && order.user.email) {
                     await this.mailService.sendOrderConfirmation(order.user.email, order.id, order.totalPrice);
                 } else if (order.shippingAddressSnapshot && order.shippingAddressSnapshot.email) {
-                    // Kullanıcı misafir ise adresteki emaili kullan
                     await this.mailService.sendOrderConfirmation(order.shippingAddressSnapshot.email, order.id, order.totalPrice);
                 }
             }
-
         } catch (e) {
             console.error("Sipariş güncellenirken veya mail atılırken hata oluştu:", e);
         }
-        return { status: 'success', orderId };
+
+        // ÇÖPLÜK OLMAMASI İÇİN GEÇİCİ OTURUMU SİL
+        await this.sessionRepo.remove(session);
+
+        return { status: 'success', orderId: finalOrderId || sessionId };
+
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
-        try {
-            await this.ordersService.updateStatus(orderId, OrderStatus.CANCELLED); 
-        } catch(e) {}
+        
+        // ÖDEME OLMADIĞI İÇİN GEÇİCİ OTURUMU DİREKT SİLİYORUZ (SİSTEM TERTEMİZ KALIYOR)
+        await this.sessionRepo.remove(session);
+        
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }
