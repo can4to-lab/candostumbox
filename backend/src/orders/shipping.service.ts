@@ -21,7 +21,7 @@ export class ShippingService {
     const url = `${this.apiUrl}/v2/order/barcode`;
     
     const payload = {
-      handlerCode: "ECONOMIC",
+      handlerCode: "HEPSIJET",
       content: {
         name: `Sipariş #${order.id.slice(0, 8)}`,
         code: order.id,
