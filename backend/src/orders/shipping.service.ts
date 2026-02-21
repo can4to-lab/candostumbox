@@ -1,8 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom } from 'rxjs';
-import { Order } from './entities/order.entity';
+import axios from 'axios';
 
 @Injectable()
 export class ShippingService {
@@ -11,87 +9,50 @@ export class ShippingService {
   private readonly apiUrl: string;
 
   constructor(
-    private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    this.apiKey = this.configService.get<string>('BASIT_KARGO_API_KEY') || '';
-    this.apiUrl = this.configService.get<string>('BASIT_KARGO_API_URL') || '';
+    // ConfigService (Önerilen) veya process.env'den güvenli çekim
+    this.apiKey = this.configService.get<string>('BASIT_KARGO_API_KEY') || process.env.BASIT_KARGO_API_KEY || '';
+    this.apiUrl = this.configService.get<string>('BASIT_KARGO_URL') || process.env.BASIT_KARGO_URL || 'https://basitkargo.com/api';
   }
 
-  async createShipment(order: Order) {
-    // 1. Veri Hazırlığı (Mapping)
-    // Basit Kargo'nun beklediği tahmini format (Dokümantasyona göre özelleştirilebilir)
+  async createShipment(order: any) {
+    // Constructor'dan gelen veriyi kullanıyoruz
+    const url = `${this.apiUrl}/v2/order/barcode`;
     
-    // Alıcı Adı Çözümleme
-    let receiverName = "Misafir Müşteri";
-    let receiverPhone = "";
-    let receiverCity = "";
-    let receiverAddress = "";
-
-    if (order.user) {
-        receiverName = `${order.user.firstName} ${order.user.lastName}`;
-        receiverPhone = order.user.phone || "";
-    }
-    
-    // Adres Snapshot'tan verileri al
-    if (order.shippingAddressSnapshot) {
-        const snap = order.shippingAddressSnapshot;
-        receiverAddress = snap.fullAddress || snap.address;
-        receiverCity = snap.city || "İstanbul"; // Varsayılan
-        // Eğer snapshot içinde isim varsa onu kullan (daha günceldir)
-        if (snap.contactName) receiverName = snap.contactName;
-    }
-
     const payload = {
-        customer_name: receiverName,
-        customer_phone: receiverPhone,
-        customer_city: receiverCity,
-        customer_address: receiverAddress,
-        order_id: order.id, // Bizim sipariş numaramız (Referans)
-        desi: 3, // Varsayılan desi (Paket içeriğine göre dinamikleştirilebilir)
-        payment_type: 'gonderici_odemeli' // Kargo ücretini biz ödüyoruz
+      handlerCode: "ECONOMIC",
+      content: {
+        name: `Sipariş #${order.id.slice(0, 8)}`,
+        code: order.id,
+        packages: [{ height: 10, width: 15, depth: 5, weight: 1 }]
+      },
+      client: {
+        name: `${order.user?.firstName || 'Misafir'} ${order.user?.lastName || ''}`,
+        phone: order.user?.phone || order.shippingAddressSnapshot?.phone || "5555555555",
+        city: order.shippingAddressSnapshot?.city,
+        town: order.shippingAddressSnapshot?.district,
+        address: order.shippingAddressSnapshot?.fullAddress
+      }
     };
 
     try {
-        this.logger.log(`🚚 Basit Kargo'ya istek atılıyor: Sipariş #${order.id}`);
-
-        // 2. API İsteği
-        // Not: Endpoint '/orders/create-with-code' tahmini yazılmıştır. 
-        // Dokümantasyondaki "Sipariş Oluştur + Kargo Kodu Üret" endpoint'i neyse o yazılmalı.
-        const response = await firstValueFrom(
-            this.httpService.post(
-                `${this.apiUrl}/orders/create-with-code`, 
-                payload,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${this.apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            )
-        );
-
-        // 3. Başarılı Cevap
-        // API'nin döndüğü takip kodunu alıyoruz (Örn: response.data.tracking_code)
-        // Dokümantasyona göre bu alanın adı değişebilir.
-        const trackingCode = response.data?.tracking_code || response.data?.data?.barcode || `MOCK-${Math.floor(Math.random()*10000)}`;
-        
-        return {
-            success: true,
-            trackingCode: trackingCode,
-            provider: 'Basit Kargo'
-        };
-
-    } catch (error) {
-        this.logger.error(`❌ Kargo Entegrasyon Hatası: ${error.message}`);
-        
-        // Geliştirme aşamasında API Key yoksa sistemin durmaması için Mock kod dönüyoruz.
-        // Canlıya geçince burayı silebilir veya hata fırlatabilirsiniz.
-        return {
-            success: true, // Hata olsa bile mock dönüyoruz (Test için)
-            trackingCode: `TEST-BASIT-${Math.floor(Math.random() * 999999)}`,
-            provider: 'Basit Kargo (Test)'
-        };
+      const res = await axios.post(url, payload, {
+        headers: { 
+          Authorization: `Bearer ${this.apiKey}`, // Constructor'dan gelen token
+          "Content-Type": "application/json" 
+        }
+      });
+      
+      return {
+        status: 'success',
+        trackingCode: res.data.id, 
+        barcode: res.data.barcode,
+        provider: 'Basit Kargo'
+      };
+    } catch (error: any) { // 👈 Typescript hatasını önlemek için error: any yapıldı
+      this.logger.error("Basit Kargo Hatası:", error.response?.data || error.message);
+      throw new Error("Kargo oluşturulamadı.");
     }
   }
 }

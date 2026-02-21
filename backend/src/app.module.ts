@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule'; // 👈 EKLE
+import { ScheduleModule } from '@nestjs/schedule';
 import { MailerModule } from '@nestjs-modules/mailer';
 
 // Modüller
@@ -17,14 +17,10 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
 import { MailModule } from './mail/mail.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    
-    // 👇 ZAMANLAYICI MODÜLÜNÜ BAŞLAT
     ScheduleModule.forRoot(),
-
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -35,30 +31,28 @@ import { MailModule } from './mail/mail.module';
         synchronize: true,
       }),
     }),
-
-MailerModule.forRootAsync({
-  imports: [ConfigModule],
-  useFactory: (config: ConfigService) => ({
-    transport: {
-      host: config.get('MAIL_HOST'),
-      port: Number(config.get('MAIL_PORT')), // 465
-      secure: true, // SSL aktif
-      auth: {
-        user: config.get('MAIL_USER'),
-        pass: config.get('MAIL_PASS'),
-      },
-      // 👇 EKLENEN KRİTİK AYAR (Bağlantı hatalarını önler)
-      tls: {
-        rejectUnauthorized: false
-      }
-    },
-    defaults: {
-      from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
-    },
-  }),
-  inject: [ConfigService],
-}),
-
+    // ✅ AYARLI MAILER MODÜLÜ (Doğru Yapılandırma)
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        transport: {
+          host: config.get('MAIL_HOST'),
+          port: Number(config.get('MAIL_PORT')), 
+          secure: true, 
+          auth: {
+            user: config.get('MAIL_USER'),
+            pass: config.get('MAIL_PASS'),
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        },
+        defaults: {
+          from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
+        },
+      }),
+      inject: [ConfigService],
+    }),
     UsersModule,
     ProductsModule,
     PetsModule,
@@ -69,11 +63,8 @@ MailerModule.forRootAsync({
     PaymentModule,
     ReviewsModule,
     PromoCodesModule,
-    MailerModule,
-    
-
+    // ❌ Buradaki mükerrer MailerModule silindi, yukarıdaki asenkron yapı yeterlidir
+    MailModule, 
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}
