@@ -31,26 +31,29 @@ import { MailModule } from './mail/mail.module';
         synchronize: true,
       }),
     }),
-    // ✅ AYARLI MAILER MODÜLÜ (Doğru Yapılandırma)
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        transport: {
-          host: config.get('MAIL_HOST'),
-          port: Number(config.get('MAIL_PORT')), 
-          secure: true, 
-          auth: {
-            user: config.get('MAIL_USER'),
-            pass: config.get('MAIL_PASS'),
+      useFactory: (config: ConfigService) => {
+        const port = Number(config.get('MAIL_PORT')); 
+        
+        return {
+          transport: {
+            host: config.get('MAIL_HOST'),
+            port: port,
+            secure: port === 465, 
+            auth: {
+              user: config.get('MAIL_USER'),
+              pass: config.get('MAIL_PASS'),
+            },
+            tls: {
+              rejectUnauthorized: false
+            }
           },
-          tls: {
-            rejectUnauthorized: false
-          }
-        },
-        defaults: {
-          from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
-        },
-      }),
+          defaults: {
+            from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     UsersModule,
