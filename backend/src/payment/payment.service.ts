@@ -205,11 +205,9 @@ export class PaymentService {
     }
   }
 
-  // PARAM POS GERÇEK ZAMANLI TAKSİT VE KOMİSYON SORGULAMA
   async getInstallments(bin: string, amount: number) {
     const amountNum = Number(amount);
     
-    // 1. ADIM: BIN Kodundan Kartın Hangi Bankaya ve Sanal POS'a ait olduğunu bul
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
@@ -238,7 +236,6 @@ export class PaymentService {
 
       const sanalPosId = binResult.SanalPOS_ID;
 
-      // 2. ADIM: Bulunan Sanal POS ID'sine göre güncel oranları (komisyonları) çek
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
@@ -258,23 +255,46 @@ export class PaymentService {
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
-      const diffgram = ratesResultRaw['soap:Envelope']['soap:Body']['TP_Ozel_Oran_SK_ListeResponse']['TP_Ozel_Oran_SK_ListeResult']['diffgr:diffgram'];
+      console.log("PARAM RATES RESPONSE:", JSON.stringify(ratesResultRaw));
+
+      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_SK_ListeResponse']?.['TP_Ozel_Oran_SK_ListeResult']?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste) {
-         return { status: 'error', message: 'Taksit oranları alınamadı.' };
+         console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
+         return { 
+           status: 'success', 
+           data: [{
+             month: 1,
+             commissionRate: 0,
+             commissionAmount: 0,
+             totalAmount: amountNum,
+             monthlyPayment: amountNum
+           }] 
+         };
       }
 
       let oransList = diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste;
-      if (!Array.isArray(oransList)) oransList = [oransList]; // Tek sonuç gelirse diziye çevir
+      if (!Array.isArray(oransList)) oransList = [oransList];
 
-      // Bize lazım olan oranları filtrele (Sadece bulunduğumuz SanalPOS_ID'ye ait olanlar)
       const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
 
+      if (filteredRates.length === 0) {
+         return { 
+           status: 'success', 
+           data: [{
+             month: 1,
+             commissionRate: 0,
+             commissionAmount: 0,
+             totalAmount: amountNum,
+             monthlyPayment: amountNum
+           }] 
+         };
+      }
+
       const installments = filteredRates.map((item: any) => {
-        const month = Number(item.MO_01 || 1); // Param'da taksit sayısı genelde MO_01, MO_02 gibi döner, basitleştirmek için ay olarak alıyoruz
+        const month = Number(item.MO_01 || 1);
         const commissionRate = Number(item.Oran || 0);
         
-        // Komisyon tutarı ve müşteriye yansıyacak son tutar
         const commissionAmount = amountNum * (commissionRate / 100);
         const finalTotal = amountNum + commissionAmount;
         const monthlyPayment = finalTotal / month;
@@ -288,14 +308,21 @@ export class PaymentService {
         };
       });
 
-      // Taksit sayısına göre sırala (Tek çekim, 2, 3...)
       installments.sort((a, b) => a.month - b.month);
-
       return { status: 'success', data: installments };
 
     } catch (error) {
       console.error("ParamPOS API Hatası:", error);
-      return { status: 'error', message: 'Taksit bilgileri sunucudan alınamadı.' };
+      return { 
+        status: 'success', 
+        data: [{
+          month: 1,
+          commissionRate: 0,
+          commissionAmount: 0,
+          totalAmount: amountNum,
+          monthlyPayment: amountNum
+        }] 
+      };
     }
   }
 }
