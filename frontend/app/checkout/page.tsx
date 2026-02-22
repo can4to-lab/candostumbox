@@ -154,7 +154,7 @@ function CheckoutContent() {
   const [paymentMethod, setPaymentMethod] = useState<
     "credit_card" | "bank_transfer" | "cash_on_delivery"
   >("credit_card");
-  const COD_FEE = 49.9; // Kapıda ödeme hizmet bedeli
+  const COD_FEE = 89.9; // Kapıda ödeme hizmet bedeli
 
   // Kart Bilgileri
   const [cardData, setCardData] = useState({
