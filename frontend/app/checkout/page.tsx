@@ -109,7 +109,7 @@ function CheckoutContent() {
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [duration, setDuration] = useState(1);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
-
+  const [installmentError, setInstallmentError] = useState("");
   // Promo Kod States
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
@@ -355,12 +355,14 @@ function CheckoutContent() {
       : finalTotal;
 
   // --- TAKSİT SORGULAMA EFFECT (PARAM POS GERÇEK ZAMANLI) ---
+  // --- TAKSİT SORGULAMA EFFECT (PARAM POS GERÇEK ZAMANLI) ---
   useEffect(() => {
     const fetchInstallments = async () => {
       const cleanCard = cardData.cardNumber.replace(/\s/g, "");
       if (cleanCard.length >= 6) {
         const bin = cleanCard.substring(0, 6);
         setIsFetchingInstallments(true);
+        setInstallmentError(""); // Aramaya başlarken hatayı temizle
         try {
           const res = await fetch(
             "https://candostumbox-api.onrender.com/payment/installments",
@@ -371,9 +373,8 @@ function CheckoutContent() {
             },
           );
           const data = await res.json();
-          if (data.status === "success" && data.data) {
+          if (data.status === "success" && data.data && data.data.length > 0) {
             setInstallmentOptions(data.data);
-            // Seçili olanı güncelle veya varsayılan (Tek Çekim vb.) seç
             if (data.data.length > 0) {
               const stillExists = selectedInstallmentObj
                 ? data.data.find(
@@ -383,24 +384,28 @@ function CheckoutContent() {
               setSelectedInstallmentObj(stillExists || data.data[0]);
             }
           } else {
+            // ❌ PARAM POS HATA DÖNDÜ (Tabloyu gizle ve hatayı göster)
             setInstallmentOptions([]);
             setSelectedInstallmentObj(null);
+            setInstallmentError(
+              data.message || "Bu karta ait taksit seçeneği bulunamadı.",
+            );
           }
         } catch (error) {
           console.error("Taksit bilgileri alınamadı:", error);
           setInstallmentOptions([]);
           setSelectedInstallmentObj(null);
+          setInstallmentError("Sunucuya bağlanılamadı.");
         } finally {
           setIsFetchingInstallments(false);
         }
       } else {
-        // 6 haneden az ise tabloyu sıfırla
         setInstallmentOptions([]);
         setSelectedInstallmentObj(null);
+        setInstallmentError(""); // 6 haneden az ise hatayı gizle
       }
     };
 
-    // Kullanıcı yazmayı bitirdikten kısa süre sonra sorgu atsın (Debounce mantığı)
     const timeoutId = setTimeout(() => {
       fetchInstallments();
     }, 500);
@@ -1252,6 +1257,11 @@ function CheckoutContent() {
                           <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                           Bankanızın taksit oranları ParamPOS üzerinden
                           sorgulanıyor...
+                        </div>
+                      ) : installmentError ? ( // 👈 EKLENEN KISIM BURASI
+                        <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl flex gap-3 items-center border border-red-100 shadow-sm font-bold">
+                          <span className="text-xl">⚠️</span>
+                          <p>{installmentError}</p>
                         </div>
                       ) : installmentOptions.length > 0 ? (
                         <div className="space-y-2">
