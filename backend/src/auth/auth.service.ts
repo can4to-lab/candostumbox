@@ -15,15 +15,13 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-  // 1. MÜŞTERİ KAYDI
+  // 1. MÜŞTERİ KAYDI (Güncellendi: Adres ve Pet zorunluluğu kaldırıldı)
   async signup(data: any) {
     const { 
         email, password, name, 
         firstName: incomingFirstName, 
         lastName: incomingLastName,
-        phone, gender, userBirthDate, tcKimlikNo,
-        petName, petType, petBirthDate, petWeight, petBreed, petNeutered, petAllergies,
-        addrTitle, addrCity, addrDistrict, addrNeighborhood, addrStreet, addrBuilding, addrFloor, addrApartment
+        phone, gender, userBirthDate, tcKimlikNo
     } = data;
 
     // Email kontrolü
@@ -46,46 +44,31 @@ export class AuthService {
       }
     }
 
+    // YENİ YAPI: Sadece kullanıcının temel bilgilerini kaydediyoruz.
+    // Adres ve Pet bilgileri sipariş aşamasında (checkout) eklenecek.
     const newUser = this.userRepository.create({
         email,
         password: hashedPassword,
         firstName: firstName || "İsimsiz", 
         lastName: lastName || "",
-        phone,
+        phone: phone || "",
         gender,
         userBirthDate: userBirthDate ? new Date(userBirthDate) : undefined,
         tcKimlikNo: tcKimlikNo,
-        
-        pets: [{
-            name: petName,
-            type: petType,
-            birthDate: petBirthDate ? new Date(petBirthDate) : new Date(),
-            weight: petWeight ? String(petWeight) : "0",
-            breed: petBreed,
-            isNeutered: petNeutered === 'true' || petNeutered === true,
-            allergies: petAllergies ? (typeof petAllergies === 'string' ? petAllergies.split(',') : petAllergies) : [],
-        }],
-        addresses: [{
-            title: addrTitle || "Ev",
-            city: addrCity,
-            district: addrDistrict,
-            neighborhood: addrNeighborhood,
-            street: addrStreet,
-            buildingNo: addrBuilding,
-            floor: addrFloor,
-            apartmentNo: addrApartment,
-            fullAddress: `${addrNeighborhood} Mah. ${addrStreet} Sok. No:${addrBuilding} D:${addrApartment} ${addrDistrict}/${addrCity}`
-        }]
+        // pets ve addresses dizilerini (array) tamamen kaldırdık. TypeORM bunları otomatik boş liste olarak tanımlar.
     });
 
     try {
         const savedUser = await this.userRepository.save(newUser);
+        
+        // Mail gönderimi asenkron devam eder, sistemi durdurmaz.
         try {
              await this.mailService.sendWelcomeEmail(savedUser.email, savedUser.firstName);
              console.log("Hoş geldin maili gönderildi: ", savedUser.email);
         } catch (mailError) {
              console.error("Mail gönderim hatası:", mailError);
         }
+        
         const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
         
         return {
@@ -128,7 +111,6 @@ export class AuthService {
        throw new UnauthorizedException('Giriş bilgileri hatalı.');
     }
 
-    // 👇 DÜZELTİLEN KISIM: Düz string yerine Enum (UserRole.ADMIN) kullanıyoruz
     if (user.role !== UserRole.ADMIN) {
       throw new UnauthorizedException('Bu panele giriş yetkiniz bulunmamaktadır.');
     }
@@ -145,7 +127,6 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      // 👇 BURAYA 'orders.items.pet' İLİŞKİSİ EKLENDİ
       relations: [
           'pets', 
           'addresses', 
