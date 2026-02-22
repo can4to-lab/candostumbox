@@ -239,7 +239,7 @@ function CheckoutContent() {
   const fetchProfile = async (token: string) => {
     try {
       const res = await fetch(
-        "https://candostumbox-api.onrender.com/users/profile",
+        "https://candostumbox-api.onrender.com/auth/profile",
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (res.ok) {
