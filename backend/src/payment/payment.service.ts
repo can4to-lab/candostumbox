@@ -225,7 +225,7 @@ export class PaymentService {
       </soap:Envelope>`;
 
     try {
-      const binRes = await axios.post('https://api.turkpos.com.tr/api/xml_api.asmx', binXml, {
+      const binRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', binXml, {
         headers: { 'Content-Type': 'text/xml; charset=utf-8' }
       });
       
@@ -253,7 +253,7 @@ export class PaymentService {
           </soap:Body>
         </soap:Envelope>`;
 
-      const ratesRes = await axios.post('https://api.turkpos.com.tr/api/xml_api.asmx', ratesXml, {
+      const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 'Content-Type': 'text/xml; charset=utf-8' }
       });
 
