@@ -22,7 +22,8 @@ export class PaymentService {
 
   async startPayment(data: any) {
     console.log("--- ÖDEME SERVİSİ BAŞLADI (SESSION MANTIĞI) ---");
-    const { price, basketId, ip, card, items, user, address } = data;
+    // 👇 installment (taksit) parametresini de alıyoruz
+    const { price, basketId, ip, card, items, user, address, installment } = data;
 
     // 👇 ID KONTROLÜ
     let userIdToSave = user?.id || null;
@@ -57,7 +58,7 @@ export class PaymentService {
     // 3. VERİ HAZIRLIĞI
     const totalAmount = Number(price).toFixed(2).replace('.', ','); 
     const orderId = session.id; // 👈 DİKKAT: ParamPOS'a geçici session ID'mizi yolluyoruz!
-    const installment = "1"; 
+    const paramInstallment = installment || "1"; // Frontend'den gelmezse Tek Çekim (1) say
     const SANAL_POS_ID = CLIENT_CODE; 
     
     // Dönüş URL'leri
@@ -70,7 +71,7 @@ export class PaymentService {
         CLIENT_CODE + 
         GUID + 
         SANAL_POS_ID + 
-        installment + 
+        paramInstallment + // 👈 BURASI GÜNCELLENDİ (Taksit)
         totalAmount + 
         totalAmount + 
         orderId + 
@@ -105,7 +106,7 @@ export class PaymentService {
           <Basarili_URL>${successUrl}</Basarili_URL>
           <Siparis_ID>${orderId}</Siparis_ID>
           <Siparis_Aciklama>Can Dostum Box</Siparis_Aciklama>
-          <Taksit>${installment}</Taksit>
+          <Taksit>${paramInstallment}</Taksit>
           <Islem_Tutar>${totalAmount}</Islem_Tutar>
           <Toplam_Tutar>${totalAmount}</Toplam_Tutar>
           <Islem_Hash>${B64_HASH}</Islem_Hash>
@@ -201,6 +202,100 @@ export class PaymentService {
         await this.sessionRepo.remove(session);
         
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
+    }
+  }
+
+  // PARAM POS GERÇEK ZAMANLI TAKSİT VE KOMİSYON SORGULAMA
+  async getInstallments(bin: string, amount: number) {
+    const amountNum = Number(amount);
+    
+    // 1. ADIM: BIN Kodundan Kartın Hangi Bankaya ve Sanal POS'a ait olduğunu bul
+    const binXml = `<?xml version="1.0" encoding="utf-8"?>
+      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body>
+          <BIN_SanalPos xmlns="https://turkpos.com.tr/">
+            <G>
+              <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
+              <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
+              <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
+            </G>
+            <BIN>${bin}</BIN>
+          </BIN_SanalPos>
+        </soap:Body>
+      </soap:Envelope>`;
+
+    try {
+      const binRes = await axios.post('https://test-api.turkpos.com.tr/api/xml_api.asmx', binXml, {
+        headers: { 'Content-Type': 'text/xml; charset=utf-8' }
+      });
+      
+      const binResultRaw = await parseStringPromise(binRes.data, { explicitArray: false });
+      const binResult = binResultRaw['soap:Envelope']['soap:Body']['BIN_SanalPosResponse']['BIN_SanalPosResult'];
+      
+      if (binResult.Sonuc < 0) {
+        return { status: 'error', message: 'Geçersiz kart numarası veya desteklenmeyen kart.' };
+      }
+
+      const sanalPosId = binResult.SanalPOS_ID;
+
+      // 2. ADIM: Bulunan Sanal POS ID'sine göre güncel oranları (komisyonları) çek
+      const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
+        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <TP_Ozel_Oran_SK_Liste xmlns="https://turkpos.com.tr/">
+              <G>
+                <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
+                <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
+                <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
+              </G>
+              <GUID>${process.env.PARAM_GUID}</GUID>
+            </TP_Ozel_Oran_SK_Liste>
+          </soap:Body>
+        </soap:Envelope>`;
+
+      const ratesRes = await axios.post('https://test-api.turkpos.com.tr/api/xml_api.asmx', ratesXml, {
+        headers: { 'Content-Type': 'text/xml; charset=utf-8' }
+      });
+
+      const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
+      const diffgram = ratesResultRaw['soap:Envelope']['soap:Body']['TP_Ozel_Oran_SK_ListeResponse']['TP_Ozel_Oran_SK_ListeResult']['diffgr:diffgram'];
+      
+      if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste) {
+         return { status: 'error', message: 'Taksit oranları alınamadı.' };
+      }
+
+      let oransList = diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste;
+      if (!Array.isArray(oransList)) oransList = [oransList]; // Tek sonuç gelirse diziye çevir
+
+      // Bize lazım olan oranları filtrele (Sadece bulunduğumuz SanalPOS_ID'ye ait olanlar)
+      const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
+
+      const installments = filteredRates.map((item: any) => {
+        const month = Number(item.MO_01 || 1); // Param'da taksit sayısı genelde MO_01, MO_02 gibi döner, basitleştirmek için ay olarak alıyoruz
+        const commissionRate = Number(item.Oran || 0);
+        
+        // Komisyon tutarı ve müşteriye yansıyacak son tutar
+        const commissionAmount = amountNum * (commissionRate / 100);
+        const finalTotal = amountNum + commissionAmount;
+        const monthlyPayment = finalTotal / month;
+
+        return {
+          month: month,
+          commissionRate: commissionRate,
+          commissionAmount: commissionAmount,
+          totalAmount: finalTotal,
+          monthlyPayment: monthlyPayment
+        };
+      });
+
+      // Taksit sayısına göre sırala (Tek çekim, 2, 3...)
+      installments.sort((a, b) => a.month - b.month);
+
+      return { status: 'success', data: installments };
+
+    } catch (error) {
+      console.error("ParamPOS API Hatası:", error);
+      return { status: 'error', message: 'Taksit bilgileri sunucudan alınamadı.' };
     }
   }
 }

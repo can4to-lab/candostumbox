@@ -80,11 +80,10 @@ export class OrdersService {
         let itemTotal = 0;
         const basePrice = Number(product.price);
 
-        if (paymentType === 'upfront') {
-            const calculation = await this.discountsService.calculatePrice(basePrice, itemDuration);
-            itemTotal = calculation.finalPrice * quantity;
+        if (itemDto.price) {
+            itemTotal = Number(itemDto.price);
         } else {
-            itemTotal = basePrice * quantity; 
+            itemTotal = basePrice * quantity;
         }
 
         const unitPricePaid = itemTotal / quantity;
@@ -178,6 +177,7 @@ export class OrdersService {
       }
 
       // --- SİPARİŞİ KAYDET ---
+
       const order = new Order();
       
       if (userEntity) {
@@ -187,7 +187,16 @@ export class OrdersService {
       order.shippingAddressSnapshot = addressSnapshot; 
       order.totalPrice = totalPrice;
       order.items = orderItems;
-      order.paymentId = 'MOCK_' + Date.now(); 
+      
+      // 👇 Ödeme Tipi Kaydı
+      if (paymentType === 'bank_transfer') {
+          order.paymentId = 'HAVALE_EFT';
+      } else if (paymentType === 'cash_on_delivery') {
+          order.paymentId = 'KAPIDA_ODEME';
+      } else {
+          order.paymentId = 'MOCK_' + Date.now(); 
+      }
+      
       order.status = OrderStatus.PENDING; 
 
       const savedOrder = await queryRunner.manager.save(Order, order);

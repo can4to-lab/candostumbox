@@ -79,6 +79,13 @@ interface UserProfile {
   email: string;
   phone: string;
 }
+interface InstallmentOption {
+  month: number;
+  commissionRate: number;
+  commissionAmount: number;
+  totalAmount: number;
+  monthlyPayment: number;
+}
 
 // --- SABİTLER ---
 const OTHER_ICONS: Record<string, string> = {
@@ -143,6 +150,12 @@ function CheckoutContent() {
 
   const getGuestOtherIcon = () => OTHER_ICONS[guestPetData.type] || "🦜";
 
+  // --- YENİ: Ödeme Yöntemi ve Taksit ---
+  const [paymentMethod, setPaymentMethod] = useState<
+    "credit_card" | "bank_transfer" | "cash_on_delivery"
+  >("credit_card");
+  const COD_FEE = 49.9; // Kapıda ödeme hizmet bedeli
+
   // Kart Bilgileri
   const [cardData, setCardData] = useState({
     holderName: "",
@@ -151,6 +164,14 @@ function CheckoutContent() {
     expYear: "",
     cvc: "",
   });
+
+  // Taksit Seçenekleri (ParamPOS API'den gelecek)
+  const [installmentOptions, setInstallmentOptions] = useState<
+    InstallmentOption[]
+  >([]);
+  const [isFetchingInstallments, setIsFetchingInstallments] = useState(false);
+  const [selectedInstallmentObj, setSelectedInstallmentObj] =
+    useState<InstallmentOption | null>(null);
 
   // Ödeme & Sözleşme
   const [agreementsAccepted, setAgreementsAccepted] = useState(false);
@@ -304,7 +325,10 @@ function CheckoutContent() {
       }
     }
 
-    const finalTotal = subtotalAfterPlan - promoDiscountAmount;
+    const finalTotal =
+      subtotalAfterPlan -
+      promoDiscountAmount +
+      (paymentMethod === "cash_on_delivery" ? COD_FEE : 0);
 
     return {
       rawTotal: totalRaw,
@@ -323,6 +347,67 @@ function CheckoutContent() {
     promoDiscountAmount,
     finalTotal,
   } = calculateTotal();
+
+  // Dinamik Olarak Sağ Taraf ve Öde Butonu İçin Gösterilecek Toplam (Taksit Vade Farkı Dahil)
+  const displayTotal =
+    paymentMethod === "credit_card" && selectedInstallmentObj
+      ? selectedInstallmentObj.totalAmount
+      : finalTotal;
+
+  // --- TAKSİT SORGULAMA EFFECT (PARAM POS GERÇEK ZAMANLI) ---
+  useEffect(() => {
+    const fetchInstallments = async () => {
+      const cleanCard = cardData.cardNumber.replace(/\s/g, "");
+      if (cleanCard.length >= 6) {
+        const bin = cleanCard.substring(0, 6);
+        setIsFetchingInstallments(true);
+        try {
+          const res = await fetch(
+            "https://candostumbox-api.onrender.com/payment/installments",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ bin, amount: finalTotal }),
+            },
+          );
+          const data = await res.json();
+          if (data.status === "success" && data.data) {
+            setInstallmentOptions(data.data);
+            // Seçili olanı güncelle veya varsayılan (Tek Çekim vb.) seç
+            if (data.data.length > 0) {
+              const stillExists = selectedInstallmentObj
+                ? data.data.find(
+                    (o: any) => o.month === selectedInstallmentObj.month,
+                  )
+                : null;
+              setSelectedInstallmentObj(stillExists || data.data[0]);
+            }
+          } else {
+            setInstallmentOptions([]);
+            setSelectedInstallmentObj(null);
+          }
+        } catch (error) {
+          console.error("Taksit bilgileri alınamadı:", error);
+          setInstallmentOptions([]);
+          setSelectedInstallmentObj(null);
+        } finally {
+          setIsFetchingInstallments(false);
+        }
+      } else {
+        // 6 haneden az ise tabloyu sıfırla
+        setInstallmentOptions([]);
+        setSelectedInstallmentObj(null);
+      }
+    };
+
+    // Kullanıcı yazmayı bitirdikten kısa süre sonra sorgu atsın (Debounce mantığı)
+    const timeoutId = setTimeout(() => {
+      fetchInstallments();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardData.cardNumber.replace(/\s/g, "").substring(0, 6), finalTotal]);
 
   // --- PROMO KOD UYGULAMA ---
   const handleApplyPromo = async () => {
@@ -356,14 +441,15 @@ function CheckoutContent() {
   };
 
   // --- ÖDEME BAŞLATMA ---
+  // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
+    // ... Sözleşme kontrolleri (Aynı kalacak)
     if (!agreementsAccepted) {
       toast.error("Lütfen sözleşmeyi onaylayın.");
       return;
     }
     const token = localStorage.getItem("token");
 
-    // Güvenlik: Ödeme anında da kontrol edelim.
     if (duration > 1 && !token) {
       toast.error(
         "3, 6, 9 veya 12 aylık avantajlı paketleri satın alabilmek için lütfen ücretsiz kayıt olun veya giriş yapın.",
@@ -378,6 +464,7 @@ function CheckoutContent() {
     let finalUserData = null;
 
     if (token) {
+      // Token çözme kısmı aynı kalacak...
       try {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -414,6 +501,7 @@ function CheckoutContent() {
       };
     }
 
+    // 1. DÜZELTME: Adres datasını netleştirdik
     let finalAddressData =
       finalUserId && selectedAddressId
         ? { id: selectedAddressId }
@@ -421,34 +509,80 @@ function CheckoutContent() {
             fullAddress: guestData.fullAddress,
             city: guestData.city,
             district: guestData.district,
+            title: "Ev Adresim", // Misafirler için varsayılan bir başlık ekledik
           };
 
+    // 2. DÜZELTME: Fiyatı item bazında doğru şekilde gönderiyoruz
+    const baseOrderItems = [
+      {
+        productId: product.id,
+        productName: product.name,
+        price: displayTotal, // 👈 KRİTİK: Komisyon veya kapıda ödeme eklenmiş 'Nihai Toplam' Fiyatı gönderiyoruz!
+        quantity: 1,
+        duration: duration,
+        petId: !isGuest ? selectedPetId : undefined,
+        petName: isGuest
+          ? guestPetData.name
+          : myPets.find((p) => p.id === selectedPetId)?.name,
+        petBreed: isGuest ? guestPetData.breed : undefined,
+        petType: isGuest ? guestPetData.type : undefined,
+        petBirthDate: isGuest ? guestPetData.birthDate : undefined,
+        petWeight: isGuest ? guestPetData.weight : undefined,
+        petIsNeutered: isGuest ? guestPetData.isNeutered === "true" : undefined,
+        petAllergies: isGuest ? guestPetData.allergies : undefined,
+        upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
+        subscriptionId: extendSubId || undefined,
+      },
+    ];
+
+    // 👇 EĞER HAVALE VEYA KAPIDA ÖDEME İSE
+    if (paymentMethod !== "credit_card") {
+      const directOrderPayload = {
+        addressId:
+          finalUserId && selectedAddressId ? selectedAddressId : undefined,
+        paymentType: paymentMethod,
+        isGuest: !finalUserId,
+        guestInfo: !finalUserId ? guestData : undefined,
+        items: baseOrderItems,
+      };
+
+      try {
+        const res = await fetch(
+          "https://candostumbox-api.onrender.com/orders",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify(directOrderPayload),
+          },
+        );
+        const data = await res.json();
+        if (res.ok) {
+          toast.success("Siparişiniz başarıyla alındı! 🎉");
+          router.push(
+            `/payment/success?orderId=${data.orderId || data.id || "basarili"}`,
+          );
+        } else {
+          toast.error("Hata: " + (data.message || "Sipariş oluşturulamadı."));
+        }
+      } catch (error) {
+        toast.error("Sunucu hatası.");
+      } finally {
+        setIsPaymentLoading(false);
+      }
+      return;
+    }
+
+    // 👇 EĞER KREDİ KARTI İSE
     const payload = {
-      price: finalTotal,
+      price: displayTotal,
+      installment: selectedInstallmentObj
+        ? String(selectedInstallmentObj.month)
+        : "1",
       promoCode: appliedPromo?.code || undefined,
-      items: [
-        {
-          productId: product.id,
-          productName: product.name,
-          price: finalTotal,
-          quantity: 1,
-          duration: duration,
-          petId: !isGuest ? selectedPetId : undefined,
-          petName: isGuest
-            ? guestPetData.name
-            : myPets.find((p) => p.id === selectedPetId)?.name,
-          petBreed: isGuest ? guestPetData.breed : undefined,
-          petType: isGuest ? guestPetData.type : undefined,
-          petBirthDate: isGuest ? guestPetData.birthDate : undefined,
-          petWeight: isGuest ? guestPetData.weight : undefined,
-          petIsNeutered: isGuest
-            ? guestPetData.isNeutered === "true"
-            : undefined,
-          petAllergies: isGuest ? guestPetData.allergies : undefined,
-          upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
-          subscriptionId: extendSubId || undefined,
-        },
-      ],
+      items: baseOrderItems,
       user: finalUserData,
       address: finalAddressData,
       card: {
@@ -1007,78 +1141,243 @@ function CheckoutContent() {
                     <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-10 flex items-center justify-center"></div>
                   )}
 
-                  <div className="space-y-4 relative z-0">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="font-bold text-gray-700 text-sm flex items-center gap-2">
-                        <CreditCardIcon /> Kart Bilgileri
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Kart Sahibi"
-                      value={cardData.holderName}
-                      onChange={(e) =>
-                        setCardData({ ...cardData, holderName: e.target.value })
-                      }
-                      className={inputClass}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Kart Numarası"
-                      value={cardData.cardNumber}
-                      onChange={handleCardNumberChange}
-                      maxLength={19}
-                      className={inputClass}
-                    />
+                  {/* ÖDEME SEKMELELRİ */}
+                  <div className="flex border-b border-gray-200 mb-6 bg-white rounded-xl shadow-sm p-1">
+                    <button
+                      onClick={() => setPaymentMethod("credit_card")}
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${paymentMethod === "credit_card" ? "bg-green-500 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                    >
+                      💳 Kredi Kartı
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("bank_transfer")}
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${paymentMethod === "bank_transfer" ? "bg-green-500 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                    >
+                      🏦 Havale/EFT
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("cash_on_delivery")}
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${paymentMethod === "cash_on_delivery" ? "bg-green-500 text-white shadow-md" : "text-gray-500 hover:bg-gray-100"}`}
+                    >
+                      📦 Kapıda Ödeme
+                    </button>
+                  </div>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <select
-                        value={cardData.expMonth}
-                        onChange={(e) =>
-                          setCardData({ ...cardData, expMonth: e.target.value })
-                        }
-                        className={inputClass}
-                      >
-                        <option value="">Ay</option>
-                        {Array.from({ length: 12 }, (_, i) =>
-                          String(i + 1).padStart(2, "0"),
-                        ).map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={cardData.expYear}
-                        onChange={(e) =>
-                          setCardData({ ...cardData, expYear: e.target.value })
-                        }
-                        className={inputClass}
-                      >
-                        <option value="">Yıl</option>
-                        {Array.from({ length: 15 }, (_, i) =>
-                          String(new Date().getFullYear() + i).slice(-2),
-                        ).map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
+                  {/* TAB 1: KREDİ KARTI FORMU */}
+                  {paymentMethod === "credit_card" && (
+                    <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200 relative z-0">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="font-bold text-gray-700 text-sm flex items-center gap-2">
+                          <CreditCardIcon /> Kart Bilgileri
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        placeholder="CVC"
-                        maxLength={3}
-                        value={cardData.cvc}
+                        placeholder="Kart Sahibi"
+                        value={cardData.holderName}
                         onChange={(e) =>
                           setCardData({
                             ...cardData,
-                            cvc: e.target.value.replace(/\D/g, ""),
+                            holderName: e.target.value,
                           })
                         }
                         className={inputClass}
                       />
+                      <input
+                        type="text"
+                        placeholder="Kart Numarası"
+                        value={cardData.cardNumber}
+                        onChange={handleCardNumberChange}
+                        maxLength={19}
+                        className={inputClass}
+                      />
+
+                      <div className="grid grid-cols-3 gap-2 mb-6">
+                        <select
+                          value={cardData.expMonth}
+                          onChange={(e) =>
+                            setCardData({
+                              ...cardData,
+                              expMonth: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">Ay</option>
+                          {Array.from({ length: 12 }, (_, i) =>
+                            String(i + 1).padStart(2, "0"),
+                          ).map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={cardData.expYear}
+                          onChange={(e) =>
+                            setCardData({
+                              ...cardData,
+                              expYear: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                        >
+                          <option value="">Yıl</option>
+                          {Array.from({ length: 15 }, (_, i) =>
+                            String(new Date().getFullYear() + i).slice(-2),
+                          ).map((y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="CVC"
+                          maxLength={3}
+                          value={cardData.cvc}
+                          onChange={(e) =>
+                            setCardData({
+                              ...cardData,
+                              cvc: e.target.value.replace(/\D/g, ""),
+                            })
+                          }
+                          className={inputClass}
+                        />
+                      </div>
+
+                      {/* TAKSİT TABLOSU (Gerçek API Verisi) */}
+                      {isFetchingInstallments ? (
+                        <div className="text-center text-sm text-gray-500 py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 animate-pulse">
+                          <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                          Bankanızın taksit oranları ParamPOS üzerinden
+                          sorgulanıyor...
+                        </div>
+                      ) : installmentOptions.length > 0 ? (
+                        <div className="space-y-2">
+                          {installmentOptions.map((opt) => (
+                            <label
+                              key={opt.month}
+                              className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
+                                ${selectedInstallmentObj?.month === opt.month ? "border-green-500 bg-green-50 ring-2 ring-green-500 ring-opacity-20" : "border-gray-200 hover:border-green-300 bg-white"}
+                              `}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div
+                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedInstallmentObj?.month === opt.month ? "border-green-500 bg-white" : "border-gray-300"}`}
+                                >
+                                  {selectedInstallmentObj?.month ===
+                                    opt.month && (
+                                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="font-black text-gray-900 text-base">
+                                    {opt.month === 1
+                                      ? "Tek Çekim"
+                                      : `${opt.month} Taksit`}
+                                  </span>
+                                  {opt.commissionRate > 0 ? (
+                                    <div className="text-[11px] text-gray-500 mt-0.5 font-medium">
+                                      Banka Komisyonu:{" "}
+                                      <span className="text-red-500 font-bold">
+                                        +₺{opt.commissionAmount.toFixed(2)}
+                                      </span>{" "}
+                                      (%{opt.commissionRate})
+                                    </div>
+                                  ) : (
+                                    <div className="text-[11px] text-green-600 mt-0.5 font-bold">
+                                      Komisyonsuz
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-black text-gray-900 text-lg">
+                                  ₺{opt.monthlyPayment.toFixed(2)}{" "}
+                                  <span className="text-xs font-normal text-gray-500">
+                                    /ay
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 font-medium">
+                                  Toplam: ₺{opt.totalAmount.toFixed(2)}
+                                </div>
+                              </div>
+                              <input
+                                type="radio"
+                                name="installment"
+                                className="hidden"
+                                checked={
+                                  selectedInstallmentObj?.month === opt.month
+                                }
+                                onChange={() => setSelectedInstallmentObj(opt)}
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-blue-50 text-blue-800 text-sm p-4 rounded-xl flex gap-3 items-start border border-blue-100 shadow-sm">
+                          <span className="text-xl">ℹ️</span>
+                          <p>
+                            Taksit seçeneklerini ve vade farklarını görmek için
+                            lütfen geçerli bir kredi kartı numarasının ilk 6
+                            hanesini giriniz.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
+
+                  {/* TAB 2: HAVALE / EFT BİLGİLERİ */}
+                  {paymentMethod === "bank_transfer" && (
+                    <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                      <h4 className="font-bold text-blue-900 flex items-center gap-2">
+                        🏦 Banka Hesap Bilgilerimiz
+                      </h4>
+                      <p className="text-sm text-blue-800">
+                        Siparişi tamamladıktan sonra tutarı aşağıdaki hesaba
+                        göndermeniz gerekmektedir.{" "}
+                        <span className="font-bold">
+                          Açıklama kısmına kayıtlı telefon numaranızı yazmayı
+                          unutmayın.
+                        </span>
+                      </p>
+                      <div className="bg-white p-4 rounded-lg border border-blue-100 font-mono text-sm mt-2 shadow-sm">
+                        <p className="mb-2">
+                          <strong className="text-gray-900 font-sans">
+                            Banka:
+                          </strong>{" "}
+                          [TODO: Banka Adı Eklenecek]
+                        </p>
+                        <p className="mb-2">
+                          <strong className="text-gray-900 font-sans">
+                            Alıcı:
+                          </strong>{" "}
+                          [TODO: Firma Adı Eklenecek]
+                        </p>
+                        <p className="bg-gray-50 p-2 rounded border border-gray-200 tracking-wider font-bold">
+                          TR00 0000 0000 0000 0000 0000 00
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: KAPIDA ÖDEME BİLGİLERİ */}
+                  {paymentMethod === "cash_on_delivery" && (
+                    <div className="p-5 bg-orange-50 border border-orange-100 rounded-xl space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                      <h4 className="font-bold text-orange-900 flex items-center gap-2">
+                        📦 Kapıda Ödeme
+                      </h4>
+                      <p className="text-sm text-orange-800">
+                        Siparişinizi teslim alırken kargo görevlisine nakit veya
+                        kredi kartı ile ödeme yapabilirsiniz.
+                      </p>
+                      <div className="bg-white p-3 rounded-lg border border-orange-100 text-sm mt-2 font-bold text-orange-700 flex justify-between items-center shadow-sm">
+                        <span>Kapıda Ödeme Hizmet Bedeli:</span>
+                        <span className="text-lg">+ ₺{COD_FEE.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="pt-4 border-t border-gray-200 relative z-0">
                     <label className="flex items-center justify-center gap-2 cursor-pointer mb-6 select-none">
@@ -1114,7 +1413,7 @@ function CheckoutContent() {
                           İşlem Yapılıyor...
                         </>
                       ) : (
-                        `Ödemeyi Tamamla ₺${finalTotal.toFixed(2)}`
+                        `Ödemeyi Tamamla ₺${displayTotal.toFixed(2)}`
                       )}
                     </button>
                   </div>
@@ -1158,7 +1457,7 @@ function CheckoutContent() {
                     <input
                       type="text"
                       placeholder="Kodu girin..."
-                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 uppercase font-bold text-gray-900" // 👈 text-gray-900 eklendi
+                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 uppercase font-bold text-gray-900"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
                       disabled={appliedPromo}
@@ -1204,6 +1503,24 @@ function CheckoutContent() {
                       <span>-₺{promoDiscountAmount.toFixed(2)}</span>
                     </div>
                   )}
+                  {paymentMethod === "cash_on_delivery" && (
+                    <div className="flex justify-between text-sm text-orange-600 font-bold bg-orange-50 p-2 rounded-lg">
+                      <span>Kapıda Ödeme Bedeli</span>
+                      <span>+₺{COD_FEE.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {paymentMethod === "credit_card" &&
+                    (selectedInstallmentObj?.commissionAmount || 0) > 0 && (
+                      <div className="flex justify-between text-sm text-red-600 font-bold bg-red-50 p-2 rounded-lg">
+                        <span>
+                          Vade Farkı ({selectedInstallmentObj?.month} Taksit)
+                        </span>
+                        <span>
+                          +₺
+                          {selectedInstallmentObj?.commissionAmount?.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                   <div className="flex justify-between text-sm text-gray-500">
                     <span>Kargo</span>
                     <span className="font-bold text-green-600">Bedava</span>
@@ -1216,7 +1533,7 @@ function CheckoutContent() {
                       Toplam
                     </span>
                     <span className="text-3xl font-black text-gray-900 tracking-tighter">
-                      ₺{finalTotal.toFixed(2)}
+                      ₺{displayTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>

@@ -53,4 +53,12 @@ export class PaymentController {
 
     return res.status(200).send(htmlTemplate);
   }
+  // Taksit Sorgulama Ucu (Frontend buradan istek atacak)
+  @Post('installments')
+  async getInstallments(@Body() body: { bin: string; amount: number }) {
+    if (!body.bin || body.bin.length < 6) {
+      return { status: 'error', message: 'Geçersiz BIN kodu' };
+    }
+    return this.paymentService.getInstallments(body.bin, body.amount);
+  }
 }
