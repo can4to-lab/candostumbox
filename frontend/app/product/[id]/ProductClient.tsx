@@ -341,10 +341,33 @@ function ProductDetailContent() {
             <div className="mt-auto">
               <button
                 onClick={handleStart}
-                className="w-full py-5 bg-gray-900 text-white rounded-2xl font-bold text-lg shadow-xl shadow-gray-200 hover:bg-black hover:scale-[1.01] hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3"
+                className={`
+    group relative overflow-hidden w-full py-5 rounded-2xl font-black text-lg transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-3
+    bg-gray-900 text-white hover:bg-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:scale-[1.01]
+  `}
               >
-                <span>{isUpgradeMode ? "Paketi Yükselt" : "Hemen Başla"}</span>
-                <span>➔</span>
+                {/* Parlama Efekti */}
+                <div className="absolute inset-0 w-1/2 h-full bg-white/10 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+
+                <span className="relative z-10 uppercase tracking-widest">
+                  {isUpgradeMode ? "PAKETİ YÜKSELT 🚀" : "ŞİMDİ SATIN AL 🐾"}
+                </span>
+
+                <span className="relative z-10 text-xl group-hover:translate-x-2 transition-transform duration-300">
+                  ➔
+                </span>
+
+                {/* Shimmer Animasyonu */}
+                <style jsx>{`
+                  @keyframes shimmer {
+                    100% {
+                      transform: translateX(250%);
+                    }
+                  }
+                  .group-hover\:animate-\[shimmer_1\.5s_infinite\]:hover {
+                    animation: shimmer 1.5s infinite;
+                  }
+                `}</style>
               </button>
 
               <div className="mt-6 grid grid-cols-3 gap-4 text-center">

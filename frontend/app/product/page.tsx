@@ -320,21 +320,57 @@ function ProductContent() {
                   <button
                     onClick={() => handleSelectPackage(product.id)}
                     disabled={!hasStock}
-                    className={`w-full py-4 rounded-xl font-bold text-base transition-all active:scale-95
-                        ${
-                          !hasStock
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            : isPopular
-                              ? "bg-[#10b981] text-white hover:bg-[#059669] shadow-md" // Popüler paket butonu (Yeşil)
-                              : "bg-[#111827] text-white hover:bg-black" // Diğerleri (Koyu Gri)
-                        }
-                    `}
+                    className={`
+    group relative overflow-hidden w-full py-4 rounded-xl font-black uppercase tracking-wider transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2
+    ${
+      !hasStock
+        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+        : isPopular
+          ? "bg-[#10b981] text-white hover:bg-[#059669] hover:shadow-[0_15px_35px_rgba(16,185,129,0.4)]"
+          : "bg-[#111827] text-white hover:bg-black hover:shadow-[0_15px_35px_rgba(0,0,0,0.3)]"
+    }
+  `}
                   >
-                    {!hasStock
-                      ? "Stok Dışı"
-                      : isUpgradeMode
-                        ? "Paketi Yükselt"
-                        : "Hemen Başla"}
+                    {/* Stok varsa Parlama Efekti Aktif Olur */}
+                    {hasStock && (
+                      <div className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+                    )}
+
+                    <span className="relative z-10">
+                      {!hasStock
+                        ? "Stok Dışı"
+                        : isUpgradeMode
+                          ? "Paketi Yükselt 🚀"
+                          : "İNCELE & SATIN AL 🐾"}
+                    </span>
+
+                    {hasStock && (
+                      <svg
+                        className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+                    )}
+
+                    {/* Shimmer Animasyonu için Style */}
+                    <style jsx>{`
+                      @keyframes shimmer {
+                        100% {
+                          transform: translateX(250%);
+                        }
+                      }
+                      .group-hover\:animate-\[shimmer_1s_infinite\]:hover {
+                        animation: shimmer 1.5s infinite;
+                      }
+                    `}</style>
                   </button>
                 </div>
               );

@@ -331,9 +331,47 @@ export default function Home() {
                     </div>
                     <button
                       onClick={() => router.push(`/product/${product.id}`)}
-                      className={`w-full py-3 rounded-xl font-bold transition-all ${isPopular ? "bg-green-600 text-white hover:bg-green-700 shadow-green-200 shadow-lg" : "bg-gray-900 text-white hover:bg-black"}`}
+                      className={`
+    group relative overflow-hidden w-full py-4 rounded-2xl font-black uppercase tracking-wider transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3
+    ${
+      isPopular
+        ? "bg-green-500 text-white hover:bg-green-600 hover:shadow-[0_20px_50px_rgba(34,197,94,0.4)]"
+        : "bg-gray-900 text-white hover:bg-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)]"
+    }
+  `}
                     >
-                      İncele & Başla
+                      {/* Parlama Efekti (Hover olunca üzerinden ışık geçer) */}
+                      <div className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
+
+                      <span className="relative z-10">
+                        İNCELE & SATIN AL 🐾
+                      </span>
+
+                      <svg
+                        className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M14 5l7 7m0 0l-7 7m7-7H3"
+                        />
+                      </svg>
+
+                      {/* Tailwind config'de shimmer animasyonu yoksa eklemek için inline style: */}
+                      <style jsx>{`
+                        @keyframes shimmer {
+                          100% {
+                            transform: translateX(250%);
+                          }
+                        }
+                        .group-hover\:animate-\[shimmer_1s_infinite\]:hover {
+                          animation: shimmer 1.5s infinite;
+                        }
+                      `}</style>
                     </button>
                   </div>
                 );
