@@ -21,9 +21,9 @@ export class MailService {
       this.logger.error(`🚨 [HATA] Hoş geldin maili GÖNDERİLEMEDİ! 🚨`);
       this.logger.error(`   - Hedef Email: ${userEmail}`);
       this.logger.error(`   - Hata Mesajı: ${error.message}`);
-      this.logger.error(`   - Hata Kodu (SMTP): ${error.code || 'Bilinmiyor'}`);
-      this.logger.error(`   - Detaylı Sunucu Yanıtı: ${error.response || 'Yok'}`);
-      // Hata fırlatmıyoruz, sistemin donmasını engelliyoruz!
+      
+      // Hatayı fırlatıyoruz ki Auth servisi 'başarıyla gönderildi' logu basmasın
+      throw error; 
     }
   }
 
@@ -38,15 +38,16 @@ export class MailService {
       });
       this.logger.log(`✅ Sipariş onay maili başarıyla gönderildi -> ${userEmail}`);
     } catch (error: any) {
-      this.logger.error(`🚨 [HATA] Sipariş maili GÖNDERİLEMEDİ! Hata: ${error.message} | Kod: ${error.code}`);
+      this.logger.error(`🚨 [HATA] Sipariş maili GÖNDERİLEMEDİ! Hata: ${error.message}`);
     }
   }
 
   // 3. Yeni Sipariş Bildirimi (Admine)
   async sendAdminOrderNotification(orderId: string, total: number) {
+    const adminEmail = process.env.SMTP_USER || 'destek@candostumbox.com';
     try {
       await this.mailerService.sendMail({
-        to: 'candostumbox@gmail.com', // Kendi mailiniz
+        to: adminEmail, 
         subject: '🔥 YENİ SİPARİŞ GELDİ!',
         html: `<p>Az önce #${orderId} nolu, ₺${total} tutarında yeni bir sipariş aldınız.</p>`,
       });

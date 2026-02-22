@@ -61,15 +61,14 @@ export class AuthService {
    try {
     const savedUser = await this.userRepository.save(newUser);
     
-    // 👇 KRİTİK DEĞİŞİKLİK BURADA: 'await' kullanmıyoruz!
-    // Bu sayede NestJS maili göndermeye başlar ama bitmesini beklemeden alt satıra geçer.
+    // 👇 Mail gönderimi (Beklemesiz ama loglaması düzeltilmiş)
     this.mailService.sendWelcomeEmail(savedUser.email, savedUser.firstName)
         .then(() => {
-            console.log("Hoş geldin maili arka planda başarıyla gönderildi: ", savedUser.email);
+            console.log("✅ Hoş geldin maili arka planda başarıyla gönderildi: ", savedUser.email);
         })
         .catch((mailError) => {
-            // Mail gitmese bile kullanıcı kayıt olduğu için sadece log alıyoruz
-            console.error("Mail gönderim hatası (Kullanıcı kaydı etkilenmedi):", mailError);
+            // mail.service'den fırlatılan hata buraya düşecek
+            console.error("⚠️ Mail gönderim hatası (Kullanıcı kaydı etkilenmedi):", mailError.message);
         });
     
     // Kullanıcıya anında cevap dönüyoruz
