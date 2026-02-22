@@ -58,29 +58,33 @@ export class AuthService {
         // pets ve addresses dizilerini (array) tamamen kaldırdık. TypeORM bunları otomatik boş liste olarak tanımlar.
     });
 
-    try {
-        const savedUser = await this.userRepository.save(newUser);
-        
-        // Mail gönderimi asenkron devam eder, sistemi durdurmaz.
-        try {
-             await this.mailService.sendWelcomeEmail(savedUser.email, savedUser.firstName);
-             console.log("Hoş geldin maili gönderildi: ", savedUser.email);
-        } catch (mailError) {
-             console.error("Mail gönderim hatası:", mailError);
+   try {
+    const savedUser = await this.userRepository.save(newUser);
+    
+    // 👇 KRİTİK DEĞİŞİKLİK BURADA: 'await' kullanmıyoruz!
+    // Bu sayede NestJS maili göndermeye başlar ama bitmesini beklemeden alt satıra geçer.
+    this.mailService.sendWelcomeEmail(savedUser.email, savedUser.firstName)
+        .then(() => {
+            console.log("Hoş geldin maili arka planda başarıyla gönderildi: ", savedUser.email);
+        })
+        .catch((mailError) => {
+            // Mail gitmese bile kullanıcı kayıt olduğu için sadece log alıyoruz
+            console.error("Mail gönderim hatası (Kullanıcı kaydı etkilenmedi):", mailError);
+        });
+    
+    // Kullanıcıya anında cevap dönüyoruz
+    const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
+    
+    return {
+        message: 'Kayıt başarılı',
+        access_token: this.jwtService.sign(payload),
+        user: {
+            id: savedUser.id,
+            name: `${savedUser.firstName} ${savedUser.lastName}`.trim(),
+            email: savedUser.email
         }
-        
-        const payload = { sub: savedUser.id, email: savedUser.email, type: 'customer' };
-        
-        return {
-            message: 'Kayıt başarılı',
-            access_token: this.jwtService.sign(payload),
-            user: {
-                id: savedUser.id,
-                name: `${savedUser.firstName} ${savedUser.lastName}`.trim(),
-                email: savedUser.email
-            }
-        };
-    } catch (error) {
+    };
+} catch (error) {
         console.error("Kayıt Hatası:", error);
         throw new BadRequestException('Kayıt oluşturulurken bir hata oluştu.');
     }
