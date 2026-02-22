@@ -116,6 +116,7 @@ function CheckoutContent() {
     null,
   );
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // 👈 Giriş durumu kontrolü
 
   // Misafir
   const [isGuest, setIsGuest] = useState(true);
@@ -182,11 +183,13 @@ function CheckoutContent() {
         const token = localStorage.getItem("token");
         if (token) {
           setIsGuest(false);
+          setIsLoggedIn(true);
           fetchPets(token);
           fetchAddresses(token);
           fetchProfile(token);
         } else {
           setIsGuest(true);
+          setIsLoggedIn(false);
         }
       } catch (error) {
         console.error(error);
@@ -251,14 +254,10 @@ function CheckoutContent() {
   // --- ÖDEME SONUCUNU DİNLEME (IFRAME'DEN GELEN MESAJ) ---
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Sadece bizim belirlediğimiz mesaj tipini dinle
       if (event.data && event.data.type === "PARAM_PAYMENT_RESULT") {
-        // Modal'ı (Iframe penceresini) kapat
         setIframeToken(null);
-
         if (event.data.status === "success") {
           toast.success("Ödemeniz başarıyla alındı! 🎉");
-          // Başarılı sayfasına yönlendir
           router.push(`/payment/success?orderId=${event.data.orderId}`);
         } else {
           toast.error(
@@ -267,11 +266,7 @@ function CheckoutContent() {
         }
       }
     };
-
-    // Dinleyiciyi pencereye ekle
     window.addEventListener("message", handleMessage);
-
-    // Component ekrandan silinirken dinleyiciyi temizle
     return () => window.removeEventListener("message", handleMessage);
   }, [router]);
 
@@ -367,6 +362,16 @@ function CheckoutContent() {
       return;
     }
     const token = localStorage.getItem("token");
+
+    // Güvenlik: Ödeme anında da kontrol edelim.
+    if (duration > 1 && !token) {
+      toast.error(
+        "3, 6, 9 veya 12 aylık avantajlı paketleri satın alabilmek için lütfen ücretsiz kayıt olun veya giriş yapın.",
+      );
+      setRegisterOpen(true);
+      return;
+    }
+
     setIsPaymentLoading(true);
 
     let finalUserId = null;
@@ -587,20 +592,54 @@ function CheckoutContent() {
                     );
                     const discount = rule ? rule.discountPercentage : 0;
                     const isSelected = duration === m;
+                    const isLocked = m > 1 && !isLoggedIn; // 👈 KİLİT MANTIĞI
+
                     const cost =
                       (Number(product.price) *
                         m *
                         (1 - Number(discount) / 100)) /
                       m;
+
                     return (
                       <div
                         key={m}
-                        onClick={() => setDuration(m)}
-                        className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-md flex items-center justify-between ${isSelected ? "border-green-500 bg-green-50 ring-1 ring-green-500" : "border-gray-200 hover:border-green-300 bg-white"}`}
+                        onClick={() => {
+                          if (isLocked) {
+                            toast.custom(
+                              (t) => (
+                                <div className="bg-white p-4 rounded-xl shadow-lg border-l-4 border-green-500 flex flex-col gap-2">
+                                  <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                                    🎁 Üyelere Özel Avantaj
+                                  </h3>
+                                  <p className="text-sm text-gray-600">
+                                    Bu avantajlı planı seçmek için lütfen
+                                    ücretsiz kayıt olun.
+                                  </p>
+                                </div>
+                              ),
+                              { duration: 4000 },
+                            );
+                            setRegisterOpen(true);
+                          } else {
+                            setDuration(m);
+                          }
+                        }}
+                        className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all hover:shadow-md flex items-center justify-between overflow-hidden
+                          ${isSelected ? "border-green-500 bg-green-50 ring-1 ring-green-500" : "border-gray-200 hover:border-green-300 bg-white"}
+                        `}
                       >
+                        {/* Kilit İkonu ve Blur Efekti (Eğer kilitliyse) */}
+                        {isLocked && (
+                          <div className="absolute top-2 right-2 text-gray-400 bg-gray-100 p-1 rounded-md text-[10px] font-bold flex items-center gap-1 z-10">
+                            <LockIcon /> Üyelere Özel
+                          </div>
+                        )}
+
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-lg font-black text-gray-900">
+                            <span
+                              className={`text-lg font-black ${isLocked ? "text-gray-600" : "text-gray-900"}`}
+                            >
                               {m} Aylık
                             </span>
                             {Number(discount) > 0 && (
@@ -860,6 +899,17 @@ function CheckoutContent() {
                         </div>
                       </div>
                     ))}
+                    {addresses.length === 0 && (
+                      <div
+                        className="text-center py-6 text-gray-400 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 cursor-pointer hover:border-green-300"
+                        onClick={() => setIsAddressModalOpen(true)}
+                      >
+                        <div className="text-2xl mb-2">📍</div>
+                        <p className="text-sm">
+                          Henüz kayıtlı adresiniz yok. Eklemek için tıklayın.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-200">
@@ -940,7 +990,7 @@ function CheckoutContent() {
                 )}
               </section>
 
-              {/* BÖLÜM 4: ÖDEME FORMU (Sabit, Modal Açılınca Blur Olur) */}
+              {/* BÖLÜM 4: ÖDEME FORMU */}
               <section
                 className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60"
                 id="payment-area"
@@ -953,7 +1003,6 @@ function CheckoutContent() {
                 </h2>
 
                 <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 space-y-6 relative overflow-hidden">
-                  {/* Form disabled overlay (iframe açılınca arka plan kitlenir) */}
                   {(isPaymentLoading || iframeToken) && (
                     <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-10 flex items-center justify-center"></div>
                   )}
@@ -1101,7 +1150,6 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                {/* İNDİRİM KODU ALANI */}
                 <div className="mb-6 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                   <label className="text-[10px] font-bold text-gray-400 uppercase mb-2 block ml-1">
                     İndirim Kodu
@@ -1178,11 +1226,9 @@ function CheckoutContent() {
         </div>
       </main>
 
-      {/* 🚀 YENİ 3D SECURE MODAL / POPUP KISMI */}
       {iframeToken && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative flex flex-col h-[650px] animate-in zoom-in-95 duration-200">
-            {/* Üst Kısım / Başlık ve Kapatma Butonu */}
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shadow-sm relative z-20">
               <div className="flex items-center gap-2">
                 <LockIcon />
@@ -1213,17 +1259,13 @@ function CheckoutContent() {
                 </svg>
               </button>
             </div>
-
-            {/* İframe ve Yükleniyor Spinner'ı */}
             <div className="flex-1 w-full relative bg-white">
-              {/* Arkadaki Yükleniyor Efekti (İframe Yüklenene Kadar Görünür) */}
               <div className="absolute inset-0 flex flex-col items-center justify-center z-0 text-gray-400 space-y-3">
                 <div className="animate-spin w-8 h-8 border-4 border-green-500 rounded-full border-t-transparent"></div>
                 <span className="text-sm font-medium animate-pulse">
                   Banka ekranına bağlanılıyor...
                 </span>
               </div>
-
               <iframe
                 src={iframeToken}
                 id="paytriframe"
