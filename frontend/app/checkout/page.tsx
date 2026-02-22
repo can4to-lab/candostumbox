@@ -575,8 +575,8 @@ function CheckoutContent() {
         </div>
 
         <div className="max-w-6xl mx-auto px-4 mt-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
-            <div className="lg:col-span-8 space-y-8">
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 relative">
+            <div className="lg:col-span-8 space-y-8 order-last lg:order-first">
               {/* BÖLÜM 1: PLAN */}
               <section className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-gray-200/60">
                 <h2 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
@@ -1123,7 +1123,7 @@ function CheckoutContent() {
             </div>
 
             {/* SAĞ TARAF: SİPARİŞ ÖZETİ */}
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-4 order-first lg:order-last">
               <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-200 sticky top-24">
                 <div className="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100">
                   <div className="w-16 h-16 bg-gray-100 rounded-xl relative overflow-hidden border border-gray-200">
@@ -1158,7 +1158,7 @@ function CheckoutContent() {
                     <input
                       type="text"
                       placeholder="Kodu girin..."
-                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 uppercase font-bold"
+                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 uppercase font-bold text-gray-900" // 👈 text-gray-900 eklendi
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
                       disabled={appliedPromo}
