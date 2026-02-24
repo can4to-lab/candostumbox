@@ -186,16 +186,16 @@ export class PaymentService {
     }
   }
 
+// PARAM POS GERÇEK ZAMANLI TAKSİT VE KOMİSYON SORGULAMA
   async getInstallments(bin: string, amount: number) {
     const amountNum = Number(amount);
     
-    // Hata durumunda (Sistem çökerse vs.) dönülecek güvenli "Tek Çekim" objesi
     const singleInstallmentFallback = { 
         status: 'success', 
         data: [{ month: 1, commissionRate: 0, commissionAmount: 0, totalAmount: amountNum, monthlyPayment: amountNum }] 
     };
     
-    // 1. ADIM: BIN Kodundan Kartın Hangi Bankaya ve Sanal POS'a ait olduğunu bul
+    // 1. ADIM: BIN Kodundan Kartın Bankasını Bul
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
@@ -212,7 +212,10 @@ export class PaymentService {
 
     try {
       const binRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', binXml, {
-        headers: { 'Content-Type': 'text/xml; charset=utf-8' }
+        headers: { 
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'https://turkpos.com.tr/BIN_SanalPos' // 👈 1. İŞLEM BAŞLIĞI EKLENDİ
+        }
       });
       
       const binResultRaw = await parseStringPromise(binRes.data, { explicitArray: false });
@@ -240,7 +243,10 @@ export class PaymentService {
         </soap:Envelope>`;
 
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
-        headers: { 'Content-Type': 'text/xml; charset=utf-8','SOAPAction': 'https://turkpos.com.tr/TP_Ozel_Oran_Listesi' }
+        headers: { 
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'https://turkpos.com.tr/TP_Ozel_Oran_Listesi' // 👈 2. İŞLEM BAŞLIĞI EKLENDİ
+        }
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
@@ -264,7 +270,6 @@ export class PaymentService {
       const bankRateRow = filteredRates[0]; 
       const installments: any[] = [];
 
-      // Aylar üzerinde gezinerek 0'dan büyük komisyon oranlarını tabloya çekiyoruz
       for (let i = 1; i <= 12; i++) {
         const monthKey = `MO_${i.toString().padStart(2, '0')}`; 
         const rateStr = bankRateRow[monthKey];
@@ -272,7 +277,6 @@ export class PaymentService {
         if (rateStr !== undefined && rateStr !== null) {
           const commissionRate = Number(rateStr);
 
-          // ParamPOS'ta oran 0 veya daha büyükse taksit geçerlidir
           if (commissionRate >= 0) {
             const commissionAmount = amountNum * (commissionRate / 100);
             const finalTotal = amountNum + commissionAmount;
