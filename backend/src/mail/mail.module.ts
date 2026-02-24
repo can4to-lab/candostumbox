@@ -8,30 +8,23 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   imports: [
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        // Değeri okumaya çalış, okuyamazsan KESİNLİKLE Turkticaret'i kullan
-        const hostAddress = configService.get<string>('SMTP_HOST') || 'smtp.turkticaret.net';
-        
-        console.log("🚀 MAIL HOST AYARI:", hostAddress); // Render loglarında bunu göreceğiz
-
-        return {
-          transport: {
-            host: hostAddress, // ARTIK ASLA UNDEFINED OLAMAZ!
-            port: Number(configService.get<number>('SMTP_PORT')) || 465, // Asla 587'ye düşmez
-            secure: true, // 465 portu için her zaman true
-            auth: {
-              user: configService.get<string>('SMTP_USER'),
-              pass: configService.get<string>('SMTP_PASS'),
-            },
-            tls: {
-              rejectUnauthorized: false,
-            },
+      useFactory: async (configService: ConfigService) => ({
+        transport: {
+          host: configService.get<string>('SMTP_HOST') || 'smtp.turkticaret.net',
+          port: Number(configService.get<number>('SMTP_PORT')) || 587,
+          secure: configService.get<string>('SMTP_SECURE') === 'true', // Render'da false yaptığımız için false dönecek
+          auth: {
+            user: configService.get<string>('SMTP_USER'),
+            pass: configService.get<string>('SMTP_PASS'),
           },
-          defaults: {
-            from: `"Can Dostum Box" <${configService.get<string>('SMTP_USER')}>`,
+          tls: {
+            rejectUnauthorized: false, // Sertifika reddini engeller
           },
-        };
-      },
+        },
+        defaults: {
+          from: `"Can Dostum Box" <${configService.get<string>('SMTP_USER')}>`,
+        },
+      }),
       inject: [ConfigService],
     }),
   ],
