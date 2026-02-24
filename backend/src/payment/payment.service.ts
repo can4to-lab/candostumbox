@@ -276,8 +276,10 @@ export class PaymentService {
       let oransList = diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste;
       if (!Array.isArray(oransList)) oransList = [oransList];
 
+// Bize lazım olan oranları filtrele (Sadece bulunduğumuz SanalPOS_ID'ye ait olanlar)
       const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
 
+      // Eğer filtrelenmiş oranlar boşsa TEK ÇEKİM döndür
       if (filteredRates.length === 0) {
          return { 
            status: 'success', 
@@ -291,24 +293,38 @@ export class PaymentService {
          };
       }
 
-      const installments = filteredRates.map((item: any) => {
-        const month = Number(item.MO_01 || 1);
-        const commissionRate = Number(item.Oran || 0);
-        
-        const commissionAmount = amountNum * (commissionRate / 100);
-        const finalTotal = amountNum + commissionAmount;
-        const monthlyPayment = finalTotal / month;
+      // 👇 PARAM POS'UN VERİ YAPISINI DOĞRU OKUYAN KISIM
+      const bankRateRow = filteredRates[0]; // Bankaya ait komisyon satırını alıyoruz
+      const installments: any[] = [];
 
-        return {
-          month: month,
-          commissionRate: commissionRate,
-          commissionAmount: commissionAmount,
-          totalAmount: finalTotal,
-          monthlyPayment: monthlyPayment
-        };
-      });
+      // 1'den 12'ye kadar tüm ayları (MO_01, MO_02...) kontrol et
+      for (let i = 1; i <= 12; i++) {
+        const monthKey = `MO_${i.toString().padStart(2, '0')}`; // Örn: "MO_03"
+        const rateStr = bankRateRow[monthKey];
 
+        if (rateStr !== undefined && rateStr !== null) {
+          const commissionRate = Number(rateStr);
+
+          // ParamPOS'ta -2 değeri "Bu taksit kapalı" demektir. 0 ve üzeri "Açık" demektir.
+          if (commissionRate >= 0) {
+            const commissionAmount = amountNum * (commissionRate / 100);
+            const finalTotal = amountNum + commissionAmount;
+            const monthlyPayment = finalTotal / i;
+
+            installments.push({
+              month: i,
+              commissionRate: commissionRate,
+              commissionAmount: commissionAmount,
+              totalAmount: finalTotal,
+              monthlyPayment: monthlyPayment
+            });
+          }
+        }
+      }
+
+      // Her ihtimale karşı aya göre sıralıyoruz
       installments.sort((a, b) => a.month - b.month);
+
       return { status: 'success', data: installments };
 
     } catch (error) {
