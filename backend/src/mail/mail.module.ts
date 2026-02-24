@@ -1,28 +1,32 @@
 import { Module, Global } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { ConfigModule, ConfigService } from '@nestjs/config'; // 👈 EKLENDİ
 
 @Global()
 @Module({
   imports: [
     MailerModule.forRootAsync({
-      useFactory: () => ({
+      imports: [ConfigModule], // 👈 ConfigModule'ü içeri alıyoruz
+      useFactory: async (configService: ConfigService) => ({
         transport: {
-          host: process.env.SMTP_HOST,
-          port: Number(process.env.SMTP_PORT) || 465,
-          secure: process.env.SMTP_SECURE === 'true', // Render'daki "true" stringini boolean yapar
+          // process.env yerine configService kullanıyoruz + Güvenlik Ağı (Fallback) ekliyoruz
+          host: configService.get<string>('SMTP_HOST') || 'smtp.turkticaret.net',
+          port: Number(configService.get<number>('SMTP_PORT')) || 465,
+          secure: true, // 465 portu için her zaman true olmalı
           auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            user: configService.get<string>('SMTP_USER'),
+            pass: configService.get<string>('SMTP_PASS'),
           },
           tls: {
             rejectUnauthorized: false,
           },
         },
         defaults: {
-          from: `"Can Dostum Box" <${process.env.SMTP_USER}>`,
+          from: `"Can Dostum Box" <${configService.get<string>('SMTP_USER')}>`,
         },
       }),
+      inject: [ConfigService], // 👈 Servisi enjekte ediyoruz
     }),
   ],
   providers: [MailService],
