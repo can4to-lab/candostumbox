@@ -7,7 +7,7 @@ import { parseStringPromise } from 'xml2js';
 import { OrdersService } from '../orders/orders.service';
 import { OrderStatus } from '../orders/entities/order.entity';
 import { MailService } from '../mail/mail.service';
-import { PaymentSession } from './entities/payment-session.entity'; // YENİ GEÇİCİ TABLOMUZ
+import { PaymentSession } from './entities/payment-session.entity'; 
 
 @Injectable()
 export class PaymentService {
@@ -17,20 +17,16 @@ export class PaymentService {
     private ordersService: OrdersService,
     private mailService: MailService,
     @InjectRepository(PaymentSession)
-    private sessionRepo: Repository<PaymentSession>, // SİSTEME EKLENDİ
+    private sessionRepo: Repository<PaymentSession>, 
   ) {}
 
   async startPayment(data: any) {
     console.log("--- ÖDEME SERVİSİ BAŞLADI (SESSION MANTIĞI) ---");
-    // 👇 installment (taksit) parametresini de alıyoruz
     const { price, basketId, ip, card, items, user, address, installment } = data;
 
-    // 👇 ID KONTROLÜ
     let userIdToSave = user?.id || null;
-   
     console.log(`👤 İşlem Yapan: ${userIdToSave ? 'Kayıtlı Kullanıcı: ' + userIdToSave : 'Misafir'}`);
 
-    // 1. .env AYARLARI
     const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
     const GUID = process.env.PARAM_GUID;
     
@@ -38,7 +34,6 @@ export class PaymentService {
         return { status: 'error', message: 'Eksik bilgi: API anahtarları veya Kart bilgisi yok.' };
     }
 
-    // --- 2. GERÇEK SİPARİŞ YERİNE GEÇİCİ OTURUM (SESSION) OLUŞTURUYORUZ ---
     const createOrderDto = {
         addressId: address?.id || null, 
         items: items, 
@@ -47,7 +42,6 @@ export class PaymentService {
         guestInfo: !userIdToSave ? { ...user, ...address } : undefined 
     };
 
-    // Verileri beklemeye alıyoruz. (Henüz Orders tablosuna gitmiyor!)
     const session = this.sessionRepo.create({
         payload: { userIdToSave, createOrderDto }
     });
@@ -55,23 +49,20 @@ export class PaymentService {
 
     console.log(`✅ Geçici Ödeme Oturumu Açıldı: ${session.id}`);
 
-    // 3. VERİ HAZIRLIĞI
     const totalAmount = Number(price).toFixed(2).replace('.', ','); 
-    const orderId = session.id; // 👈 DİKKAT: ParamPOS'a geçici session ID'mizi yolluyoruz!
-    const paramInstallment = installment || "1"; // Frontend'den gelmezse Tek Çekim (1) say
+    const orderId = session.id; 
+    const paramInstallment = installment || "1"; 
     const SANAL_POS_ID = CLIENT_CODE; 
     
-    // Dönüş URL'leri
     const backendUrl = process.env.BACKEND_URL || 'https://candostumbox-api.onrender.com';
     const successUrl = `${backendUrl}/payment/callback`;
     const failUrl = `${backendUrl}/payment/callback`;
 
-    // 4. HASH HESAPLAMA (SHA-1)
     const hashString = 
         CLIENT_CODE + 
         GUID + 
         SANAL_POS_ID + 
-        paramInstallment + // 👈 BURASI GÜNCELLENDİ (Taksit)
+        paramInstallment + 
         totalAmount + 
         totalAmount + 
         orderId + 
@@ -149,9 +140,8 @@ export class PaymentService {
   async handleCallback(body: any) {
     console.log("--- PARAM POS CALLBACK GELDİ ---", body);
     const status = body.TURKPOS_RETVAL_Sonuc;
-    const sessionId = body.TURKPOS_RETVAL_Siparis_ID; // Bu artık bizim session ID'miz
+    const sessionId = body.TURKPOS_RETVAL_Siparis_ID;
     
-    // Geçici oturumu bul
     const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
     
     if (!session) {
@@ -164,17 +154,13 @@ export class PaymentService {
         let finalOrderId: string = "";
 
         try {
-            // 1. ÖDEME ALINDI, ŞİMDİ GERÇEK SİPARİŞİ YARAT (Verileri session'dan çekiyoruz)
             const { userIdToSave, createOrderDto } = session.payload;
             const newOrderResult = await this.ordersService.create(userIdToSave, createOrderDto as any);
             finalOrderId = newOrderResult.orderId;
 
             console.log(`✅ Gerçek Sipariş DB'ye yazıldı: ${finalOrderId}`);
-
-            // 2. Siparişin durumunu ÖDENDİ yap
             await this.ordersService.updateStatus(finalOrderId, OrderStatus.PAID); 
 
-            // 3. MAİL GÖNDERİMİ
             const order = await this.ordersService.findOne(finalOrderId); 
             
             if (order) {
@@ -190,17 +176,12 @@ export class PaymentService {
             console.error("Sipariş güncellenirken veya mail atılırken hata oluştu:", e);
         }
 
-        // ÇÖPLÜK OLMAMASI İÇİN GEÇİCİ OTURUMU SİL
         await this.sessionRepo.remove(session);
-
         return { status: 'success', orderId: finalOrderId || sessionId };
 
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
-        
-        // ÖDEME OLMADIĞI İÇİN GEÇİCİ OTURUMU DİREKT SİLİYORUZ (SİSTEM TERTEMİZ KALIYOR)
         await this.sessionRepo.remove(session);
-        
         return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
     }
   }
@@ -208,6 +189,13 @@ export class PaymentService {
   async getInstallments(bin: string, amount: number) {
     const amountNum = Number(amount);
     
+    // Hata durumunda (Sistem çökerse vs.) dönülecek güvenli "Tek Çekim" objesi
+    const singleInstallmentFallback = { 
+        status: 'success', 
+        data: [{ month: 1, commissionRate: 0, commissionAmount: 0, totalAmount: amountNum, monthlyPayment: amountNum }] 
+    };
+    
+    // 1. ADIM: BIN Kodundan Kartın Hangi Bankaya ve Sanal POS'a ait olduğunu bul
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
@@ -228,16 +216,15 @@ export class PaymentService {
       });
       
       const binResultRaw = await parseStringPromise(binRes.data, { explicitArray: false });
-      const binResult = binResultRaw['soap:Envelope']['soap:Body']['BIN_SanalPosResponse']['BIN_SanalPosResult'];
+      const binResult = binResultRaw['soap:Envelope']?.['soap:Body']?.['BIN_SanalPosResponse']?.['BIN_SanalPosResult'];
       
-      if (binResult.Sonuc < 0) {
+      if (!binResult || Number(binResult.Sonuc) < 0) {
         return { status: 'error', message: 'Geçersiz kart numarası veya desteklenmeyen kart.' };
       }
 
       const sanalPosId = binResult.SanalPOS_ID;
       
-      // 2. ADIM: Bulunan Sanal POS ID'sine göre GERÇEK FİRMA ORANLARINI (Komisyonları) çek
-      // 👇 DİKKAT: TP_Ozel_Oran_SK_Liste yerine TP_Ozel_Oran_Listesi kullanıyoruz
+      // 2. ADIM: GERÇEK FİRMA ORANLARINI (TP_Ozel_Oran_Listesi) ÇEK
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
@@ -258,51 +245,34 @@ export class PaymentService {
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
       
-      // 👇 Response okurken de yeni XML tag'ini kullanıyoruz
       const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListesiResponse']?.['TP_Ozel_Oran_ListesiResult']?.['diffgr:diffgram'];
       
-      if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) { // 👈 Tablo adı DT_Ozel_Oranlar oldu
+      if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
-         return { 
-           status: 'success', 
-           data: [{ month: 1, commissionRate: 0, commissionAmount: 0, totalAmount: amountNum, monthlyPayment: amountNum }] 
-         };
+         return singleInstallmentFallback;
       }
 
-      let oransList = diffgram.NewDataSet.DT_Ozel_Oranlar; // 👈 Burası da güncellendi
+      let oransList = diffgram.NewDataSet.DT_Ozel_Oranlar;
       if (!Array.isArray(oransList)) oransList = [oransList];
 
       const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
 
-      // Gerisi aynı kalacak...
-
-      // Eğer filtrelenmiş oranlar boşsa TEK ÇEKİM döndür
       if (filteredRates.length === 0) {
-         return { 
-           status: 'success', 
-           data: [{
-             month: 1,
-             commissionRate: 0,
-             commissionAmount: 0,
-             totalAmount: amountNum,
-             monthlyPayment: amountNum
-           }] 
-         };
+         return singleInstallmentFallback;
       }
 
-      // 👇 PARAM POS'UN VERİ YAPISINI DOĞRU OKUYAN KISIM
-      const bankRateRow = filteredRates[0]; // Bankaya ait komisyon satırını alıyoruz
+      const bankRateRow = filteredRates[0]; 
       const installments: any[] = [];
 
-      // 1'den 12'ye kadar tüm ayları (MO_01, MO_02...) kontrol et
+      // Aylar üzerinde gezinerek 0'dan büyük komisyon oranlarını tabloya çekiyoruz
       for (let i = 1; i <= 12; i++) {
-        const monthKey = `MO_${i.toString().padStart(2, '0')}`; // Örn: "MO_03"
+        const monthKey = `MO_${i.toString().padStart(2, '0')}`; 
         const rateStr = bankRateRow[monthKey];
 
         if (rateStr !== undefined && rateStr !== null) {
           const commissionRate = Number(rateStr);
 
-          // ParamPOS'ta -2 değeri "Bu taksit kapalı" demektir. 0 ve üzeri "Açık" demektir.
+          // ParamPOS'ta oran 0 veya daha büyükse taksit geçerlidir
           if (commissionRate >= 0) {
             const commissionAmount = amountNum * (commissionRate / 100);
             const finalTotal = amountNum + commissionAmount;
@@ -319,23 +289,12 @@ export class PaymentService {
         }
       }
 
-      // Her ihtimale karşı aya göre sıralıyoruz
       installments.sort((a, b) => a.month - b.month);
-
       return { status: 'success', data: installments };
 
     } catch (error) {
       console.error("ParamPOS API Hatası:", error);
-      return { 
-        status: 'success', 
-        data: [{
-          month: 1,
-          commissionRate: 0,
-          commissionAmount: 0,
-          totalAmount: amountNum,
-          monthlyPayment: amountNum
-        }] 
-      };
+      return singleInstallmentFallback;
     }
   }
 }
