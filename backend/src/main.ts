@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   console.log('🔍 KONTROL EDİLİYOR -> DATABASE_URL:', process.env.DATABASE_URL);
-  
+  console.log("🚀🚀🚀 DİKKAT: YENİ KODLAR NİHAYET RENDER'A ULAŞTI! 🚀🚀🚀");
   // 1. GÜVENLİK DUVARI (Helmet)
   app.use(helmet());
 
