@@ -240,7 +240,7 @@ export class PaymentService {
         </soap:Envelope>`;
 
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
-        headers: { 'Content-Type': 'text/xml; charset=utf-8' }
+        headers: { 'Content-Type': 'text/xml; charset=utf-8','SOAPAction': 'https://turkpos.com.tr/TP_Ozel_Oran_Listesi' }
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
