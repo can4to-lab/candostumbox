@@ -235,18 +235,20 @@ export class PaymentService {
       }
 
       const sanalPosId = binResult.SanalPOS_ID;
-
+      
+      // 2. ADIM: Bulunan Sanal POS ID'sine göre GERÇEK FİRMA ORANLARINI (Komisyonları) çek
+      // 👇 DİKKAT: TP_Ozel_Oran_SK_Liste yerine TP_Ozel_Oran_Listesi kullanıyoruz
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <TP_Ozel_Oran_SK_Liste xmlns="https://turkpos.com.tr/">
+            <TP_Ozel_Oran_Listesi xmlns="https://turkpos.com.tr/"> 
               <G>
                 <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
                 <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
                 <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
               </G>
               <GUID>${process.env.PARAM_GUID}</GUID>
-            </TP_Ozel_Oran_SK_Liste>
+            </TP_Ozel_Oran_Listesi>
           </soap:Body>
         </soap:Envelope>`;
 
@@ -255,29 +257,24 @@ export class PaymentService {
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
-      console.log("PARAM RATES RESPONSE:", JSON.stringify(ratesResultRaw));
-
-      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_SK_ListeResponse']?.['TP_Ozel_Oran_SK_ListeResult']?.['diffgr:diffgram'];
       
-      if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste) {
+      // 👇 Response okurken de yeni XML tag'ini kullanıyoruz
+      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListesiResponse']?.['TP_Ozel_Oran_ListesiResult']?.['diffgr:diffgram'];
+      
+      if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) { // 👈 Tablo adı DT_Ozel_Oranlar oldu
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
          return { 
            status: 'success', 
-           data: [{
-             month: 1,
-             commissionRate: 0,
-             commissionAmount: 0,
-             totalAmount: amountNum,
-             monthlyPayment: amountNum
-           }] 
+           data: [{ month: 1, commissionRate: 0, commissionAmount: 0, totalAmount: amountNum, monthlyPayment: amountNum }] 
          };
       }
 
-      let oransList = diffgram.NewDataSet.DT_Ozel_Oran_SK_Liste;
+      let oransList = diffgram.NewDataSet.DT_Ozel_Oranlar; // 👈 Burası da güncellendi
       if (!Array.isArray(oransList)) oransList = [oransList];
 
-// Bize lazım olan oranları filtrele (Sadece bulunduğumuz SanalPOS_ID'ye ait olanlar)
       const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
+
+      // Gerisi aynı kalacak...
 
       // Eğer filtrelenmiş oranlar boşsa TEK ÇEKİM döndür
       if (filteredRates.length === 0) {
