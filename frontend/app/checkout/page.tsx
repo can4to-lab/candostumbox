@@ -512,7 +512,6 @@ function CheckoutContent() {
     const baseOrderItems = [
       {
         productId: product.id,
-        productName: product.name,
         price: displayTotal,
         quantity: 1,
         duration: duration,
