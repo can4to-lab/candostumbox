@@ -77,7 +77,7 @@ export class PaymentService {
         : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
 
     const xmlRequest = `
-    <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
         <TP_Islem_Odeme xmlns="https://turkpos.com.tr/">
           <G>
@@ -277,7 +277,7 @@ export class PaymentService {
       let oransList = diffgram.NewDataSet.DT_Ozel_Oranlar;
       if (!Array.isArray(oransList)) oransList = [oransList];
 
-      const filteredRates = oransList.filter((item: any) => item.SanalPOS_ID === sanalPosId);
+      const filteredRates = oransList.filter((item: any) => String(item.SanalPOS_ID).trim() === sanalPosId);
 
       if (filteredRates.length === 0) {
          return singleInstallmentFallback;
