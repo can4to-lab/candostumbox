@@ -119,7 +119,7 @@ export class PaymentService {
         const response = await axios.post(apiUrl, xmlRequest, {
             headers: { 
                 'Content-Type': 'text/xml; charset=utf-8', 
-                'SOAPAction': 'https://turkpos.com.tr/#TP_Islem_Odeme' 
+                'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' 
             }
         });
 
@@ -245,7 +245,7 @@ export class PaymentService {
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'https://turkpos.com.tr/#TP_Ozel_Oran_Listesi' // 👈 2. İŞLEM BAŞLIĞI EKLENDİ
+          'SOAPAction': 'https://turkpos.com.tr/TP_Ozel_Oran_Listesi' // 👈 2. İŞLEM BAŞLIĞI EKLENDİ
         }
       });
 
