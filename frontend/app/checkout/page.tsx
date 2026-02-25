@@ -12,19 +12,6 @@ import AddPetModal from "../components/modals/AddPetModal";
 import AgreementsModal from "@/components/AgreementsModal";
 
 // --- İKONLAR ---
-const CheckCircleIcon = () => (
-  <svg
-    className="w-6 h-6 text-green-500"
-    fill="currentColor"
-    viewBox="0 0 20 20"
-  >
-    <path
-      fillRule="evenodd"
-      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-      clipRule="evenodd"
-    />
-  </svg>
-);
 const LockIcon = () => (
   <svg
     className="w-4 h-4"
@@ -123,7 +110,7 @@ function CheckoutContent() {
     null,
   );
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // 👈 Giriş durumu kontrolü
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // Misafir
   const [isGuest, setIsGuest] = useState(true);
@@ -150,7 +137,7 @@ function CheckoutContent() {
 
   const getGuestOtherIcon = () => OTHER_ICONS[guestPetData.type] || "🦜";
 
-  // --- YENİ: Ödeme Yöntemi ve Taksit ---
+  // --- Ödeme Yöntemi ve Taksit ---
   const [paymentMethod, setPaymentMethod] = useState<
     "credit_card" | "bank_transfer" | "cash_on_delivery"
   >("credit_card");
@@ -165,7 +152,7 @@ function CheckoutContent() {
     cvc: "",
   });
 
-  // Taksit Seçenekleri (ParamPOS API'den gelecek)
+  // Taksit Seçenekleri
   const [installmentOptions, setInstallmentOptions] = useState<
     InstallmentOption[]
   >([]);
@@ -272,7 +259,7 @@ function CheckoutContent() {
     }
   };
 
-  // --- ÖDEME SONUCUNU DİNLEME (IFRAME'DEN GELEN MESAJ) ---
+  // --- ÖDEME SONUCUNU DİNLEME ---
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === "PARAM_PAYMENT_RESULT") {
@@ -291,7 +278,7 @@ function CheckoutContent() {
     return () => window.removeEventListener("message", handleMessage);
   }, [router]);
 
-  // --- HESAPLAMALAR (PROMO KOD DAHİL) ---
+  // --- HESAPLAMALAR ---
   const calculateTotal = () => {
     if (!product)
       return {
@@ -307,14 +294,12 @@ function CheckoutContent() {
     const basePrice = Number(product.price);
     const totalRaw = basePrice * duration;
 
-    // 1. Plan İndirimi
     const rule = discountRules.find(
       (d) => Number(d.durationMonths) === duration,
     );
     const discountRate = rule ? Number(rule.discountPercentage) : 0;
     const subtotalAfterPlan = totalRaw - totalRaw * (discountRate / 100);
 
-    // 2. Promo Kod İndirimi
     let promoDiscountAmount = 0;
     if (appliedPromo) {
       if (appliedPromo.discountType === "percentage") {
@@ -348,21 +333,19 @@ function CheckoutContent() {
     finalTotal,
   } = calculateTotal();
 
-  // Dinamik Olarak Sağ Taraf ve Öde Butonu İçin Gösterilecek Toplam (Taksit Vade Farkı Dahil)
   const displayTotal =
     paymentMethod === "credit_card" && selectedInstallmentObj
       ? selectedInstallmentObj.totalAmount
       : finalTotal;
 
-  // --- TAKSİT SORGULAMA EFFECT (PARAM POS GERÇEK ZAMANLI) ---
-  // --- TAKSİT SORGULAMA EFFECT (PARAM POS GERÇEK ZAMANLI) ---
+  // --- TAKSİT SORGULAMA ---
   useEffect(() => {
     const fetchInstallments = async () => {
       const cleanCard = cardData.cardNumber.replace(/\s/g, "");
       if (cleanCard.length >= 6) {
         const bin = cleanCard.substring(0, 6);
         setIsFetchingInstallments(true);
-        setInstallmentError(""); // Aramaya başlarken hatayı temizle
+        setInstallmentError("");
         try {
           const res = await fetch(
             "https://candostumbox-api.onrender.com/payment/installments",
@@ -374,17 +357,30 @@ function CheckoutContent() {
           );
           const data = await res.json();
           if (data.status === "success" && data.data && data.data.length > 0) {
-            setInstallmentOptions(data.data);
-            if (data.data.length > 0) {
+            // 👇 1. AY TAKSİTİN KOMİSYONUNU ZORLA SIFIRLIYORUZ (SİTEYE ÖZEL)
+            const modifiedData = data.data.map((opt: InstallmentOption) => {
+              if (opt.month === 1) {
+                return {
+                  ...opt,
+                  commissionRate: 0,
+                  commissionAmount: 0,
+                  totalAmount: finalTotal,
+                  monthlyPayment: finalTotal,
+                };
+              }
+              return opt;
+            });
+
+            setInstallmentOptions(modifiedData);
+            if (modifiedData.length > 0) {
               const stillExists = selectedInstallmentObj
-                ? data.data.find(
+                ? modifiedData.find(
                     (o: any) => o.month === selectedInstallmentObj.month,
                   )
                 : null;
-              setSelectedInstallmentObj(stillExists || data.data[0]);
+              setSelectedInstallmentObj(stillExists || modifiedData[0]);
             }
           } else {
-            // ❌ PARAM POS HATA DÖNDÜ (Tabloyu gizle ve hatayı göster)
             setInstallmentOptions([]);
             setSelectedInstallmentObj(null);
             setInstallmentError(
@@ -402,7 +398,7 @@ function CheckoutContent() {
       } else {
         setInstallmentOptions([]);
         setSelectedInstallmentObj(null);
-        setInstallmentError(""); // 6 haneden az ise hatayı gizle
+        setInstallmentError("");
       }
     };
 
@@ -446,9 +442,7 @@ function CheckoutContent() {
   };
 
   // --- ÖDEME BAŞLATMA ---
-  // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
-    // ... Sözleşme kontrolleri (Aynı kalacak)
     if (!agreementsAccepted) {
       toast.error("Lütfen sözleşmeyi onaylayın.");
       return;
@@ -469,7 +463,6 @@ function CheckoutContent() {
     let finalUserData = null;
 
     if (token) {
-      // Token çözme kısmı aynı kalacak...
       try {
         const base64Url = token.split(".")[1];
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -506,7 +499,6 @@ function CheckoutContent() {
       };
     }
 
-    // 1. DÜZELTME: Adres datasını netleştirdik
     let finalAddressData =
       finalUserId && selectedAddressId
         ? { id: selectedAddressId }
@@ -514,15 +506,14 @@ function CheckoutContent() {
             fullAddress: guestData.fullAddress,
             city: guestData.city,
             district: guestData.district,
-            title: "Ev Adresim", // Misafirler için varsayılan bir başlık ekledik
+            title: "Ev Adresim",
           };
 
-    // 2. DÜZELTME: Fiyatı item bazında doğru şekilde gönderiyoruz
     const baseOrderItems = [
       {
         productId: product.id,
         productName: product.name,
-        price: displayTotal, // 👈 KRİTİK: Komisyon veya kapıda ödeme eklenmiş 'Nihai Toplam' Fiyatı gönderiyoruz!
+        price: displayTotal,
         quantity: 1,
         duration: duration,
         petId: !isGuest ? selectedPetId : undefined,
@@ -540,7 +531,6 @@ function CheckoutContent() {
       },
     ];
 
-    // 👇 EĞER HAVALE VEYA KAPIDA ÖDEME İSE
     if (paymentMethod !== "credit_card") {
       const directOrderPayload = {
         addressId:
@@ -580,7 +570,6 @@ function CheckoutContent() {
       return;
     }
 
-    // 👇 EĞER KREDİ KARTI İSE
     const payload = {
       price: displayTotal,
       installment: selectedInstallmentObj
@@ -731,7 +720,7 @@ function CheckoutContent() {
                     );
                     const discount = rule ? rule.discountPercentage : 0;
                     const isSelected = duration === m;
-                    const isLocked = m > 1 && !isLoggedIn; // 👈 KİLİT MANTIĞI
+                    const isLocked = m > 1 && !isLoggedIn;
 
                     const cost =
                       (Number(product.price) *
@@ -767,7 +756,6 @@ function CheckoutContent() {
                           ${isSelected ? "border-green-500 bg-green-50 ring-1 ring-green-500" : "border-gray-200 hover:border-green-300 bg-white"}
                         `}
                       >
-                        {/* Kilit İkonu ve Blur Efekti (Eğer kilitliyse) */}
                         {isLocked && (
                           <div className="absolute top-2 right-2 text-gray-400 bg-gray-100 p-1 rounded-md text-[10px] font-bold flex items-center gap-1 z-10">
                             <LockIcon /> Üyelere Özel
@@ -1251,68 +1239,50 @@ function CheckoutContent() {
                         />
                       </div>
 
-                      {/* TAKSİT TABLOSU (Gerçek API Verisi) */}
+                      {/* YENİ TASARIM TAKSİT TABLOSU */}
                       {isFetchingInstallments ? (
                         <div className="text-center text-sm text-gray-500 py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300 animate-pulse">
                           <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                          Bankanızın taksit oranları ParamPOS üzerinden
-                          sorgulanıyor...
+                          Bankanızın taksit oranları sorgulanıyor...
                         </div>
-                      ) : installmentError ? ( // 👈 EKLENEN KISIM BURASI
+                      ) : installmentError ? (
                         <div className="bg-red-50 text-red-600 text-sm p-4 rounded-xl flex gap-3 items-center border border-red-100 shadow-sm font-bold">
                           <span className="text-xl">⚠️</span>
                           <p>{installmentError}</p>
                         </div>
                       ) : installmentOptions.length > 0 ? (
-                        <div className="space-y-2">
-                          {installmentOptions.map((opt) => (
+                        <div className="mt-4 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                          {installmentOptions.map((opt, index) => (
                             <label
                               key={opt.month}
-                              className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all
-                                ${selectedInstallmentObj?.month === opt.month ? "border-green-500 bg-green-50 ring-2 ring-green-500 ring-opacity-20" : "border-gray-200 hover:border-green-300 bg-white"}
+                              className={`flex items-center justify-between p-4 cursor-pointer transition-colors
+                                ${index !== installmentOptions.length - 1 ? "border-b border-gray-100" : ""}
+                                ${selectedInstallmentObj?.month === opt.month ? "bg-orange-50/50" : "hover:bg-gray-50"}
                               `}
                             >
-                              <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-3">
+                                {/* Radyo Buton Görünümü */}
                                 <div
-                                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedInstallmentObj?.month === opt.month ? "border-green-500 bg-white" : "border-gray-300"}`}
-                                >
-                                  {selectedInstallmentObj?.month ===
-                                    opt.month && (
-                                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
-                                  )}
-                                </div>
-                                <div>
-                                  <span className="font-black text-gray-900 text-base">
+                                  className={`w-5 h-5 rounded-full border-[6px] flex items-center justify-center transition-colors 
+                                  ${selectedInstallmentObj?.month === opt.month ? "border-orange-500 bg-white" : "border-gray-300 bg-white"}`}
+                                ></div>
+
+                                {/* Sol Kısım: Taksit Ayı ve Aylık Tutar */}
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-gray-800 text-sm">
                                     {opt.month === 1
-                                      ? "Tek Çekim"
-                                      : `${opt.month} Taksit`}
-                                  </span>
-                                  {opt.commissionRate > 0 ? (
-                                    <div className="text-[11px] text-gray-500 mt-0.5 font-medium">
-                                      Banka Komisyonu:{" "}
-                                      <span className="text-red-500 font-bold">
-                                        +₺{opt.commissionAmount.toFixed(2)}
-                                      </span>{" "}
-                                      (%{opt.commissionRate})
-                                    </div>
-                                  ) : (
-                                    <div className="text-[11px] text-green-600 mt-0.5 font-bold">
-                                      Komisyonsuz
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-black text-gray-900 text-lg">
-                                  ₺{opt.monthlyPayment.toFixed(2)}{" "}
-                                  <span className="text-xs font-normal text-gray-500">
-                                    /ay
+                                      ? "Tek çekim (Peşin)"
+                                      : `${opt.month} x ${opt.monthlyPayment.toFixed(2)} TL`}
                                   </span>
                                 </div>
-                                <div className="text-xs text-gray-500 font-medium">
-                                  Toplam: ₺{opt.totalAmount.toFixed(2)}
-                                </div>
                               </div>
+
+                              {/* Sağ Kısım: Toplam Tutar */}
+                              <div className="text-right font-bold text-gray-900 text-sm">
+                                {opt.totalAmount.toFixed(2)} TL
+                              </div>
+
+                              {/* Gizli input */}
                               <input
                                 type="radio"
                                 name="installment"
@@ -1329,9 +1299,8 @@ function CheckoutContent() {
                         <div className="bg-blue-50 text-blue-800 text-sm p-4 rounded-xl flex gap-3 items-start border border-blue-100 shadow-sm">
                           <span className="text-xl">ℹ️</span>
                           <p>
-                            Taksit seçeneklerini ve vade farklarını görmek için
-                            lütfen geçerli bir kredi kartı numarasının ilk 6
-                            hanesini giriniz.
+                            Taksit seçeneklerini görmek için lütfen geçerli bir
+                            kredi kartı numarasının ilk 6 hanesini giriniz.
                           </p>
                         </div>
                       )}
@@ -1415,7 +1384,7 @@ function CheckoutContent() {
                     <button
                       onClick={startPayment}
                       disabled={isPaymentLoading || !!iframeToken}
-                      className="w-full bg-gray-900 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-black transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg"
+                      className="w-full bg-[#ff6000] text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-[#e05500] transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg"
                     >
                       {isPaymentLoading ? (
                         <>
@@ -1423,7 +1392,7 @@ function CheckoutContent() {
                           İşlem Yapılıyor...
                         </>
                       ) : (
-                        `Ödemeyi Tamamla ₺${displayTotal.toFixed(2)}`
+                        `Siparişi Onayla`
                       )}
                     </button>
                   </div>
@@ -1467,7 +1436,7 @@ function CheckoutContent() {
                     <input
                       type="text"
                       placeholder="Kodu girin..."
-                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500 uppercase font-bold text-gray-900"
+                      className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#ff6000] uppercase font-bold text-gray-900"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
                       disabled={appliedPromo}
@@ -1486,7 +1455,7 @@ function CheckoutContent() {
                       <button
                         onClick={handleApplyPromo}
                         disabled={isCheckingPromo || !promoCode}
-                        className="bg-gray-900 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-black transition disabled:opacity-50"
+                        className="bg-gray-500 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-600 transition disabled:opacity-50"
                       >
                         {isCheckingPromo ? "..." : "Uygula"}
                       </button>
@@ -1496,7 +1465,7 @@ function CheckoutContent() {
 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm text-gray-500">
-                    <span>Paket Tutarı</span>
+                    <span>Ürünler ({duration} Ay)</span>
                     <span className="font-bold text-gray-900">
                       ₺{rawTotal.toFixed(2)}
                     </span>
@@ -1509,22 +1478,20 @@ function CheckoutContent() {
                   )}
                   {appliedPromo && (
                     <div className="flex justify-between text-sm text-purple-600 font-bold bg-purple-50 p-2 rounded-lg animate-pulse">
-                      <span>Kod: {appliedPromo.code}</span>
+                      <span>Kod İndirimi ({appliedPromo.code})</span>
                       <span>-₺{promoDiscountAmount.toFixed(2)}</span>
                     </div>
                   )}
                   {paymentMethod === "cash_on_delivery" && (
                     <div className="flex justify-between text-sm text-orange-600 font-bold bg-orange-50 p-2 rounded-lg">
-                      <span>Kapıda Ödeme Bedeli</span>
+                      <span>Kapıda Ödeme Hizmeti</span>
                       <span>+₺{COD_FEE.toFixed(2)}</span>
                     </div>
                   )}
                   {paymentMethod === "credit_card" &&
                     (selectedInstallmentObj?.commissionAmount || 0) > 0 && (
-                      <div className="flex justify-between text-sm text-red-600 font-bold bg-red-50 p-2 rounded-lg">
-                        <span>
-                          Vade Farkı ({selectedInstallmentObj?.month} Taksit)
-                        </span>
+                      <div className="flex justify-between text-sm text-[#ff6000] font-bold bg-orange-50/50 p-2 rounded-lg border border-orange-100">
+                        <span>Vade Farkı</span>
                         <span>
                           +₺
                           {selectedInstallmentObj?.commissionAmount?.toFixed(2)}
@@ -1539,11 +1506,11 @@ function CheckoutContent() {
 
                 <div className="border-t border-gray-100 pt-4">
                   <div className="flex justify-between items-end">
-                    <span className="text-sm font-bold text-gray-400 uppercase">
-                      Toplam
+                    <span className="text-sm font-bold text-[#ff6000] uppercase">
+                      ÖDENECEK TUTAR
                     </span>
-                    <span className="text-3xl font-black text-gray-900 tracking-tighter">
-                      ₺{displayTotal.toFixed(2)}
+                    <span className="text-3xl font-black text-[#ff6000] tracking-tighter">
+                      {displayTotal.toFixed(2)} TL
                     </span>
                   </div>
                 </div>
