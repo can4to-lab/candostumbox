@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { MailerModule } from '@nestjs-modules/mailer';
 
 // Modüller
 import { UsersModule } from './users/users.module';
@@ -15,7 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
-import { MailModule } from './mail/mail.module';
+import { MailModule } from './mail/mail.module'; // 👈 Sadece modül olarak içeri alıyoruz
 
 @Module({
   imports: [
@@ -31,31 +30,7 @@ import { MailModule } from './mail/mail.module';
         synchronize: true,
       }),
     }),
-    MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (config: ConfigService) => {
-        const port = Number(config.get('MAIL_PORT')); 
-        
-        return {
-          transport: {
-            host: config.get('MAIL_HOST'),
-            port: port,
-            secure: port === 465, 
-            auth: {
-              user: config.get('MAIL_USER'),
-              pass: config.get('MAIL_PASS'),
-            },
-            tls: {
-              rejectUnauthorized: false
-            }
-          },
-          defaults: {
-            from: `"Can Dostum Box" <${config.get('MAIL_FROM')}>`,
-          },
-        };
-      },
-      inject: [ConfigService],
-    }),
+    
     UsersModule,
     ProductsModule,
     PetsModule,
@@ -66,7 +41,6 @@ import { MailModule } from './mail/mail.module';
     PaymentModule,
     ReviewsModule,
     PromoCodesModule,
-    // ❌ Buradaki mükerrer MailerModule silindi, yukarıdaki asenkron yapı yeterlidir
     MailModule, 
   ],
 })
