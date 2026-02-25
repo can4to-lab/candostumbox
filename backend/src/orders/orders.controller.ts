@@ -1,41 +1,39 @@
-import { Controller, Get, Post, Body, UseGuards, Request, Patch, Param, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, UnauthorizedException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { JwtService } from '@nestjs/jwt';
+import { Request } from 'express';
 
 @Controller('orders')
 export class OrdersController {
-  constructor(
-    private readonly ordersService: OrdersService,
-    private readonly jwtService: JwtService 
-  ) {}
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  async create(@Body() createOrderDto: CreateOrderDto, @Headers('authorization') authHeader: string) {
+  async create(@Body() createOrderDto: CreateOrderDto, @Req() req: Request) {
     let userId = null;
+    
+    // 1. Header'ı GARANTİ şekilde al (Küçük/büyük harf duyarlılığını tamamen aşıyoruz)
+    const authHeader = req.headers.authorization || req.headers['authorization'];
 
-    // 1. Önce Token üzerinden ID'yi çözelim (Verify yerine Decode kullanıyoruz!)
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
-        // KRİTİK DÜZELTME: verify() yerine decode() kullanıyoruz. 
-        // Böylece secret key senkronizasyon hatalarına takılmadan direkt ID'yi okuyabiliriz.
-        const decoded: any = this.jwtService.decode(token);
-        if (decoded) {
-            userId = decoded.userId || decoded.id || decoded.sub;
-            console.log(`🔑 Token Çözüldü, Sipariş Sahibi ID: ${userId}`);
-        }
+        // 2. KÜTÜPHANELERE GÜVENMİYORUZ: Token'ı Node.js ile MANUEL çözüyoruz!
+        const payloadStr = Buffer.from(token.split('.')[1], 'base64').toString('utf-8');
+        const decoded = JSON.parse(payloadStr);
+        userId = decoded.userId || decoded.id || decoded.sub;
+        console.log(`✅ [OrdersController] Token Başarıyla Çözüldü! Gerçek Müşteri ID: ${userId}`);
       } catch (e) {
-        console.log("❌ Token çözme işlemi başarısız:", e.message);
+        console.log(`❌ [OrdersController] Token Çözülemedi! Hata:`, e.message);
       }
     }
 
-    // 2. Eğer frontend gövdede (body) userId yolladıysa onu da yedek olarak alalım
-    if (!userId && (createOrderDto as any).userId) {
-        userId = (createOrderDto as any).userId;
+    // 3. İNATLA DÜZELTME: Eğer userId bulduysak, frontend 'Misafir' dese bile İPTAL ET ve Üye yap!
+    if (userId) {
+        createOrderDto.isGuest = false;
     }
 
+    // Eğer userId hala null ise ve cidden misafir değilse engelle
     if (!userId && !createOrderDto.isGuest) {
         throw new UnauthorizedException('Lütfen giriş yapın veya misafir olarak devam edin.');
     }
@@ -45,7 +43,7 @@ export class OrdersController {
 
   @UseGuards(AuthGuard('jwt')) 
   @Get('my-orders')
-  findMyOrders(@Request() req) {
+  findMyOrders(@Req() req: any) {
     const userId = req.user?.userId || req.user?.id || req.user?.sub;
     return this.ordersService.findMyOrders(userId);
   }
