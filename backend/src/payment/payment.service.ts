@@ -187,7 +187,7 @@ export class PaymentService {
   }
 
 // PARAM POS GERÇEK ZAMANLI TAKSİT VE KOMİSYON SORGULAMA
-  async getInstallments(bin: string, amount: number) {
+ async getInstallments(bin: string, amount: number) {
     const amountNum = Number(amount);
     
     const singleInstallmentFallback = { 
@@ -196,10 +196,12 @@ export class PaymentService {
     };
     
     // 1. ADIM: BIN Kodundan Kartın Bankasını Bul
+    // DİKKAT: xsi, xsd ve soap linkleri evrensel standarttır, ASLA https yapılmaz!
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
-          <BIN_SanalPos xmlns="https://turkpos.com.tr/"> <G>
+          <BIN_SanalPos xmlns="https://turkpos.com.tr/"> 
+            <G>
               <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
               <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
               <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
@@ -213,7 +215,7 @@ export class PaymentService {
       const binRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', binXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"https://turkpos.com.tr/BIN_SanalPos"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
+          'SOAPAction': '"https://turkpos.com.tr/BIN_SanalPos"' 
         }
       });
       
@@ -226,24 +228,26 @@ export class PaymentService {
 
       const sanalPosId = binResult.SanalPOS_ID;
       
-      // 2. ADIM: GERÇEK FİRMA ORANLARINI (TP_Ozel_Oran_Liste) ÇEK
+      // 2. ADIM: GERÇEK FİRMA ORANLARINI ÇEK
+      // DİKKAT: Servisin doğru adı TP_Ozel_Oran_Listesi'dir.
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
-        <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <TP_Ozel_Oran_Liste xmlns="https//turkpos.com.tr/"> <G>
+            <TP_Ozel_Oran_Listesi xmlns="https://turkpos.com.tr/"> 
+              <G>
                 <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
                 <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
                 <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
               </G>
               <GUID>${process.env.PARAM_GUID}</GUID>
-            </TP_Ozel_Oran_Liste>
+            </TP_Ozel_Oran_Listesi>
           </soap:Body>
         </soap:Envelope>`;
 
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Liste"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
+          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Liste"' 
         }
       });
 
@@ -297,7 +301,6 @@ export class PaymentService {
     } catch (error: any) {
       console.error("🚨 ParamPOS API Hatası Yakalandı!");
       
-      // Detaylı loglama kısmı
       if (error.response) {
         console.log("STATUS:", error.response.status);
         console.log("DATA:", error.response.data); 
