@@ -76,6 +76,7 @@ export class PaymentService {
         ? 'https://test-dmz.param.com.tr/turkpos.ws/service_turkpos_test.asmx' 
         : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
 
+    // DİKKAT: xsi, xsd ve soap linkleri evrensel HTTP standartlarıdır, asla değiştirilmemeli.
     const xmlRequest = `
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
@@ -196,7 +197,6 @@ export class PaymentService {
     };
     
     // 1. ADIM: BIN Kodundan Kartın Bankasını Bul
-    // DİKKAT: xsi, xsd ve soap linkleri evrensel standarttır, ASLA https yapılmaz!
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
@@ -206,7 +206,7 @@ export class PaymentService {
               <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
               <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
             </G>
-            <BIN>${bin}</BIN>
+            <BIN>${cleanBin}</BIN>
           </BIN_SanalPos>
         </soap:Body>
       </soap:Envelope>`;
@@ -229,7 +229,6 @@ export class PaymentService {
       const tempObj = binResult?.DT_Bilgi?.['diffgr:diffgram']?.NewDataSet?.Temp;
       let rawPosId = tempObj?.SanalPOS_ID || binResult?.SanalPOS_ID;
 
-      // Eğer XML parser bunu bize dizi ["1014"] veya obje olarak dönerse diye SAF STRING'e çeviriyoruz:
       if (Array.isArray(rawPosId)) {
           rawPosId = rawPosId[0];
       } else if (typeof rawPosId === 'object' && rawPosId !== null) {
@@ -238,12 +237,7 @@ export class PaymentService {
       
       const sanalPosId = String(rawPosId).trim();
 
-      console.log("💳 GİRİLEN BIN:", cleanBin);
-      console.log("🏦 PARAM'IN BULDUĞU POS ID:", sanalPosId);
-      console.log("📦 BIN SORGUSU TAM CEVAP:", JSON.stringify(binResult, null, 2));
-
       // 2. ADIM: GERÇEK FİRMA ORANLARINI ÇEK
-      // DİKKAT: Servisin doğru adı TP_Ozel_Oran_Listesi'dir.
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
@@ -266,8 +260,10 @@ export class PaymentService {
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
-      console.log("🔍 PARAM POS GERÇEK YANIT:", JSON.stringify(ratesResultRaw, null, 2));
-      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult']?.['diffgr:diffgram'];
+      
+      // 👇 İŞTE BÜYÜK KURTARICI BURADA! DT_Bilgi EKLENDİ!
+      const resultObj = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult'];
+      const diffgram = resultObj?.DT_Bilgi?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
@@ -277,6 +273,7 @@ export class PaymentService {
       let oransList = diffgram.NewDataSet.DT_Ozel_Oranlar;
       if (!Array.isArray(oransList)) oransList = [oransList];
 
+      // İki tarafı da ne olursa olsun String'e çeviriyoruz
       const filteredRates = oransList.filter((item: any) => String(item.SanalPOS_ID).trim() === sanalPosId);
 
       if (filteredRates.length === 0) {
@@ -318,7 +315,6 @@ export class PaymentService {
       if (error.response) {
         console.log("STATUS:", error.response.status);
         console.log("DATA:", error.response.data); 
-        console.log("HEADERS:", error.response.headers);
       } else {
         console.log("Sistemsel Hata:", error.message);
       }
