@@ -189,7 +189,7 @@ export class PaymentService {
 // PARAM POS GERÇEK ZAMANLI TAKSİT VE KOMİSYON SORGULAMA
  async getInstallments(bin: string, amount: number) {
     const amountNum = Number(amount);
-    
+    const cleanBin = bin ? bin.replace(/\s/g, '').substring(0, 6) : "";
     const singleInstallmentFallback = { 
         status: 'success', 
         data: [{ month: 1, commissionRate: 0, commissionAmount: 0, totalAmount: amountNum, monthlyPayment: amountNum }] 
@@ -227,7 +227,10 @@ export class PaymentService {
       }
 
       const sanalPosId = binResult.SanalPOS_ID;
-      
+
+      console.log("💳 GİRİLEN BIN:", cleanBin);
+      console.log("🏦 PARAM'IN BULDUĞU POS ID:", sanalPosId);
+      console.log("📦 BIN SORGUSU TAM CEVAP:", JSON.stringify(binResult, null, 2));
       // 2. ADIM: GERÇEK FİRMA ORANLARINI ÇEK
       // DİKKAT: Servisin doğru adı TP_Ozel_Oran_Listesi'dir.
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
