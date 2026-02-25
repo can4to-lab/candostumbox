@@ -21,15 +21,12 @@ export class SubscriptionsService {
     private orderItemRepository: Repository<OrderItem>,
   ) {}
 
-  // 👇 İŞTE EKSİK OLAN VE ADMİN PANELİNDEKİ "MİSAFİR" YAZISINI DÜZELTEN KISIM 👇
-  async findAll() {
+async findAll() {
     return await this.subRepository.find({
-      relations: ['user', 'pet', 'product'], 
+      relations: ['user', 'pet', 'product', 'order'], 
       order: { createdAt: 'DESC' }
     });
   }
-  // 👆 ====================================================================== 👆
-
   async calculateRefund(id: string) {
       const sub = await this.subRepository.findOne({
           where: { id },

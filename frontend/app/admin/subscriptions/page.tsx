@@ -89,7 +89,7 @@ export default function AdminSubscriptions() {
         "https://candostumbox-api.onrender.com/subscriptions",
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (res.ok) {
         const data = await res.json();
@@ -120,7 +120,7 @@ export default function AdminSubscriptions() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ reason }),
-        }
+        },
       );
 
       if (res.ok) {
@@ -129,8 +129,8 @@ export default function AdminSubscriptions() {
           prev.map((s) =>
             s.id === id
               ? { ...s, status: "cancelled", cancellationReason: reason }
-              : s
-          )
+              : s,
+          ),
         );
         if (selectedSub?.id === id)
           setSelectedSub({
@@ -148,9 +148,19 @@ export default function AdminSubscriptions() {
 
   // --- HELPER: İSİM ÇÖZÜCÜ ---
   const getUserName = (sub: any) => {
-    return sub.user?.firstName
-      ? `${sub.user.firstName} ${sub.user.lastName || ""}`
-      : sub.user?.name || "Misafir Müşteri";
+    // 1. Eğer kayıtlı kullanıcı ID'si bağlanmışsa onu göster
+    if (sub.user?.firstName) {
+      return `${sub.user.firstName} ${sub.user.lastName || ""}`;
+    }
+    if (sub.user?.name) {
+      return sub.user.name;
+    }
+    // 2. Kullanıcı ID'si yoksa BİLE siparişin içindeki Fatura ismini göster!
+    if (sub.order?.shippingAddressSnapshot?.firstName) {
+      return `${sub.order.shippingAddressSnapshot.firstName} ${sub.order.shippingAddressSnapshot.lastName || ""}`;
+    }
+    // Her ihtimale karşı:
+    return "Misafir Müşteri";
   };
 
   // --- FİLTRELEME ---
@@ -179,11 +189,11 @@ export default function AdminSubscriptions() {
   // --- İSTATİSTİKLER ---
   const stats = {
     totalActive: subs.filter(
-      (s) => s.status === "active" || s.status === "ACTIVE"
+      (s) => s.status === "active" || s.status === "ACTIVE",
     ).length,
     totalRevenue: subs.reduce((acc, s) => acc + (Number(s.pricePaid) || 0), 0),
     churned: subs.filter(
-      (s) => s.status === "cancelled" || s.status === "CANCELLED"
+      (s) => s.status === "cancelled" || s.status === "CANCELLED",
     ).length,
   };
 
@@ -261,10 +271,10 @@ export default function AdminSubscriptions() {
               {status === "ALL"
                 ? "Tümü"
                 : status === "ACTIVE"
-                ? "Aktif"
-                : status === "CANCELLED"
-                ? "İptal"
-                : "Biten"}
+                  ? "Aktif"
+                  : status === "CANCELLED"
+                    ? "İptal"
+                    : "Biten"}
             </button>
           ))}
         </div>
@@ -343,7 +353,7 @@ export default function AdminSubscriptions() {
                           <CalendarIcon />
                           {sub.nextDeliveryDate
                             ? new Date(sub.nextDeliveryDate).toLocaleDateString(
-                                "tr-TR"
+                                "tr-TR",
                               )
                             : "-"}
                         </div>
@@ -357,17 +367,17 @@ export default function AdminSubscriptions() {
                           isActive
                             ? "bg-green-100 text-green-700 border border-green-200"
                             : sub.status === "CANCELLED" ||
-                              sub.status === "cancelled"
-                            ? "bg-red-50 text-red-700 border border-red-100"
-                            : "bg-gray-100 text-gray-600 border border-gray-200"
+                                sub.status === "cancelled"
+                              ? "bg-red-50 text-red-700 border border-red-100"
+                              : "bg-gray-100 text-gray-600 border border-gray-200"
                         }`}
                       >
                         {isActive
                           ? "Aktif"
                           : sub.status === "CANCELLED" ||
-                            sub.status === "cancelled"
-                          ? "İptal"
-                          : "Tamamlandı"}
+                              sub.status === "cancelled"
+                            ? "İptal"
+                            : "Tamamlandı"}
                       </span>
                     </td>
                     <td className="p-6 text-right">
@@ -486,7 +496,7 @@ export default function AdminSubscriptions() {
                                       >
                                         {a}
                                       </span>
-                                    )
+                                    ),
                                   )}
                                 </div>
                               ) : (
@@ -523,7 +533,7 @@ export default function AdminSubscriptions() {
                             ₺
                             {Number(
                               selectedSub.pricePaid ||
-                                selectedSub.product?.price
+                                selectedSub.product?.price,
                             ).toFixed(2)}
                           </div>
                         </div>
@@ -543,7 +553,7 @@ export default function AdminSubscriptions() {
                         <span className="text-gray-500">Başlangıç Tarihi</span>
                         <span className="font-bold text-gray-900">
                           {new Date(selectedSub.startDate).toLocaleDateString(
-                            "tr-TR"
+                            "tr-TR",
                           )}
                         </span>
                       </div>
@@ -552,7 +562,7 @@ export default function AdminSubscriptions() {
                         <span className="font-bold text-purple-600">
                           {selectedSub.nextDeliveryDate
                             ? new Date(
-                                selectedSub.nextDeliveryDate
+                                selectedSub.nextDeliveryDate,
                               ).toLocaleDateString("tr-TR")
                             : "Bitti"}
                         </span>
