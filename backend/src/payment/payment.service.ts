@@ -252,7 +252,7 @@ export class PaymentService {
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
-      
+      console.log("🔍 PARAM POS GERÇEK YANIT:", JSON.stringify(ratesResultRaw, null, 2));
       const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult']?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
