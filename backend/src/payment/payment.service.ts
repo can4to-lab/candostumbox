@@ -296,8 +296,21 @@ export class PaymentService {
       installments.sort((a, b) => a.month - b.month);
       return { status: 'success', data: installments };
 
-    } catch (error) {
-      console.error("ParamPOS API Hatası:", error);
+    // ... (getInstallments fonksiyonunun başı) ...
+
+    } catch (error: any) {
+      console.error("🚨 ParamPOS API Hatası Yakalandı!");
+      
+      // Senin önerdiğin harika detaylı loglama kısmı:
+      if (error.response) {
+        console.log("STATUS:", error.response.status);
+        console.log("DATA:", error.response.data); // Asıl hayat kurtaran detay burada olacak!
+        console.log("HEADERS:", error.response.headers);
+      } else {
+        console.log("Sistemsel Hata:", error.message);
+      }
+      
+      // throw error; yerine fallback'i dönüyoruz ki sistem çökmesin, en azından tek çekim çalışsın.
       return singleInstallmentFallback;
     }
   }

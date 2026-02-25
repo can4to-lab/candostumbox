@@ -11,7 +11,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       useFactory: async (configService: ConfigService) => ({
         transport: {
           host: configService.get<string>('SMTP_HOST') || 'smtp.turkticaret.net',
-          port: Number(configService.get<number>('SMTP_PORT')) || 587,
+          port: Number(configService.get<number>('SMTP_PORT')) || 465,
           secure: configService.get<string>('SMTP_SECURE') === 'true', // Render'da false yaptığımız için false dönecek
           auth: {
             user: configService.get<string>('SMTP_USER'),
