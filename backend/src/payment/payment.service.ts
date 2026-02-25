@@ -119,7 +119,7 @@ export class PaymentService {
         const response = await axios.post(apiUrl, xmlRequest, {
             headers: { 
                 'Content-Type': 'text/xml; charset=utf-8', 
-                'SOAPAction': 'https://turkpos.com.tr/TP_Islem_Odeme' 
+                'SOAPAction': '"https://turkpos.com.tr/TP_Islem_Odeme"' 
             }
         });
 
@@ -199,8 +199,7 @@ export class PaymentService {
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
-          <BIN_SanalPos xmlns="https://turkpos.com.tr/">
-            <G>
+          <BIN_SanalPos xmlns="http://turkpos.com.tr/"> <G>
               <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
               <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
               <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
@@ -214,7 +213,7 @@ export class PaymentService {
       const binRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', binXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'https://turkpos.com.tr/BIN_SanalPos' // 👈 1. İŞLEM BAŞLIĞI EKLENDİ
+          'SOAPAction': '"http://turkpos.com.tr/BIN_SanalPos"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
         }
       });
       
@@ -231,8 +230,7 @@ export class PaymentService {
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <TP_Ozel_Oran_Listesi xmlns="https://turkpos.com.tr/"> 
-              <G>
+            <TP_Ozel_Oran_Listesi xmlns="http://turkpos.com.tr/"> <G>
                 <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
                 <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
                 <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
@@ -245,7 +243,7 @@ export class PaymentService {
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': 'https://turkpos.com.tr/TP_Ozel_Oran_Listesi' // 👈 2. İŞLEM BAŞLIĞI EKLENDİ
+          'SOAPAction': '"http://turkpos.com.tr/TP_Ozel_Oran_Listesi"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
         }
       });
 
@@ -296,21 +294,18 @@ export class PaymentService {
       installments.sort((a, b) => a.month - b.month);
       return { status: 'success', data: installments };
 
-    // ... (getInstallments fonksiyonunun başı) ...
-
     } catch (error: any) {
       console.error("🚨 ParamPOS API Hatası Yakalandı!");
       
-      // Senin önerdiğin harika detaylı loglama kısmı:
+      // Detaylı loglama kısmı
       if (error.response) {
         console.log("STATUS:", error.response.status);
-        console.log("DATA:", error.response.data); // Asıl hayat kurtaran detay burada olacak!
+        console.log("DATA:", error.response.data); 
         console.log("HEADERS:", error.response.headers);
       } else {
         console.log("Sistemsel Hata:", error.message);
       }
       
-      // throw error; yerine fallback'i dönüyoruz ki sistem çökmesin, en azından tek çekim çalışsın.
       return singleInstallmentFallback;
     }
   }
