@@ -247,13 +247,13 @@ export class PaymentService {
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Liste"' 
+          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Listesi"' 
         }
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
       console.log("🔍 PARAM POS GERÇEK YANIT:", JSON.stringify(ratesResultRaw, null, 2));
-      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult']?.['diffgr:diffgram'];
+      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListesiResponse']?.['TP_Ozel_Oran_ListesiResult']?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
