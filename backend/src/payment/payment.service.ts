@@ -77,7 +77,7 @@ export class PaymentService {
         : 'https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx';
 
     const xmlRequest = `
-    <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
       <soap:Body>
         <TP_Islem_Odeme xmlns="https://turkpos.com.tr/">
           <G>
@@ -197,9 +197,9 @@ export class PaymentService {
     
     // 1. ADIM: BIN Kodundan Kartın Bankasını Bul
     const binXml = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
-          <BIN_SanalPos xmlns="http://turkpos.com.tr/"> <G>
+          <BIN_SanalPos xmlns="https://turkpos.com.tr/"> <G>
               <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
               <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
               <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
@@ -213,7 +213,7 @@ export class PaymentService {
       const binRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', binXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"http://turkpos.com.tr/BIN_SanalPos"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
+          'SOAPAction': '"https://turkpos.com.tr/BIN_SanalPos"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
         }
       });
       
@@ -226,30 +226,30 @@ export class PaymentService {
 
       const sanalPosId = binResult.SanalPOS_ID;
       
-      // 2. ADIM: GERÇEK FİRMA ORANLARINI (TP_Ozel_Oran_Listesi) ÇEK
+      // 2. ADIM: GERÇEK FİRMA ORANLARINI (TP_Ozel_Oran_Liste) ÇEK
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
-        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Envelope xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="https://www.w3.org/2001/XMLSchema" xmlns:soap="https://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <TP_Ozel_Oran_Listesi xmlns="http://turkpos.com.tr/"> <G>
+            <TP_Ozel_Oran_Liste xmlns="https//turkpos.com.tr/"> <G>
                 <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
                 <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
                 <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
               </G>
               <GUID>${process.env.PARAM_GUID}</GUID>
-            </TP_Ozel_Oran_Listesi>
+            </TP_Ozel_Oran_Liste>
           </soap:Body>
         </soap:Envelope>`;
 
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"http://turkpos.com.tr/TP_Ozel_Oran_Listesi"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
+          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Liste"' // 👈 ÇİFT TIRNAK VE HTTP EKLENDİ
         }
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
       
-      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListesiResponse']?.['TP_Ozel_Oran_ListesiResult']?.['diffgr:diffgram'];
+      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult']?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
