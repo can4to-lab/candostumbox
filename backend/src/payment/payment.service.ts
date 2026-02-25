@@ -227,8 +227,17 @@ export class PaymentService {
       }
 
       const tempObj = binResult?.DT_Bilgi?.['diffgr:diffgram']?.NewDataSet?.Temp;
-      const sanalPosId = tempObj?.SanalPOS_ID || binResult?.SanalPOS_ID;
+      let rawPosId = tempObj?.SanalPOS_ID || binResult?.SanalPOS_ID;
+
+      // Eğer XML parser bunu bize dizi ["1014"] veya obje olarak dönerse diye SAF STRING'e çeviriyoruz:
+      if (Array.isArray(rawPosId)) {
+          rawPosId = rawPosId[0];
+      } else if (typeof rawPosId === 'object' && rawPosId !== null) {
+          rawPosId = rawPosId['_'] || rawPosId['$'] || Object.values(rawPosId)[0];
+      }
       
+      const sanalPosId = String(rawPosId).trim();
+
       console.log("💳 GİRİLEN BIN:", cleanBin);
       console.log("🏦 PARAM'IN BULDUĞU POS ID:", sanalPosId);
       console.log("📦 BIN SORGUSU TAM CEVAP:", JSON.stringify(binResult, null, 2));
