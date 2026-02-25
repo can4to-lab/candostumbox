@@ -532,7 +532,6 @@ function CheckoutContent() {
 
     if (paymentMethod !== "credit_card") {
       const directOrderPayload = {
-        userId: finalUserId,
         addressId:
           finalUserId && selectedAddressId ? selectedAddressId : undefined,
         paymentType: paymentMethod,
