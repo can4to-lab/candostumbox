@@ -43,7 +43,13 @@ async calculateRefund(id: string) {
 
     
   ) {}
-
+async findAll() {
+    return await this.subRepository.find({
+      relations: ['user', 'pet', 'product'], // 👈 HAYAT KURTARAN KISIM BURASI
+      order: { createdAt: 'DESC' }
+    });
+  }
+  
   async findAllByUser(userId: string) {
     if (!userId) return [];
     return await this.subRepository.find({

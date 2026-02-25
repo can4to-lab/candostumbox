@@ -142,23 +142,24 @@ export class OrdersService {
             }
         }
         else {
-            // YENİ ABONELİK
-            const subscription = new Subscription();
-            if (userEntity) subscription.user = userEntity; 
-            subscription.product = product;
-            if (foundPet) subscription.pet = foundPet;
-            subscription.totalMonths = itemDuration;
-            subscription.remainingMonths = itemDuration;
-            subscription.startDate = new Date();
-            subscription.paymentType = paymentType || 'upfront';
-            subscription.pricePaid = unitPricePaid;
-            subscription.status = SubscriptionStatus.ACTIVE;
-            
-            const nextDate = new Date();
-            nextDate.setMonth(nextDate.getMonth() + 1);
-            subscription.nextDeliveryDate = nextDate;
+            if (itemDuration > 1) {
+                const subscription = new Subscription();
+                if (userEntity) subscription.user = userEntity; 
+                subscription.product = product;
+                if (foundPet) subscription.pet = foundPet;
+                subscription.totalMonths = itemDuration;
+                subscription.remainingMonths = itemDuration;
+                subscription.startDate = new Date();
+                subscription.paymentType = paymentType || 'upfront';
+                subscription.pricePaid = unitPricePaid;
+                subscription.status = SubscriptionStatus.ACTIVE;
+                
+                const nextDate = new Date();
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                subscription.nextDeliveryDate = nextDate;
 
-            await queryRunner.manager.save(Subscription, subscription);
+                await queryRunner.manager.save(Subscription, subscription);
+            }
         }
 
         totalPrice += itemTotal;
