@@ -233,27 +233,27 @@ export class PaymentService {
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
-            <TP_Ozel_Oran_Listesi xmlns="https://turkpos.com.tr/"> 
+            <TP_Ozel_Oran_Liste xmlns="https://turkpos.com.tr/"> 
               <G>
                 <CLIENT_CODE>${process.env.PARAM_CLIENT_CODE}</CLIENT_CODE>
                 <CLIENT_USERNAME>${process.env.PARAM_CLIENT_USERNAME}</CLIENT_USERNAME>
                 <CLIENT_PASSWORD>${process.env.PARAM_CLIENT_PASSWORD}</CLIENT_PASSWORD>
               </G>
               <GUID>${process.env.PARAM_GUID}</GUID>
-            </TP_Ozel_Oran_Listesi>
+            </TP_Ozel_Oran_Liste>
           </soap:Body>
         </soap:Envelope>`;
 
       const ratesRes = await axios.post('https://posws.param.com.tr/turkpos.ws/service_turkpos_prod.asmx', ratesXml, {
         headers: { 
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Listesi"' 
+          'SOAPAction': '"https://turkpos.com.tr/TP_Ozel_Oran_Liste"' 
         }
       });
 
       const ratesResultRaw = await parseStringPromise(ratesRes.data, { explicitArray: false });
       console.log("🔍 PARAM POS GERÇEK YANIT:", JSON.stringify(ratesResultRaw, null, 2));
-      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListesiResponse']?.['TP_Ozel_Oran_ListesiResult']?.['diffgr:diffgram'];
+      const diffgram = ratesResultRaw['soap:Envelope']?.['soap:Body']?.['TP_Ozel_Oran_ListeResponse']?.['TP_Ozel_Oran_ListeResult']?.['diffgr:diffgram'];
       
       if (!diffgram || !diffgram.NewDataSet || !diffgram.NewDataSet.DT_Ozel_Oranlar) {
          console.warn("⚠️ ParamPOS'tan taksit listesi boş döndü. Sadece Tek Çekim aktif ediliyor.");
