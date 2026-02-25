@@ -226,11 +226,13 @@ export class PaymentService {
         return { status: 'error', message: 'Geçersiz kart numarası veya desteklenmeyen kart.' };
       }
 
-      const sanalPosId = binResult.SanalPOS_ID;
-
+      const tempObj = binResult?.DT_Bilgi?.['diffgr:diffgram']?.NewDataSet?.Temp;
+      const sanalPosId = tempObj?.SanalPOS_ID || binResult?.SanalPOS_ID;
+      
       console.log("💳 GİRİLEN BIN:", cleanBin);
       console.log("🏦 PARAM'IN BULDUĞU POS ID:", sanalPosId);
       console.log("📦 BIN SORGUSU TAM CEVAP:", JSON.stringify(binResult, null, 2));
+
       // 2. ADIM: GERÇEK FİRMA ORANLARINI ÇEK
       // DİKKAT: Servisin doğru adı TP_Ozel_Oran_Listesi'dir.
       const ratesXml = `<?xml version="1.0" encoding="utf-8"?>
