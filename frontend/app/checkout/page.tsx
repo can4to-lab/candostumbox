@@ -182,8 +182,8 @@ function CheckoutContent() {
       }
       try {
         const [prodRes, discRes] = await Promise.all([
-          fetch(`https://candostumbox-api.onrender.com/products/${productId}`),
-          fetch(`https://candostumbox-api.onrender.com/discounts`),
+          fetch(`https://api.candostumbox.com/products/${productId}`),
+          fetch(`https://api.candostumbox.com/discounts`),
         ]);
         if (prodRes.ok) setProduct(await prodRes.json());
         if (discRes.ok) setDiscountRules(await discRes.json());
@@ -210,10 +210,9 @@ function CheckoutContent() {
 
   const fetchPets = async (token: string) => {
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/users/pets",
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch("https://api.candostumbox.com/users/pets", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.pets || [];
@@ -227,10 +226,9 @@ function CheckoutContent() {
 
   const fetchAddresses = async (token: string) => {
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/users/addresses",
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch("https://api.candostumbox.com/users/addresses", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -246,10 +244,9 @@ function CheckoutContent() {
 
   const fetchProfile = async (token: string) => {
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/auth/profile",
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      const res = await fetch("https://api.candostumbox.com/auth/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setUserProfile(data);
@@ -348,7 +345,7 @@ function CheckoutContent() {
         setInstallmentError("");
         try {
           const res = await fetch(
-            "https://candostumbox-api.onrender.com/payment/installments",
+            "https://api.candostumbox.com/payment/installments",
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -416,7 +413,7 @@ function CheckoutContent() {
     setIsCheckingPromo(true);
     try {
       const res = await fetch(
-        "https://candostumbox-api.onrender.com/promo-codes/validate",
+        "https://api.candostumbox.com/promo-codes/validate",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -541,17 +538,14 @@ function CheckoutContent() {
       };
 
       try {
-        const res = await fetch(
-          "https://candostumbox-api.onrender.com/orders",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: JSON.stringify(directOrderPayload),
+        const res = await fetch("https://api.candostumbox.com/orders", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
           },
-        );
+          body: JSON.stringify(directOrderPayload),
+        });
         const data = await res.json();
         if (res.ok) {
           toast.success("Siparişiniz başarıyla alındı! 🎉");
@@ -588,17 +582,14 @@ function CheckoutContent() {
     };
 
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/payment/start",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify(payload),
+      const res = await fetch("https://api.candostumbox.com/payment/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
-      );
+        body: JSON.stringify(payload),
+      });
       const data = await res.json();
       if (data.status === "success" && data.token) {
         setIframeToken(data.token);

@@ -85,12 +85,9 @@ export default function AdminSubscriptions() {
   const fetchSubs = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/subscriptions",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch("https://api.candostumbox.com/subscriptions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setSubs(data);
@@ -112,7 +109,7 @@ export default function AdminSubscriptions() {
 
     try {
       const res = await fetch(
-        `https://candostumbox-api.onrender.com/subscriptions/${id}/cancel`,
+        `https://api.candostumbox.com/subscriptions/${id}/cancel`,
         {
           method: "PATCH",
           headers: {

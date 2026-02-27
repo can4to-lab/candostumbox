@@ -88,7 +88,7 @@ export default function Home() {
     const token = localStorage.getItem("token");
     if (token) {
       setIsLoggedIn(true);
-      fetch("https://candostumbox-api.onrender.com/orders/my-orders", {
+      fetch("https://api.candostumbox.com/orders/my-orders", {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
@@ -100,9 +100,7 @@ export default function Home() {
 
     const urunleriGetir = async () => {
       try {
-        const cevap = await fetch(
-          "https://candostumbox-api.onrender.com/products",
-        );
+        const cevap = await fetch("https://api.candostumbox.com/products");
         const veri = await cevap.json();
         // Order'a göre sırala
         const siraliUrunler = Array.isArray(veri)

@@ -105,7 +105,7 @@ export default function AdminProducts() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch("https://candostumbox-api.onrender.com/products");
+      const res = await fetch("https://api.candostumbox.com/products");
       if (res.ok) {
         const data = await res.json();
         const sortedData = Array.isArray(data)
@@ -128,13 +128,10 @@ export default function AdminProducts() {
     const loadingToast = toast.loading("Siliniyor...");
 
     try {
-      const res = await fetch(
-        `https://candostumbox-api.onrender.com/products/${id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch(`https://api.candostumbox.com/products/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (res.ok) {
         toast.success("Ürün silindi", { id: loadingToast });
@@ -174,7 +171,7 @@ export default function AdminProducts() {
       let res;
       if (editingProduct) {
         res = await fetch(
-          `https://candostumbox-api.onrender.com/products/${editingProduct.id}`,
+          `https://api.candostumbox.com/products/${editingProduct.id}`,
           {
             method: "PATCH",
             headers: {
@@ -185,7 +182,7 @@ export default function AdminProducts() {
           },
         );
       } else {
-        res = await fetch("https://candostumbox-api.onrender.com/products", {
+        res = await fetch("https://api.candostumbox.com/products", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

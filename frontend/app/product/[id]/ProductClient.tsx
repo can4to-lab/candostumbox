@@ -25,7 +25,7 @@ interface Review {
   };
 }
 
-const API_URL = "https://candostumbox-api.onrender.com";
+const API_URL = "https://api.candostumbox.com";
 
 // --- YARDIMCI BİLEŞEN: TAKSİT TABLOSU (Sadece Bilgi Amaçlı) ---
 const InstallmentInfo = () => {

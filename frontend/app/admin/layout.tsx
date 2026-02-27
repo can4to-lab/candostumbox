@@ -31,12 +31,9 @@ export default function AdminLayout({
       try {
         // Token var ama geçerli mi ve rolü ne? API'den soralım.
         // Sadece localStorage'a bakmak yetmez, kullanıcı orayı elle değiştirebilir.
-        const res = await fetch(
-          "https://candostumbox-api.onrender.com/auth/profile",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
+        const res = await fetch("https://api.candostumbox.com/auth/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (res.ok) {
           const user = await res.json();

@@ -14,7 +14,7 @@ pnpm dev
 bun dev
 ```
 
-Open [https://candostumbox-api.onrender.com](https://candostumbox-api.onrender.com) with your browser to see the result.
+Open [https://api.candostumbox.com](https://api.candostumbox.com) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

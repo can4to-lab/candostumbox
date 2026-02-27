@@ -21,7 +21,7 @@ export default function RegisterPage() {
     setError("");
 
     try {
-      const res = await fetch("https://candostumbox-api.onrender.com/auth/signup", {
+      const res = await fetch("https://api.candostumbox.com/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -36,7 +36,6 @@ export default function RegisterPage() {
       // Başarılıysa Giriş sayfasına yönlendir
       alert("Kayıt başarılı! Şimdi giriş yapabilirsiniz.");
       router.push("/auth/login");
-
     } catch (err: any) {
       setError(err.message);
     }
@@ -46,8 +45,8 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md border border-gray-100">
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Aramıza Katıl 🐾</h2>
-            <p className="text-gray-500 mt-2">Can dostun için en iyisi burada.</p>
+          <h2 className="text-3xl font-bold text-gray-900">Aramıza Katıl 🐾</h2>
+          <p className="text-gray-500 mt-2">Can dostun için en iyisi burada.</p>
         </div>
 
         {error && (
@@ -58,7 +57,9 @@ export default function RegisterPage() {
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ad Soyad</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ad Soyad
+            </label>
             <input
               name="name"
               type="text"
@@ -70,7 +71,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-posta
+            </label>
             <input
               name="email"
               type="email"
@@ -80,9 +83,11 @@ export default function RegisterPage() {
               onChange={handleChange}
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Şifre
+            </label>
             <input
               name="password"
               type="password"
@@ -103,7 +108,10 @@ export default function RegisterPage() {
 
         <p className="text-center mt-6 text-gray-600 text-sm">
           Zaten hesabın var mı?{" "}
-          <Link href="/auth/login" className="text-green-600 font-bold hover:underline">
+          <Link
+            href="/auth/login"
+            className="text-green-600 font-bold hover:underline"
+          >
             Giriş Yap
           </Link>
         </p>

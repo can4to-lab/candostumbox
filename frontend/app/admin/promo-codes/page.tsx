@@ -26,12 +26,9 @@ export default function AdminPromoCodes() {
   const fetchCodes = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/promo-codes",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch("https://api.candostumbox.com/promo-codes", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) setCodes(await res.json());
     } catch (err) {
       toast.error("Kodlar yüklenirken hata oluştu.");
@@ -44,22 +41,19 @@ export default function AdminPromoCodes() {
     e.preventDefault();
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/promo-codes",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            ...formData,
-            usageLimit: Number(formData.usageLimit), // Sayısal değere çeviriyoruz
-            minBasketAmount: Number(formData.minBasketAmount),
-            discountValue: Number(formData.discountValue),
-          }),
+      const res = await fetch("https://api.candostumbox.com/promo-codes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify({
+          ...formData,
+          usageLimit: Number(formData.usageLimit), // Sayısal değere çeviriyoruz
+          minBasketAmount: Number(formData.minBasketAmount),
+          discountValue: Number(formData.discountValue),
+        }),
+      });
 
       if (res.ok) {
         toast.success("İndirim kodu başarıyla oluşturuldu.");
@@ -86,7 +80,7 @@ export default function AdminPromoCodes() {
     if (!confirm("Bu kodu silmek istediğinize emin misiniz?")) return;
     const token = localStorage.getItem("token");
     try {
-      await fetch(`https://candostumbox-api.onrender.com/promo-codes/${id}`, {
+      await fetch(`https://api.candostumbox.com/promo-codes/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });

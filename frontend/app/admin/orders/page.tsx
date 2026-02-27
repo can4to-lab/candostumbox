@@ -117,7 +117,7 @@ export default function AdminOrders() {
   const fetchOrders = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("https://candostumbox-api.onrender.com/orders", {
+      const res = await fetch("https://api.candostumbox.com/orders", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -140,7 +140,7 @@ export default function AdminOrders() {
 
     try {
       const res = await fetch(
-        `https://candostumbox-api.onrender.com/orders/${orderId}/ship`,
+        `https://api.candostumbox.com/orders/${orderId}/ship`,
         {
           method: "PATCH",
           headers: {
@@ -202,7 +202,7 @@ export default function AdminOrders() {
 
     try {
       const res = await fetch(
-        `https://candostumbox-api.onrender.com/orders/${orderId}/status`,
+        `https://api.candostumbox.com/orders/${orderId}/status`,
         {
           method: "PATCH",
           headers: {

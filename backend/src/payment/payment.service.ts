@@ -54,7 +54,7 @@ export class PaymentService {
     const paramInstallment = installment || "1"; 
     const SANAL_POS_ID = CLIENT_CODE; 
     
-    const backendUrl = process.env.BACKEND_URL || 'https://candostumbox-api.onrender.com';
+    const backendUrl = process.env.BACKEND_URL || 'https://api.candostumbox.com';
     const successUrl = `${backendUrl}/payment/callback`;
     const failUrl = `${backendUrl}/payment/callback`;
 

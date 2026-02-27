@@ -180,12 +180,9 @@ function ProfileContent() {
     }
 
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/auth/profile",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch("https://api.candostumbox.com/auth/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setUser(data);
@@ -234,12 +231,9 @@ function ProfileContent() {
     if (!token) return;
     setSubsLoading(true);
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/subscriptions",
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
+      const res = await fetch("https://api.candostumbox.com/subscriptions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setSubs(data);
@@ -308,7 +302,7 @@ function ProfileContent() {
 
     try {
       const res = await fetch(
-        `https://candostumbox-api.onrender.com/subscriptions/${selectedSubId}/cancel`,
+        `https://api.candostumbox.com/subscriptions/${selectedSubId}/cancel`,
         {
           method: "PATCH",
           headers: {
@@ -352,17 +346,14 @@ function ProfileContent() {
         tcKimlikNo: formData.tcIdentity,
       };
 
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/users/profile",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
+      const res = await fetch("https://api.candostumbox.com/users/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify(payload),
+      });
 
       const data = await res.json();
 
@@ -388,8 +379,8 @@ function ProfileContent() {
     const { type, id } = confirmData;
     const url =
       type === "address"
-        ? `https://candostumbox-api.onrender.com/users/addresses/${id}`
-        : `https://candostumbox-api.onrender.com/users/pets/${id}`;
+        ? `https://api.candostumbox.com/users/addresses/${id}`
+        : `https://api.candostumbox.com/users/pets/${id}`;
 
     try {
       const res = await fetch(url, {
@@ -433,7 +424,7 @@ function ProfileContent() {
     const toastId = toast.loading("Şifre güncelleniyor...");
     try {
       const res = await fetch(
-        "https://candostumbox-api.onrender.com/users/change-password",
+        "https://api.candostumbox.com/users/change-password",
         {
           method: "PATCH",
           headers: {

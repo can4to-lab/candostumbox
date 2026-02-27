@@ -91,7 +91,7 @@ export default function AdminUsers() {
     const token = localStorage.getItem("token");
     try {
       // Backend'in user objesi içinde 'pets', 'orders', 'addresses' ilişkilerini döndürdüğünden emin olun.
-      const res = await fetch("https://candostumbox-api.onrender.com/users", {
+      const res = await fetch("https://api.candostumbox.com/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -127,7 +127,7 @@ export default function AdminUsers() {
     if (!orders) return 0;
     return orders.reduce(
       (acc, order) => acc + Number(order.totalPrice || 0),
-      0
+      0,
     );
   };
 
@@ -435,7 +435,7 @@ export default function AdminUsers() {
                       <div className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-xs font-bold border border-green-100">
                         Toplam Harcama: ₺
                         {calculateLTV(selectedUser.orders).toLocaleString(
-                          "tr-TR"
+                          "tr-TR",
                         )}
                       </div>
                     </div>
@@ -459,7 +459,7 @@ export default function AdminUsers() {
                                 </div>
                                 <div className="text-xs text-gray-500 mt-0.5">
                                   {new Date(order.createdAt).toLocaleDateString(
-                                    "tr-TR"
+                                    "tr-TR",
                                   )}
                                 </div>
                               </div>
@@ -469,10 +469,10 @@ export default function AdminUsers() {
                                   order.status === "PREPARING"
                                     ? "bg-orange-100 text-orange-700"
                                     : order.status === "SHIPPED"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : order.status === "CANCELLED"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-green-100 text-green-700"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : order.status === "CANCELLED"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-green-100 text-green-700"
                                 }`}
                               >
                                 {order.status}

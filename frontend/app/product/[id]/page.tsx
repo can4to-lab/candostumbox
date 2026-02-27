@@ -11,9 +11,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
 
   try {
-    const product = await fetch(`https://candostumbox-api.onrender.com/products/${id}`, { next: { revalidate: 3600 } }).then((res) =>
-      res.json()
-    );
+    const product = await fetch(`https://api.candostumbox.com/products/${id}`, {
+      next: { revalidate: 3600 },
+    }).then((res) => res.json());
 
     if (!product || product.error) {
       return {
@@ -23,7 +23,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     return {
       title: `${product.name} | Can Dostum Box`,
-      description: product.description ? `${product.description.slice(0, 160)}...` : "Can dostunuz için harika bir kutu.",
+      description: product.description
+        ? `${product.description.slice(0, 160)}...`
+        : "Can dostunuz için harika bir kutu.",
       openGraph: {
         title: product.name,
         description: product.description,

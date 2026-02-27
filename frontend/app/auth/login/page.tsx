@@ -15,7 +15,7 @@ export default function LoginPage() {
 
     try {
       // Backend'e istek atıyoruz
-      const res = await fetch("https://candostumbox-api.onrender.com/auth/login", {
+      const res = await fetch("https://api.candostumbox.com/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -30,10 +30,9 @@ export default function LoginPage() {
       // BAŞARILI!
       // 1. Token'ı tarayıcının hafızasına (LocalStorage) kaydet
       localStorage.setItem("token", data.access_token);
-      
+
       // 2. Ana sayfaya yönlendir
       router.push("/");
-      
     } catch (err: any) {
       setError(err.message);
     }
@@ -43,8 +42,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md border border-gray-100">
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Tekrar Hoş Geldin! 👋</h2>
-            <p className="text-gray-500 mt-2">Hesabına giriş yap ve dostunu sevindir.</p>
+          <h2 className="text-3xl font-bold text-gray-900">
+            Tekrar Hoş Geldin! 👋
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Hesabına giriş yap ve dostunu sevindir.
+          </p>
         </div>
 
         {error && (
@@ -55,7 +58,9 @@ export default function LoginPage() {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">E-posta Adresi</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              E-posta Adresi
+            </label>
             <input
               type="email"
               required
@@ -65,9 +70,11 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Şifre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Şifre
+            </label>
             <input
               type="password"
               required
@@ -88,7 +95,10 @@ export default function LoginPage() {
 
         <p className="text-center mt-6 text-gray-600 text-sm">
           Hesabın yok mu?{" "}
-          <Link href="/auth/register" className="text-green-600 font-bold hover:underline">
+          <Link
+            href="/auth/register"
+            className="text-green-600 font-bold hover:underline"
+          >
             Kayıt Ol
           </Link>
         </p>

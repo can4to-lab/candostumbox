@@ -52,14 +52,11 @@ export default function RegisterModal({
 
     setLoading(true);
     try {
-      const res = await fetch(
-        "https://candostumbox-api.onrender.com/auth/signup",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        },
-      );
+      const res = await fetch("https://api.candostumbox.com/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
       const data = await res.json();
 
       if (!res.ok) {
