@@ -8,23 +8,36 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   imports: [
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        transport: {
-          host: configService.get<string>('SMTP_HOST') || 'smtp.turkticaret.net',
-          port: Number(configService.get<number>('SMTP_PORT')) || 465,
-          secure: configService.get<string>('SMTP_SECURE') === 'true', // Render'da false yaptığımız için false dönecek
-          auth: {
-            user: configService.get<string>('SMTP_USER'),
-            pass: configService.get<string>('SMTP_PASS'),
+      useFactory: async (configService: ConfigService) => {
+        const smtpUser = configService.get<string>('SMTP_USER');
+        const smtpPass = configService.get<string>('SMTP_PASS');
+        const smtpHost = configService.get<string>('SMTP_HOST', 'smtp.turkticaret.net');
+
+        // KEY FIX: Port 587 + secure:false = STARTTLS (correct for Render/cloud)
+        // Port 465 + secure:true = Implicit SSL (avoid on Render — often blocked)
+        const smtpPort = configService.get<number>('SMTP_PORT', 587);
+        const smtpSecure = configService.get<string>('SMTP_SECURE', 'false') === 'true';
+
+        return {
+          transport: {
+            host: smtpHost,
+            port: smtpPort,
+            secure: smtpSecure, // false for 587/STARTTLS, true for 465/SSL
+            auth: {
+              user: smtpUser,
+              pass: smtpPass,
+            },
+            tls: {
+              // Only set to false if your provider uses self-signed certs.
+              // For production, prefer removing this entirely or setting to true.
+              rejectUnauthorized: configService.get<string>('SMTP_REJECT_UNAUTHORIZED', 'true') === 'true',
+            },
           },
-          tls: {
-            rejectUnauthorized: false, // Sertifika reddini engeller
+          defaults: {
+            from: `"Can Dostum Box" <${smtpUser}>`,
           },
-        },
-        defaults: {
-          from: `"Can Dostum Box" <${configService.get<string>('SMTP_USER')}>`,
-        },
-      }),
+        };
+      },
       inject: [ConfigService],
     }),
   ],
