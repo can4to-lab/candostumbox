@@ -387,7 +387,7 @@ function ProductContent() {
               {/* SOL TARA: GÖRSEL */}
               <div className="relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl">
                 <Image
-                  src="/kutu-icerik_urun.png"
+                  src="/kutu_icerik_urun.png"
                   alt="Can Dostum Box Kutu İçeriği"
                   fill
                   className="object-cover"
