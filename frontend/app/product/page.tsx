@@ -386,10 +386,8 @@ function ProductContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               {/* SOL TARA: GÖRSEL */}
               <div className="relative h-[500px] rounded-[2rem] overflow-hidden shadow-xl">
-                {/* Buraya gerçek bir kutu açılımı veya mutlu hayvan görseli koymalısın.
-                      Örnek olarak placeholder kullanıyorum. */}
                 <Image
-                  src="/kutu_icerik.png"
+                  src="/kutu-icerik_urun.png"
                   alt="Can Dostum Box Kutu İçeriği"
                   fill
                   className="object-cover"
