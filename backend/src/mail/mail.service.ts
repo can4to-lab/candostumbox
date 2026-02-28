@@ -1,97 +1,85 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
+  private readonly resend: Resend;
   private readonly adminEmail: string;
-  private readonly senderName = 'Can Dostum Box';
+  private readonly fromEmail: string;
 
-  constructor(
-    private readonly mailerService: MailerService,
-    private readonly configService: ConfigService, // FIX: Inject ConfigService, no more process.env
-  ) {
-    // Resolve once at construction time — fails fast if misconfigured
-    this.adminEmail =
-      this.configService.get<string>('ADMIN_EMAIL') ??
-      this.configService.get<string>('SMTP_USER') ??
-      'destek@candostumbox.com';
+  constructor(private readonly configService: ConfigService) {
+    // Railway'den API şifreni çekiyoruz
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
+    this.resend = new Resend(apiKey);
+
+    // Bildirimlerin gideceği admin maili
+    this.adminEmail = this.configService.get<string>('ADMIN_EMAIL') ?? 'destek@candostumbox.com';
+    
+    // Müşterilere hangi adresten mail gidecek?
+    this.fromEmail = 'Can Dostum Box <destek@candostumbox.com>'; 
   }
 
-  // 1. Welcome Email
+  // 1. Hoşgeldin Maili
   async sendWelcomeEmail(userEmail: string, userName: string): Promise<void> {
     this.logger.log(`⏳ Sending welcome email to: ${userEmail}`);
 
     try {
-      await this.mailerService.sendMail({
+      const { data, error } = await this.resend.emails.send({
+        from: this.fromEmail,
         to: userEmail,
         subject: 'Can Dostum Ailesine Hoş Geldin! 🐾',
-        html: `
-          <h1>Merhaba ${userName}!</h1>
-          <p>Dostun için en iyisini seçtiğin için teşekkürler.</p>
-        `,
+        html: `<h1>Merhaba ${userName}!</h1><p>Dostun için en iyisini seçtiğin için teşekkürler.</p>`,
       });
 
-      this.logger.log(`✅ Welcome email sent successfully -> ${userEmail}`);
+      if (error) throw new Error(error.message);
+      this.logger.log(`✅ Welcome email sent successfully -> ${userEmail} (Resend ID: ${data?.id})`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`🚨 Failed to send welcome email to ${userEmail}: ${message}`);
-      throw error; // Rethrow so auth service can react (correct pattern)
-    }
-  }
-
-  // 2. Order Confirmation (to Customer)
-  async sendOrderConfirmation(
-    userEmail: string,
-    orderId: string,
-    total: number,
-  ): Promise<void> {
-    this.logger.log(`⏳ Sending order confirmation to: ${userEmail}`);
-
-    try {
-      await this.mailerService.sendMail({
-        to: userEmail,
-        subject: `Siparişin Alındı! ✅ (No: #${orderId.slice(0, 8)})`,
-        html: `
-          <p>Mutluluk paketi yola çıkmak için hazırlanıyor.</p>
-          <p><strong>Toplam: ₺${total.toFixed(2)}</strong></p>
-        `,
-      });
-
-      this.logger.log(`✅ Order confirmation sent -> ${userEmail}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `🚨 Failed to send order confirmation to ${userEmail} (Order: ${orderId}): ${message}`,
-      );
-      // FIX: Rethrow here too — silent failures hide broken email infra
       throw error;
     }
   }
 
-  // 3. New Order Notification (to Admin)
+  // 2. Sipariş Onay Maili (Müşteriye)
+  async sendOrderConfirmation(userEmail: string, orderId: string, total: number): Promise<void> {
+    this.logger.log(`⏳ Sending order confirmation to: ${userEmail}`);
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: userEmail,
+        subject: `Siparişin Alındı! ✅ (No: #${orderId.slice(0, 8)})`,
+        html: `<p>Mutluluk paketi yola çıkmak için hazırlanıyor.</p><p><strong>Toplam: ₺${total.toFixed(2)}</strong></p>`,
+      });
+
+      if (error) throw new Error(error.message);
+      this.logger.log(`✅ Order confirmation sent -> ${userEmail} (Resend ID: ${data?.id})`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`🚨 Failed to send order confirmation to ${userEmail} (Order: ${orderId}): ${message}`);
+      throw error;
+    }
+  }
+
+  // 3. Yeni Sipariş Bildirimi (Patrona/Admine)
   async sendAdminOrderNotification(orderId: string, total: number): Promise<void> {
     this.logger.log(`⏳ Sending admin order notification for order: ${orderId}`);
 
     try {
-      await this.mailerService.sendMail({
-        to: this.adminEmail, // FIX: Uses ConfigService-resolved value, not process.env
+      const { data, error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: this.adminEmail,
         subject: '🔥 YENİ SİPARİŞ GELDİ!',
-        html: `
-          <p>Az önce <strong>#${orderId}</strong> nolu,</p>
-          <p><strong>₺${total.toFixed(2)}</strong> tutarında yeni bir sipariş aldınız.</p>
-        `,
+        html: `<p>Az önce <strong>#${orderId}</strong> nolu,</p><p><strong>₺${total.toFixed(2)}</strong> tutarında yeni bir sipariş aldınız.</p>`,
       });
 
-      this.logger.log(`✅ Admin notification sent for order: ${orderId}`);
+      if (error) throw new Error(error.message);
+      this.logger.log(`✅ Admin notification sent for order: ${orderId} (Resend ID: ${data?.id})`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `🚨 Failed to send admin notification for order ${orderId}: ${message}`,
-      );
-      // Admin notifications: log but don't rethrow — don't fail the user's order flow
-      // over an internal notification. Consider a retry queue for production.
+      this.logger.error(`🚨 Failed to send admin notification for order ${orderId}: ${message}`);
     }
   }
 }
