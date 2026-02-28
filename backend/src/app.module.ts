@@ -27,7 +27,7 @@ import { MailModule } from './mail/mail.module'; // 👈 Sadece modül olarak i�
         type: 'postgres',
         url: configService.get('DATABASE_URL'),
         autoLoadEntities: true, 
-        synchronize: true,
+        synchronize: false,
       }),
     }),
     
