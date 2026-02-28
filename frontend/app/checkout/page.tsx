@@ -141,7 +141,7 @@ function CheckoutContent() {
   const [paymentMethod, setPaymentMethod] = useState<
     "credit_card" | "bank_transfer" | "cash_on_delivery"
   >("credit_card");
-  const COD_FEE = 89.9; // Kapıda ödeme hizmet bedeli
+  const COD_FEE = 159.9; // Kapıda ödeme hizmet bedeli
 
   // Kart Bilgileri
   const [cardData, setCardData] = useState({
@@ -1316,16 +1316,16 @@ function CheckoutContent() {
                           <strong className="text-gray-900 font-sans">
                             Banka:
                           </strong>{" "}
-                          [TODO: Banka Adı Eklenecek]
+                          Enpara
                         </p>
                         <p className="mb-2">
                           <strong className="text-gray-900 font-sans">
                             Alıcı:
                           </strong>{" "}
-                          [TODO: Firma Adı Eklenecek]
+                          Mehmet Günen
                         </p>
                         <p className="bg-gray-50 p-2 rounded border border-gray-200 tracking-wider font-bold">
-                          TR00 0000 0000 0000 0000 0000 00
+                          TR68 0015 7000 0000 0038 3554 10
                         </p>
                       </div>
                     </div>
