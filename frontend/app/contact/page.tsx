@@ -18,16 +18,34 @@ export default function ContactPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simülasyon: API'ye gönderiyormuş gibi bekletelim
-    setTimeout(() => {
+    try {
+      // Backend'deki mail gönderme rotamıza (API) verileri yolluyoruz
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/mail/contact`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Sunucu hatası");
+      }
+
       toast.success("Mesajın bize ulaştı! En kısa sürede dönüş yapacağız. 🚀");
       setFormData({ name: "", email: "", subject: "", message: "" }); // Formu temizle
+    } catch (error) {
+      toast.error("Mesaj gönderilemedi. Lütfen daha sonra tekrar dene.");
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -89,7 +107,7 @@ export default function ContactPage() {
             </div>
 
             {/* SSS Yönlendirme */}
-            <div className="bg-green-600 p-8 rounded-3xl shadow-xl text-white text-center">
+            <div className="bg-green-600 p-8 rounded-3xl shadow-xl text-white text-center flex flex-col items-center justify-center">
               <div className="text-4xl mb-4">🤔</div>
               <h3 className="font-bold text-xl mb-2">Hızlı Cevap mı Lazım?</h3>
               <p className="text-green-100 text-sm mb-6">

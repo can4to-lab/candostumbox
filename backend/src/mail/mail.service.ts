@@ -82,4 +82,28 @@ export class MailService {
       this.logger.error(`🚨 Failed to send admin notification for order ${orderId}: ${message}`);
     }
   }
+
+  // 4. Siteden Gelen İletişim Formu
+  async sendContactMessage(name: string, email: string, subject: string, message: string): Promise<void> {
+    try {
+      await this.resend.emails.send({
+        from: this.fromEmail, // Senin destek adresin
+        to: this.adminEmail,  // Mesaj sana gelecek
+        replyTo: email,      // 'Yanıtla' dediğinde direkt müşteriye gitsin
+        subject: `📩 Yeni İletişim Mesajı: ${subject}`,
+        html: `
+          <h3>Siteden Yeni Bir Mesaj Var!</h3>
+          <p><strong>Gönderen:</strong> ${name} (${email})</p>
+          <p><strong>Konu:</strong> ${subject}</p>
+          <hr/>
+          <p><strong>Mesaj:</strong></p>
+          <p>${message}</p>
+        `,
+      });
+      this.logger.log(`✅ İletişim mesajı admin'e iletildi.`);
+    } catch (error) {
+      this.logger.error(`🚨 İletişim mesajı iletilemedi: ${error}`);
+      throw error;
+    }
+  }
 }
