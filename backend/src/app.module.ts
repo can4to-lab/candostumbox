@@ -14,7 +14,6 @@ import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
-import { MailModule } from './mail/mail.module'; // 👈 Sadece modül olarak içeri alıyoruz
 
 @Module({
   imports: [
@@ -41,7 +40,6 @@ import { MailModule } from './mail/mail.module'; // 👈 Sadece modül olarak i�
     PaymentModule,
     ReviewsModule,
     PromoCodesModule,
-    MailModule, 
   ],
 })
 export class AppModule {}
