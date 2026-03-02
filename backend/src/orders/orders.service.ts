@@ -11,6 +11,7 @@ import { Pet } from 'src/pets/entities/pet.entity';
 import { User } from 'src/users/entities/user.entity';
 import { DiscountsService } from 'src/discounts/discounts.service';
 import { ShippingService } from './shipping.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class OrdersService {
@@ -21,7 +22,8 @@ export class OrdersService {
     private discountsService: DiscountsService,
     private shippingService: ShippingService,
     @InjectRepository(Order)
-    private orderRepository: Repository<Order>
+    private orderRepository: Repository<Order>,
+    private mailService: MailService
   ) {}
 
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
@@ -204,7 +206,20 @@ export class OrdersService {
       await queryRunner.commitTransaction();
 
       this.logger.log(`Sipariş Oluşturuldu -> ID: ${savedOrder.id}, User: ${userEntity ? userEntity.firstName : 'GUEST'}`);
-
+      try {
+          // 1. Patrona mail at
+          await this.mailService.sendAdminOrderNotification(savedOrder.id, savedOrder.totalPrice);
+          
+          // 2. Müşteriye mail at (Eğer mail adresi varsa)
+          const customerEmail = userEntity?.email || addressSnapshot?.email;
+          if (customerEmail) {
+              await this.mailService.sendOrderConfirmation(customerEmail, savedOrder.id, savedOrder.totalPrice);
+          }
+      } catch (mailError) {
+          // Mail gitmese bile sipariş işlemi iptal olmasın diye hatayı sadece logluyoruz
+          this.logger.error(`Sipariş oluştu ama mail atılamadı (ID: ${savedOrder.id}):`, mailError);
+      }
+      
       return { success: true, orderId: savedOrder.id, message: 'İşlem başarılı!' };
 
     } catch (err) {
