@@ -77,7 +77,7 @@ export class PaymentController {
     }
     return this.paymentService.getInstallments(body.bin, body.amount);
   }
-  }      <!DOCTYPE html>
+  }      `<!DOCTYPE html>
       <html>
         <head><meta charset="utf-8"></head>
         <body>
