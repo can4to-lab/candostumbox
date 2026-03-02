@@ -12,6 +12,7 @@ import { User } from 'src/users/entities/user.entity';
 import { DiscountsService } from 'src/discounts/discounts.service';
 import { ShippingService } from './shipping.service';
 import { MailService } from '../mail/mail.service';
+import { PromoCodesService } from '../promo-codes/promo-codes.service';
 
 @Injectable()
 export class OrdersService {
@@ -23,7 +24,8 @@ export class OrdersService {
     private shippingService: ShippingService,
     @InjectRepository(Order)
     private orderRepository: Repository<Order>,
-    private mailService: MailService
+    private mailService: MailService,
+    private promoCodesService: PromoCodesService
   ) {}
 
   async create(userId: string | null, createOrderDto: CreateOrderDto) {
@@ -70,6 +72,7 @@ export class OrdersService {
       }
 
       let totalPrice = 0;
+      let upgradeDiscountTotal = 0;
       const orderItems: OrderItem[] = [];
       let isPhysicalShipmentRequired = true; 
 
@@ -82,13 +85,9 @@ export class OrdersService {
         let itemTotal = 0;
         const basePrice = Number(product.price);
 
-        if (itemDto.price) {
-            itemTotal = Number(itemDto.price);
-        } else {
-            itemTotal = basePrice * quantity;
-        }
-
-        const unitPricePaid = itemTotal / quantity;
+       const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), itemDuration);
+        itemTotal = finalPrice * quantity;
+        const unitPricePaid = finalPrice;
 
        // 👇 GÜNCELLENEN PET BULMA VEYA YARATMA MANTIĞI
         let foundPet: Pet | null = null;
@@ -120,6 +119,10 @@ export class OrdersService {
                 existingSub.totalMonths += itemDuration;
                 existingSub.remainingMonths += itemDuration;
                 existingSub.status = SubscriptionStatus.ACTIVE;
+                
+                // 👇 EKSİK 1 ÇÖZÜLDÜ: Uzatılan paketin yeni ödemesini içeriye ekliyoruz (İade hesaplaması bozulmasın diye)
+                existingSub.pricePaid = Number(existingSub.pricePaid || 0) + Number(unitPricePaid);
+
                 await queryRunner.manager.save(Subscription, existingSub);
                 isPhysicalShipmentRequired = false;
             }
@@ -127,6 +130,13 @@ export class OrdersService {
         else if (itemDto.upgradeFromSubId) {
             const oldSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.upgradeFromSubId }, relations: ['product'] });
             if (oldSub) {
+                const oldPricePerMonth = Number(oldSub.pricePaid) / (oldSub.totalMonths || 1);
+                const upgradeDiscount = oldPricePerMonth * oldSub.remainingMonths;
+                
+                // 👇 DÜZELTME: Fiyattan hemen düşme, hafızada tut! En son düşeceğiz.
+                upgradeDiscountTotal += upgradeDiscount; 
+                this.logger.log(`🔄 Sipariş Kaydı: Yükseltme indirimi (${upgradeDiscount} TL) hafızaya alındı.`);
+                
                 oldSub.status = SubscriptionStatus.UPGRADED;
                 await queryRunner.manager.save(Subscription, oldSub);
                 
@@ -139,6 +149,13 @@ export class OrdersService {
                 newSubscription.startDate = new Date();
                 newSubscription.status = SubscriptionStatus.ACTIVE;
                 newSubscription.pricePaid = unitPricePaid;
+
+                // 👇 EKSİK 2 ÇÖZÜLDÜ: Yükseltilen pakete ödeme tipi ve BİR SONRAKİ SEVKİYAT TARİHİ atandı!
+                newSubscription.paymentType = paymentType || 'upfront';
+                const nextDate = new Date();
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                newSubscription.nextDeliveryDate = nextDate;
+
                 await queryRunner.manager.save(Subscription, newSubscription);
                 isPhysicalShipmentRequired = false;
             }
@@ -188,7 +205,28 @@ export class OrdersService {
       }
       
       order.shippingAddressSnapshot = addressSnapshot; 
-      order.totalPrice = totalPrice;
+      // --- PROMO KODU VE HİZMET BEDELİNİ SİPARİŞE YANSIT ---
+      // (Eğer createOrderDto'da promoCode geliyorsa)
+      if ((createOrderDto as any).promoCode) {
+         try {
+           const promo = await this.promoCodesService.validateCode((createOrderDto as any).promoCode, totalPrice, userId || undefined);
+           if (promo.discountType === 'percentage') {
+             totalPrice -= (totalPrice * Number(promo.discountValue)) / 100;
+           } else {
+             totalPrice -= Number(promo.discountValue);
+           }
+           // Sipariş başarıyla oluşturulurken kodun kullanım sayısını artır
+           await this.promoCodesService.incrementUsage(promo.id); 
+         } catch (e) {
+           this.logger.warn(`Sipariş kaydedilirken geçersiz promo kod atlandı: ${(createOrderDto as any).promoCode}`);
+         }
+      }
+      totalPrice -= upgradeDiscountTotal;
+      if (paymentType === 'cash_on_delivery') {
+         totalPrice += 159.9; // Kapıda ödeme bedelini ekle
+      }
+
+      order.totalPrice = Math.max(0, totalPrice); // Eksiye düşmesini engelle
       order.items = orderItems;
       
       // 👇 Ödeme Tipi Kaydı
@@ -271,5 +309,57 @@ export class OrdersService {
       where: { id }, 
       relations: ['user'] // Mail atarken user bilgisi lazım olduğu için relations ekliyoruz
     });
+  }
+  // --- GÜVENLİ FİYAT HESAPLAMA (FRONTEND MANİPÜLASYONUNU ENGELLER) ---
+  async calculateSecureTotal(items: any[], promoCodeStr?: string, userId?: string, paymentType?: string): Promise<number> {
+    let subtotal = 0;
+    let upgradeDiscount = 0
+
+    for (const item of items) {
+
+      if (item.upgradeFromSubId) {
+          const oldSub = await this.dataSource.getRepository(Subscription).findOne({ where: { id: item.upgradeFromSubId } });
+          if (oldSub && oldSub.status === SubscriptionStatus.ACTIVE) {
+              const oldPricePerMonth = Number(oldSub.pricePaid) / (oldSub.totalMonths || 1);
+              upgradeDiscount += (oldPricePerMonth * oldSub.remainingMonths);
+              this.logger.log(`🔄 Paket Yükseltme: Eski abonelikten içeride kalan ${upgradeDiscount} TL yeni fiyattan düşülecek.`);
+          }
+      }
+      
+      const product = await this.dataSource.getRepository(Product).findOne({ where: { id: item.productId } });
+      if (!product) throw new BadRequestException('Ürün bulunamadı');
+
+      const duration = Number(item.duration) || 1;
+      const quantity = Number(item.quantity) || 1;
+
+      // 1. İndirimli ham fiyatı DiscountsService üzerinden hesapla
+      const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), duration);
+      subtotal += (finalPrice * quantity);
+    }
+
+    let finalTotal = subtotal;
+
+    // 2. Promosyon kodu varsa backend'de düş
+    if (promoCodeStr) {
+      try {
+        const promo = await this.promoCodesService.validateCode(promoCodeStr, subtotal, userId);
+        if (promo.discountType === 'percentage') {
+          finalTotal -= (subtotal * Number(promo.discountValue)) / 100;
+        } else {
+          finalTotal -= Number(promo.discountValue);
+        }
+        // Sipariş onaylanınca promo kod kullanım sayısını artırmak istersen buraya ekleyebilirsin
+      } catch (error) {
+        throw new BadRequestException('Geçersiz veya süresi dolmuş promosyon kodu kullanıldı.');
+      }
+    }
+    finalTotal -= upgradeDiscount;
+    // 3. Kapıda ödeme seçildiyse hizmet bedelini ekle
+    if (paymentType === 'cash_on_delivery') {
+      finalTotal += 159.9; // Kapıda ödeme hizmet bedeli
+    }
+
+    this.logger.log(`🔒 Güvenli Fiyat Hesaplandı: ${finalTotal} TL (Müşterinin gönderdiği fiyata güvenilmedi)`);
+    return Math.max(0, finalTotal);
   }
 }

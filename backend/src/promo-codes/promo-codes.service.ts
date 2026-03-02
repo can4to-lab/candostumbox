@@ -44,8 +44,12 @@ export class PromoCodesService {
   async create(data: any) { return this.promoRepo.save(this.promoRepo.create(data)); }
   async remove(id: string) { return this.promoRepo.delete(id); }
   
-  // Kod kullanıldığında sayacı artırır
-  async incrementUsage(codeId: string) {
-    await this.promoRepo.increment({ id: codeId }, 'usedCount', 1);
+  // Sipariş başarıyla oluşturulduğunda kodun kullanım sayısını 1 artırır
+  async incrementUsage(id: string) {
+    const promo = await this.promoRepo.findOne({ where: { id } });
+    if (promo) {
+      promo.usedCount += 1;
+      await this.promoRepo.save(promo);
+    }
   }
 }

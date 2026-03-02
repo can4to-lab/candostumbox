@@ -23,7 +23,7 @@ export class ShippingService {
     const payload = {
       handlerCode: "HEPSIJET",
       content: {
-        name: `Sipariş #${order.id.slice(0, 8)}`,
+        name: `Sipariş #${String(order.id).slice(0, 8)}`,
         code: order.id,
         packages: [{ height: 10, width: 15, depth: 5, weight: 1 }]
       },

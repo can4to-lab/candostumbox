@@ -48,8 +48,32 @@ export class PaymentService {
     await this.sessionRepo.save(session);
 
     console.log(`✅ Geçici Ödeme Oturumu Açıldı: ${session.id}`);
+const securePrice = await this.ordersService.calculateSecureTotal(items, data.promoCode, userIdToSave, 'credit_card');
+    
+    if (securePrice <= 0) {
+        return { status: 'error', message: 'Geçersiz sipariş tutarı tespit edildi. Lütfen sayfayı yenileyip tekrar deneyin.' };
+    }
 
-    const totalAmount = Number(price).toFixed(2).replace('.', ','); 
+    let finalAmountForParam = securePrice;
+
+    // Eğer müşteri taksit seçtiyse, gerçek vade farkını ParamPOS'tan biz çekip fiyata ekliyoruz
+    if (installment && installment !== "1") {
+        const bin = card.cardNumber.substring(0, 6);
+        const installmentData = await this.getInstallments(bin, securePrice);
+        
+        if (installmentData.status === 'success' && installmentData.data) {
+            // opt: any diyerek TypeScript'i bir kez daha rahatlatıyoruz
+            const selectedOpt = installmentData.data.find((opt: any) => String(opt.month) === String(installment));
+            if (selectedOpt) {
+                finalAmountForParam = selectedOpt.totalAmount; // Vade farkı eklenmiş nihai tutar
+                console.log(`💳 Taksitli İşlem: ${installment} Ay - Vade Farklı Tutar: ${finalAmountForParam} TL`);
+            }
+        }
+    }
+
+    // ParamPOS'a gidecek KESİN ve GÜVENLİ tutar
+    const totalAmount = finalAmountForParam.toFixed(2).replace('.', ',');
+
     const orderId = session.id; 
     const paramInstallment = installment || "1"; 
     const SANAL_POS_ID = CLIENT_CODE; 
@@ -150,7 +174,7 @@ export class PaymentService {
         return { status: 'fail', message: 'Geçersiz veya süresi dolmuş ödeme işlemi.' };
     }
 
-    if (Number(status) > 0) {
+if (Number(status) > 0) {
         console.log(`✅ ÖDEME BAŞARILI! Gerçek Sipariş Oluşturuluyor...`);
         let finalOrderId: string = "";
 
@@ -162,23 +186,24 @@ export class PaymentService {
             console.log(`✅ Gerçek Sipariş DB'ye yazıldı: ${finalOrderId}`);
             await this.ordersService.updateStatus(finalOrderId, OrderStatus.PAID); 
 
-            const order = await this.ordersService.findOne(finalOrderId); 
-            
-            if (order) {
-                await this.mailService.sendAdminOrderNotification(order.id, order.totalPrice);
-                
-                if (order.user && order.user.email) {
-                    await this.mailService.sendOrderConfirmation(order.user.email, order.id, order.totalPrice);
-                } else if (order.shippingAddressSnapshot && order.shippingAddressSnapshot.email) {
-                    await this.mailService.sendOrderConfirmation(order.shippingAddressSnapshot.email, order.id, order.totalPrice);
-                }
-            }
-        } catch (e) {
-            console.error("Sipariş güncellenirken veya mail atılırken hata oluştu:", e);
-        }
+            // 👇 SADECE SİPARİŞ KUSURSUZ OLUŞURSA SESSION'I SİL (GEÇMİŞİ TEMİZLE)
+            await this.sessionRepo.remove(session);
+            return { status: 'success', orderId: finalOrderId };
 
-        await this.sessionRepo.remove(session);
-        return { status: 'success', orderId: finalOrderId || sessionId };
+        } catch (e) {
+            console.error("🚨 KRİTİK HATA: Para bankadan çekildi ama Sipariş veritabanına YAZILAMADI!", e);
+            
+            // 👇 KRİTİK DÜZELTME: Oturumu SİLME! Hatayı içine kaydedip beklemeye al ki admin paneline düşsün
+            session.payload = { 
+                ...session.payload, 
+                paymentStatus: 'CHARGED_BUT_FAILED_DB', 
+                errorMsg: e instanceof Error ? e.message : String(e) 
+            };
+            await this.sessionRepo.save(session);
+            
+            // ParamPOS'a success dönüyoruz ki işlemi iade etmesin (Para bizde kalsın, sorunu biz manuel çözeceğiz)
+            return { status: 'success', orderId: sessionId };
+        }
 
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);

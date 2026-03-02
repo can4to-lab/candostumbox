@@ -183,14 +183,21 @@ function ProfileContent() {
       const res = await fetch("https://api.candostumbox.com/auth/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         const data = await res.json();
         setUser(data);
 
+        // 🔒 Güvenli Tarih Formatlama (Çökmeleri Engeller)
+        let formattedDate = "";
         const rawDate = data.userBirthDate || data.birthDate;
-        const formattedDate = rawDate
-          ? new Date(rawDate).toISOString().split("T")[0]
-          : "";
+        if (rawDate) {
+          try {
+            formattedDate = new Date(rawDate).toISOString().split("T")[0];
+          } catch (e) {
+            console.warn("Tarih formatı geçersiz, boş bırakılıyor:", rawDate);
+          }
+        }
 
         let fName = data.firstName || "";
         let lName = data.lastName || "";
@@ -208,14 +215,21 @@ function ProfileContent() {
         setFormData({
           firstName: fName,
           lastName: lName,
-          email: data.email,
+          email: data.email || "",
           phone: data.phone || "",
           tcIdentity: data.tcKimlikNo || data.tcIdentity || "",
           birthDate: formattedDate,
         });
+      } else {
+        // 👇 İŞTE EKSİK OLAN HAYAT KURTARICI KISIM (Askıda kalmayı çözer!)
+        console.warn("Oturum süresi dolmuş veya geçersiz.");
+        localStorage.removeItem("token");
+        toast.error("Oturum süreniz doldu, lütfen tekrar giriş yapın.");
+        router.push("/"); // Kullanıcıyı zorla anasayfaya atıp çıkış yaptırır
       }
     } catch (e) {
-      console.log(e);
+      console.log("Profil çekilirken ağ hatası:", e);
+      toast.error("Sunucuya bağlanılamadı.");
     } finally {
       setLoading(false);
     }

@@ -23,11 +23,11 @@ export class AuthService {
         lastName: incomingLastName,
         phone, gender, userBirthDate, tcKimlikNo
     } = data;
-
+    const normalizedEmail = email.toLowerCase().trim();
     // Email kontrolü
-    const existingUser = await this.userRepository.findOne({ where: { email } });
+    const existingUser = await this.userRepository.findOne({ where: { email: normalizedEmail } });
     if (existingUser) throw new BadRequestException('Bu email kullanımda.');
-
+    
     // Şifre hashleme
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -47,7 +47,7 @@ export class AuthService {
     // YENİ YAPI: Sadece kullanıcının temel bilgilerini kaydediyoruz.
     // Adres ve Pet bilgileri sipariş aşamasında (checkout) eklenecek.
     const newUser = this.userRepository.create({
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         firstName: firstName || "İsimsiz", 
         lastName: lastName || "",

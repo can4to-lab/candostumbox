@@ -50,7 +50,7 @@ export class MailService {
       const { data, error } = await this.resend.emails.send({
         from: this.fromEmail,
         to: userEmail,
-        subject: `Siparişin Alındı! ✅ (No: #${orderId.slice(0, 8)})`,
+        subject: `Siparişin Alındı! ✅ (No: #${String(orderId).slice(0, 8)})`,
         html: `<p>Mutluluk paketi yola çıkmak için hazırlanıyor.</p><p><strong>Toplam: ₺${total.toFixed(2)}</strong></p>`,
       });
 

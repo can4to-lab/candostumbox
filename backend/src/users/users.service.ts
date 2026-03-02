@@ -85,6 +85,14 @@ export class UsersService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Kullanıcı bulunamadı');
 
+    // 👇 EKSİK OLAN HAYAT KURTARICI KONTROL: E-posta çakışmasını engelle
+    if (data.email && data.email !== user.email) {
+        const emailExists = await this.userRepository.findOne({ where: { email: data.email } });
+        if (emailExists) {
+            throw new BadRequestException('Bu e-posta adresi başka bir hesap tarafından kullanılıyor. Lütfen farklı bir adres deneyin.');
+        }
+    }
+
     const updatedUser = this.userRepository.merge(user, {
         firstName: data.firstName,
         lastName: data.lastName,

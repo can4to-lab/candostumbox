@@ -5,6 +5,7 @@ import { Subscription, SubscriptionStatus } from './entities/subscription.entity
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Order, OrderStatus } from '../orders/entities/order.entity'; 
 import { OrderItem } from '../orders/entities/order-item.entity';
+import { MailService } from '../mail/mail.service'; // Dosya yolunu kendi projene göre ayarla
 
 @Injectable()
 export class SubscriptionsService {
@@ -19,6 +20,8 @@ export class SubscriptionsService {
 
     @InjectRepository(OrderItem)
     private orderItemRepository: Repository<OrderItem>,
+
+    private mailService: MailService,
   ) {}
 
 async findAll() {
@@ -27,7 +30,7 @@ async findAll() {
       order: { createdAt: 'DESC' }
     });
   }
-  async calculateRefund(id: string) {
+async calculateRefund(id: string) {
       const sub = await this.subRepository.findOne({
           where: { id },
           relations: ['product']
@@ -35,9 +38,10 @@ async findAll() {
 
       if (!sub) throw new NotFoundException('Abonelik bulunamadı.');
 
-      const price = Number(sub.product.price);
+      // 🔒 KRİTİK DÜZELTME: İadeyi ürünün baz fiyatından değil, müşterinin GERÇEKTEN ödediği fiyattan hesapla!
+      const totalPaid = Number(sub.pricePaid) || 0;
       const totalMonths = sub.totalMonths || 1;
-      const pricePerMonth = price / totalMonths;
+      const pricePerMonth = totalPaid / totalMonths;
       const refundAmount = pricePerMonth * sub.remainingMonths;
 
       return {
@@ -81,7 +85,9 @@ async findAll() {
           throw new ForbiddenException('Bu abonelik zaten aktif değil.');
       }
 
-      const pricePerMonth = Number(sub.product.price) / (sub.totalMonths || 1);
+      // 🔒 KRİTİK DÜZELTME: Gerçek ödenen tutar üzerinden iade!
+      const totalPaid = Number(sub.pricePaid) || 0;
+      const pricePerMonth = totalPaid / (sub.totalMonths || 1);
       const refundAmount = sub.remainingMonths * pricePerMonth;
 
       sub.status = SubscriptionStatus.CANCELLED;
@@ -92,13 +98,13 @@ async findAll() {
       return {
           success: true,
           message: 'Abonelik başarıyla iptal edildi.',
-          refundAmount: refundAmount,
+          refundAmount: Number(refundAmount.toFixed(2)),
           remainingMonths: sub.remainingMonths,
           info: `İptal işlemi onaylandı. Kullanılmayan ${sub.remainingMonths} ay için ₺${refundAmount.toFixed(2)} tutarında iade süreci başlatılmıştır.`
       };
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+ @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleCron() {
     this.logger.debug('⏳ Cron Job Başladı: Sevkiyat ve Yenileme Kontrolü...');
 
@@ -110,7 +116,7 @@ async findAll() {
             status: SubscriptionStatus.ACTIVE,
             nextDeliveryDate: LessThanOrEqual(targetDate),
         },
-        relations: ['user', 'product', 'pet'] 
+        relations: ['user', 'user.addresses', 'product', 'pet']
     });
 
     if (activeSubs.length === 0) {
@@ -125,19 +131,32 @@ async findAll() {
             continue;
         }
 
-        const isUpfront = sub.paymentType === 'upfront';
+        // 🔒 KRİTİK DÜZELTME: Tüm kredi kartı ve havale işlemleri peşin kabul edilir!
+        const isUpfront = ['upfront', 'credit_card', 'bank_transfer', 'cash_on_delivery'].includes(sub.paymentType);
+        
+        // Peşin ödendiyse bu ayki sipariş 0 TL olarak oluşturulur.
         const orderPrice = isUpfront ? 0 : Number(sub.product.price);
         const orderStatus = isUpfront ? OrderStatus.PREPARING : OrderStatus.PENDING; 
+        const userAddress = sub.user?.addresses?.[0];
+        const realAddressSnapshot = userAddress ? {
+            title: userAddress.title,
+            fullAddress: userAddress.fullAddress,
+            city: userAddress.city,
+            district: userAddress.district,
+            phone: sub.user?.phone || '',
+            email: sub.user?.email || '' // 👈 BU SATIR EKLENDİ (TypeScript Hatasını Çözer)
+        } : {
+            title: "Kayıtlı Adres",
+            fullAddress: "DİKKAT: Sistemde adres bulunamadı, müşteriyle iletişime geçin!",
+            email: sub.user?.email || '' // 👈 BU SATIR EKLENDİ
+        };
 
         const newOrder = this.orderRepository.create({
             user: sub.user,
             totalPrice: orderPrice,
             status: orderStatus,
-            paymentType: isUpfront ? 'upfront' : 'monthly',
-            shippingAddressSnapshot: { 
-                title: "Kayıtlı Adres", 
-                fullAddress: "Otomatik Sevkiyat - Abonelik Kapsamında" 
-            }
+            paymentType: sub.paymentType,
+            shippingAddressSnapshot: realAddressSnapshot // 👈 Gerçek adres buraya eklendi
         });
         
         const savedOrder = await this.orderRepository.save(newOrder);
@@ -151,6 +170,17 @@ async findAll() {
             productNameSnapshot: sub.product.name
         });
         await this.orderItemRepository.save(newItem);
+        // 👇 EKSİK OLAN İLETİŞİM KÖPRÜSÜ KURULDU
+        try {
+            await this.mailService.sendAdminOrderNotification(savedOrder.id, savedOrder.totalPrice);
+            const customerEmail = sub.user?.email || realAddressSnapshot?.email;
+            if (customerEmail) {
+                // Fiyat 0 TL olsa bile (peşin ödendiği için) müşteriye bilgi maili GİTMELİ!
+                await this.mailService.sendOrderConfirmation(customerEmail, savedOrder.id, savedOrder.totalPrice);
+            }
+        } catch (mailErr) {
+            this.logger.error(`Otomatik sipariş maili atılamadı (Sipariş ID: ${savedOrder.id}):`, mailErr);
+        }
 
         const nextDate = new Date(sub.nextDeliveryDate);
         nextDate.setMonth(nextDate.getMonth() + 1);

@@ -440,12 +440,61 @@ function CheckoutContent() {
 
   // --- ÖDEME BAŞLATMA ---
   const startPayment = async () => {
+    // 0. GEÇERLİ TUTAR KONTROLÜ (Bedavaya siparişi engeller)
+    if (!displayTotal || displayTotal <= 0) {
+      toast.error(
+        "Geçerli bir paket seçilmedi veya tutar hesaplanamadı. Lütfen sayfayı yenileyin.",
+      );
+      return;
+    }
+
+    // 1. SÖZLEŞME KONTROLÜ
     if (!agreementsAccepted) {
       toast.error("Lütfen sözleşmeyi onaylayın.");
       return;
     }
-    const token = localStorage.getItem("token");
 
+    // 2. KULLANICI / MİSAFİR BOŞ ALAN KONTROLÜ
+    if (isGuest) {
+      if (
+        !guestData.firstName ||
+        !guestData.lastName ||
+        !guestData.email ||
+        !guestData.phone ||
+        !guestData.fullAddress ||
+        !guestData.city
+      ) {
+        toast.error(
+          "Lütfen e-posta dahil tüm iletişim ve adres bilgilerinizi eksiksiz doldurun.",
+        );
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(guestData.email)) {
+        toast.error("Lütfen geçerli bir e-posta adresi giriniz.");
+        return;
+      }
+
+      if (!guestPetData.name || !guestPetData.breed) {
+        toast.error("Lütfen dostunuzun adını ve ırkını giriniz.");
+        return;
+      }
+    } else {
+      if (!selectedAddressId) {
+        toast.error(
+          "Lütfen bir teslimat adresi seçin veya yeni adres ekleyin.",
+        );
+        return;
+      }
+      if (!selectedPetId) {
+        toast.error("Lütfen bir dost seçin veya yeni dost ekleyin.");
+        return;
+      }
+    }
+
+    // 3. ABONELİK KONTROLÜ
+    const token = localStorage.getItem("token");
     if (duration > 1 && !token) {
       toast.error(
         "3, 6, 9 veya 12 aylık avantajlı paketleri satın alabilmek için lütfen ücretsiz kayıt olun veya giriş yapın.",
@@ -535,6 +584,7 @@ function CheckoutContent() {
         isGuest: !finalUserId,
         guestInfo: !finalUserId ? guestData : undefined,
         items: baseOrderItems,
+        promoCode: appliedPromo?.code || undefined,
       };
 
       try {
