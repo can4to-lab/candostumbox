@@ -439,6 +439,7 @@ function CheckoutContent() {
   };
 
   // --- ÖDEME BAŞLATMA ---
+  // YENİ HALİ (BUNU YAPIŞTIR)
   const startPayment = async () => {
     // 0. GEÇERLİ TUTAR KONTROLÜ (Bedavaya siparişi engeller)
     if (!displayTotal || displayTotal <= 0) {
@@ -641,15 +642,21 @@ function CheckoutContent() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+      
+      // 👇 İŞTE SİHİRLİ DOKUNUŞ: Modal yerine TAM EKRAN YÖNLENDİRME
       if (data.status === "success" && data.token) {
-        setIframeToken(data.token);
         toast.success("3D Secure ekranına yönlendiriliyorsunuz! 🔒");
+        
+        // Gelen token aslında bir HTML. Biz onu tam ekran (document.write) olarak basıyoruz.
+        document.open();
+        document.write(data.token);
+        document.close();
       } else {
         toast.error("Hata: " + (data.message || "Bilinmeyen hata"));
+        setIsPaymentLoading(false);
       }
     } catch (error) {
       toast.error("Sunucu hatası.");
-    } finally {
       setIsPaymentLoading(false);
     }
   };
@@ -1560,55 +1567,6 @@ function CheckoutContent() {
         </div>
       </main>
 
-      {iframeToken && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden relative flex flex-col h-[650px] animate-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shadow-sm relative z-20">
-              <div className="flex items-center gap-2">
-                <LockIcon />
-                <h3 className="font-bold text-gray-800 text-sm">
-                  3D Secure Güvenli Ödeme Onayı
-                </h3>
-              </div>
-              <button
-                onClick={() => {
-                  setIframeToken(null);
-                  toast.error("Ödeme işlemi iptal edildi.");
-                }}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                title="Kapat"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 w-full relative bg-white">
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-0 text-gray-400 space-y-3">
-                <div className="animate-spin w-8 h-8 border-4 border-green-500 rounded-full border-t-transparent"></div>
-                <span className="text-sm font-medium animate-pulse">
-                  Banka ekranına bağlanılıyor...
-                </span>
-              </div>
-              <iframe
-                src={iframeToken}
-                id="paytriframe"
-                className="w-full h-full border-none relative z-10 bg-transparent"
-              ></iframe>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
