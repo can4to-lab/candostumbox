@@ -37,41 +37,15 @@ export class PaymentController {
     let redirectUrl = `${FRONTEND_URL}/profil`; // Fallback (Varsayılan)
     
     if (result.status === 'success') {
-        // 👇 YENİ VE ŞIK SAYFANA YÖNLENDİRME (Sipariş ID ile birlikte)
         redirectUrl = `${FRONTEND_URL}/payment/success?orderId=${result.orderId}`;
     } else {
         // Hata durumunda checkout'a geri at
         redirectUrl = `${FRONTEND_URL}/checkout?payment=fail&message=${encodeURIComponent(result.message || 'Ödeme başarısız')}`;
     }
 
-    // 4. Iframe'i kırıp ana pencereyi yönlendiren HTML (Garanti Katmanı)
-    const htmlTemplate = `
-<!DOCTYPE html>
-<html>
-  <head>
-     <meta charset="utf-8">
-     <title>Ödeme Sonucu</title>
-     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f9fafb; margin: 0; }
-        .loader-text { color: #10b981; font-weight: bold; font-size: 18px; text-align: center; }
-     </style>
-  </head>
-  <body>
-    <div class="loader-text">Ödeme sonucu işlendi, ana sayfaya yönlendiriliyorsunuz...</div>
-    <script>
-      if (window.top) {
-        window.top.location.href = "${redirectUrl}";
-      } else {
-        window.location.href = "${redirectUrl}";
-      }
-    </script>
-  </body>
-</html>
-`;
-
-    // 5. HTML'i gönder (Önerilen daha temiz 'res.type' kullanımı)
-    res.type('html');
-    return res.send(htmlTemplate);
+    // 4. 👇 SİHİRLİ DOKUNUŞ: Iframe olmadığı için HTML ile uğraşmıyoruz. 
+    // Express'in yerleşik redirect fonksiyonu ile anında Frontend'e fırlatıyoruz!
+    return res.redirect(redirectUrl);
   }
 
   // Taksit Sorgulama Ucu
