@@ -11,7 +11,6 @@ export class PaymentController {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const clientIp = Array.isArray(ip) ? ip[0] : ip;
 
-    // 👇 DEBUG: Backend'e ne geldiğini net görelim
     console.log("📥 BACKEND ALDI (Controller):", JSON.stringify(body));
 
     const result = await this.paymentService.startPayment({ 
@@ -35,15 +34,17 @@ export class PaymentController {
     const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.candostumbox.com';
 
     // 3. Yönlendirilecek URL'i belirle
-    let redirectUrl = `${FRONTEND_URL}/profil`; // Varsayılan
+    let redirectUrl = `${FRONTEND_URL}/profil`; // Fallback (Varsayılan)
     
     if (result.status === 'success') {
-        redirectUrl = `${FRONTEND_URL}/profil?payment=success`;
+        // 👇 YENİ VE ŞIK SAYFANA YÖNLENDİRME (Sipariş ID ile birlikte)
+        redirectUrl = `${FRONTEND_URL}/payment/success?orderId=${result.orderId}`;
     } else {
+        // Hata durumunda checkout'a geri at
         redirectUrl = `${FRONTEND_URL}/checkout?payment=fail&message=${encodeURIComponent(result.message || 'Ödeme başarısız')}`;
     }
 
-    // 4. Iframe'i kırıp ana pencereyi yönlendiren temiz HTML
+    // 4. Iframe'i kırıp ana pencereyi yönlendiren HTML (Garanti Katmanı)
     const htmlTemplate = `
 <!DOCTYPE html>
 <html>
@@ -52,13 +53,12 @@ export class PaymentController {
      <title>Ödeme Sonucu</title>
      <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f9fafb; margin: 0; }
-        .loader-text { color: #4f46e5; font-weight: bold; font-size: 18px; text-align: center; }
+        .loader-text { color: #10b981; font-weight: bold; font-size: 18px; text-align: center; }
      </style>
   </head>
   <body>
-    <div class="loader-text">Ödeme sonucu işleniyor, ana sayfaya yönlendiriliyorsunuz...</div>
+    <div class="loader-text">Ödeme sonucu işlendi, ana sayfaya yönlendiriliyorsunuz...</div>
     <script>
-      // Iframe'i kır ve ana pencereyi yönlendir
       if (window.top) {
         window.top.location.href = "${redirectUrl}";
       } else {
@@ -69,9 +69,9 @@ export class PaymentController {
 </html>
 `;
 
-    // 5. HTML'i gönder
-    res.setHeader('Content-Type', 'text/html');
-    return res.status(200).send(htmlTemplate);
+    // 5. HTML'i gönder (Önerilen daha temiz 'res.type' kullanımı)
+    res.type('html');
+    return res.send(htmlTemplate);
   }
 
   // Taksit Sorgulama Ucu

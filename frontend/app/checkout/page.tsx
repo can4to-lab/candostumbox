@@ -163,7 +163,6 @@ function CheckoutContent() {
   // Ödeme & Sözleşme
   const [agreementsAccepted, setAgreementsAccepted] = useState(false);
   const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
-  const [iframeToken, setIframeToken] = useState<string | null>(null);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   // Modallar
@@ -260,7 +259,6 @@ function CheckoutContent() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === "PARAM_PAYMENT_RESULT") {
-        setIframeToken(null);
         if (event.data.status === "success") {
           toast.success("Ödemeniz başarıyla alındı! 🎉");
           router.push(`/payment/success?orderId=${event.data.orderId}`);
@@ -642,15 +640,13 @@ function CheckoutContent() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      
-      // 👇 İŞTE SİHİRLİ DOKUNUŞ: Modal yerine TAM EKRAN YÖNLENDİRME
+
+      // 👇 İŞTE KESİN ÇÖZÜM BURASI 👇
       if (data.status === "success" && data.token) {
         toast.success("3D Secure ekranına yönlendiriliyorsunuz! 🔒");
-        
-        // Gelen token aslında bir HTML. Biz onu tam ekran (document.write) olarak basıyoruz.
-        document.open();
-        document.write(data.token);
-        document.close();
+
+        // Ekrana yazı yazdırmak veya iframe açmak yerine, ana sayfayı doğrudan bankanın linkine yönlendiriyoruz!
+        window.location.href = data.token;
       } else {
         toast.error("Hata: " + (data.message || "Bilinmeyen hata"));
         setIsPaymentLoading(false);
@@ -1177,7 +1173,7 @@ function CheckoutContent() {
                 </h2>
 
                 <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6 space-y-6 relative overflow-hidden">
-                  {(isPaymentLoading || iframeToken) && (
+                  {isPaymentLoading && (
                     <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-10 flex items-center justify-center"></div>
                   )}
 
@@ -1430,7 +1426,7 @@ function CheckoutContent() {
                     </label>
                     <button
                       onClick={startPayment}
-                      disabled={isPaymentLoading || !!iframeToken}
+                      disabled={isPaymentLoading}
                       className="w-full bg-[#ff6000] text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-[#e05500] transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg"
                     >
                       {isPaymentLoading ? (
@@ -1566,7 +1562,6 @@ function CheckoutContent() {
           </div>
         </div>
       </main>
-
     </>
   );
 }
