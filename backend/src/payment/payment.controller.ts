@@ -28,52 +28,53 @@ export class PaymentController {
 
   @Post('callback')
   async callback(@Body() body: any, @Res() res: Response) {
-    // 1. İşlemi service katmanında işle (Kritik: result değişkeni burada tanımlı!)
+    // 1. İşlemi service katmanında işle
     const result = await this.paymentService.handleCallback(body);
 
-    // 2. URL adresini www ile garantiye alıyoruz
+    // 2. URL adresini env'den al veya varsayılanı kullan
     const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.candostumbox.com';
 
-    // 3. Başarılı ve Başarısız durumlarına göre gidilecek sayfalar
+    // 3. Yönlendirilecek URL'i belirle
     let redirectUrl = `${FRONTEND_URL}/profil`; // Varsayılan
     
     if (result.status === 'success') {
-        // Ödeme başarılıysa doğrudan profil sayfasına (Siparişlerim kısmını görür)
         redirectUrl = `${FRONTEND_URL}/profil?payment=success`;
     } else {
-        // Ödeme başarısızsa sepetiniz olmadığı için checkout sayfasına at
-        redirectUrl = `${FRONTEND_URL}/checkout?payment=fail`;
+        redirectUrl = `${FRONTEND_URL}/checkout?payment=fail&message=${encodeURIComponent(result.message || 'Ödeme başarısız')}`;
     }
 
-    // 4. JSON veya postMessage yerine, iframe'i kırıp ana pencereyi yönlendiren HTML döndürüyoruz
-    // 👇👇👇 Backtick (`) işaretlerine ve scope yapısına dikkat! 👇👇👇
+    // 4. Iframe'i kırıp ana pencereyi yönlendiren temiz HTML
     const htmlTemplate = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-           <meta charset="utf-8">
-           <title>Ödeme Sonucu</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f9fafb; margin: 0; }
-              .loader-text { color: #4f46e5; font-weight: bold; font-size: 18px; text-align: center; }
-           </style>
-        </head>
-        <body>
-          <div class="loader-text">Ödeme işleniyor, lütfen bekleyin... 🚀</div>
-          <script>
-            // İşte Sihirli Kod: iframe'i kırıp ana tarayıcı penceresini yönlendirir!
-            window.top.location.href = "${redirectUrl}";
-          </script>
-        </body>
-      </html>
-    `; 
-    // 👆👆👆 Bu backtick'lerin kapandığından emin ol 👆👆👆
+<!DOCTYPE html>
+<html>
+  <head>
+     <meta charset="utf-8">
+     <title>Ödeme Sonucu</title>
+     <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f9fafb; margin: 0; }
+        .loader-text { color: #4f46e5; font-weight: bold; font-size: 18px; text-align: center; }
+     </style>
+  </head>
+  <body>
+    <div class="loader-text">Ödeme sonucu işleniyor, ana sayfaya yönlendiriliyorsunuz...</div>
+    <script>
+      // Iframe'i kır ve ana pencereyi yönlendir
+      if (window.top) {
+        window.top.location.href = "${redirectUrl}";
+      } else {
+        window.location.href = "${redirectUrl}";
+      }
+    </script>
+  </body>
+</html>
+`;
 
     // 5. HTML'i gönder
+    res.setHeader('Content-Type', 'text/html');
     return res.status(200).send(htmlTemplate);
   }
 
-  // Taksit Sorgulama Ucu (Frontend buradan istek atacak)
+  // Taksit Sorgulama Ucu
   @Post('installments')
   async getInstallments(@Body() body: { bin: string; amount: number }) {
     if (!body.bin || body.bin.length < 6) {
@@ -81,74 +82,3 @@ export class PaymentController {
     }
     return this.paymentService.getInstallments(body.bin, body.amount);
   }
-}    let redirectUrl = `${FRONTEND_URL}/profil`; // Varsayılan
-    
-    if (result.status === 'success') {
-        // Ödeme başarılıysa doğrudan profil sayfasına (Siparişlerim kısmını görür)
-        redirectUrl = `${FRONTEND_URL}/profil?payment=success`;
-    } else {
-        // Ödeme başarısızsa müşteriyi checkout sayfasına at
-        redirectUrl = `${FRONTEND_URL}/checkout?payment=fail`;
-    }
-
-    // JSON veya postMessage yerine, iframe'i kırıp ana pencereyi yönlendiren HTML döndürüyoruz
-    const htmlTemplate = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-           <meta charset="utf-8">
-           <title>Ödeme Sonucu</title>
-           <style>
-              body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f9fafb; margin: 0; }
-              .loader-text { color: #4f46e5; font-weight: bold; font-size: 18px; text-align: center; }
-           </style>
-        </head>
-        <body>
-          <div class="loader-text">Ödeme işleniyor, lütfen bekleyin... 🚀</div>
-          <script>
-            // İşte Sihirli Kod: iframe'i kırıp ana tarayıcı penceresini yönlendirir!
-            window.top.location.href = "${redirectUrl}";
-          </script>
-        </body>
-      </html>
-    `;
-
-    return res.status(200).send(htmlTemplate);
-  }
-
-  // Taksit Sorgulama Ucu (Frontend buradan istek atacak)
-  @Post('installments')
-  async getInstallments(@Body() body: { bin: string; amount: number }) {
-    if (!body.bin || body.bin.length < 6) {
-      return { status: 'error', message: 'Geçersiz BIN kodu' };
-    }
-    return this.paymentService.getInstallments(body.bin, body.amount);
-  }
-  }      `<!DOCTYPE html>
-      <html>
-        <head><meta charset="utf-8"></head>
-        <body>
-          <script>
-            // Üst pencereye (senin React sitene) sonucu fısıldıyoruz
-            window.parent.postMessage({
-              type: 'PARAM_PAYMENT_RESULT',
-              status: '${result.status}',
-              orderId: '${result.orderId || ''}',
-              message: '${result.message || ''}'
-            }, '*');
-          </script>
-        </body>
-      </html>
-    `;
-
-    return res.status(200).send(htmlTemplate);
-  }
-  // Taksit Sorgulama Ucu (Frontend buradan istek atacak)
-  @Post('installments')
-  async getInstallments(@Body() body: { bin: string; amount: number }) {
-    if (!body.bin || body.bin.length < 6) {
-      return { status: 'error', message: 'Geçersiz BIN kodu' };
-    }
-    return this.paymentService.getInstallments(body.bin, body.amount);
-  }
-}
