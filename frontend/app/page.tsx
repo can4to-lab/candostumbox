@@ -6,6 +6,7 @@ import Image from "next/image";
 
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
+import WelcomePopUp from "@/components/WelcomePopUp";
 
 interface Product {
   id: string; // ID string olabilir (UUID)
@@ -151,6 +152,9 @@ export default function Home() {
     <main className="min-h-screen bg-[#f8f9fa] text-gray-800 font-sans relative">
       <Toaster position="top-right" />
 
+      {/* LANSMANDAN 2 GÜN SONRA DEVREYE ALINACAK ANASAYFA İNDİRİM KODU */}
+      {/* <WelcomePopUp /> */}
+
       <LoginModal
         isOpen={isLoginOpen}
         onClose={() => setLoginOpen(false)}
@@ -163,6 +167,7 @@ export default function Home() {
           window.location.reload();
         }}
       />
+
       <RegisterModal
         isOpen={isRegisterOpen}
         onClose={() => setRegisterOpen(false)}
@@ -317,7 +322,7 @@ export default function Home() {
                     <h3 className="text-xl font-bold text-gray-900 mb-2">
                       {product.name}
                     </h3>
-                    <div className="text-gray-400 text-sm mb-6 min-h-[40px]">
+                    <div className="text-gray-400 text-sm mb-6 flex-grow flex items-center justify-center">
                       {product.description ||
                         "Sürprizlerle dolu harika bir kutu."}
                     </div>
@@ -330,13 +335,13 @@ export default function Home() {
                     <button
                       onClick={() => router.push(`/product/${product.id}`)}
                       className={`
-    group relative overflow-hidden w-full py-4 rounded-2xl font-black uppercase tracking-wider transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3
-    ${
-      isPopular
-        ? "bg-green-500 text-white hover:bg-green-600 hover:shadow-[0_20px_50px_rgba(34,197,94,0.4)]"
-        : "bg-gray-900 text-white hover:bg-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)]"
-    }
-  `}
+                                  group relative overflow-hidden w-full py-4 rounded-2xl font-black uppercase tracking-wider transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-3
+                                    ${
+                                      isPopular
+                                        ? "bg-green-500 text-white hover:bg-green-600 hover:shadow-[0_20px_50px_rgba(34,197,94,0.4)]"
+                                        : "bg-gray-900 text-white hover:bg-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)]"
+                                    }
+                          `}
                     >
                       {/* Parlama Efekti (Hover olunca üzerinden ışık geçer) */}
                       <div className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
@@ -376,8 +381,19 @@ export default function Home() {
               })}
             </div>
           ) : (
-            <div className="text-center text-gray-400">
-              Paketler yükleniyor...
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {[1, 2, 3].map((skeleton) => (
+                <div
+                  key={skeleton}
+                  className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-sm animate-pulse flex flex-col items-center"
+                >
+                  <div className="w-3/4 h-6 bg-gray-200 rounded-full mb-4"></div>
+                  <div className="w-full h-4 bg-gray-200 rounded-full mb-2"></div>
+                  <div className="w-5/6 h-4 bg-gray-200 rounded-full mb-8"></div>
+                  <div className="w-1/2 h-10 bg-gray-200 rounded-xl mb-6"></div>
+                  <div className="w-full h-14 bg-gray-200 rounded-2xl"></div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -429,7 +445,7 @@ export default function Home() {
 
               <div className="space-y-8">
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center text-2xl flex-shrink-0">
+                  <div className="w-14 h-14 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-2xl flex-shrink-0 shadow-inner">
                     🦴
                   </div>
                   <div>
@@ -443,7 +459,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl flex-shrink-0">
+                  <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl flex-shrink-0">
                     🧸
                   </div>
                   <div>
@@ -457,7 +473,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center text-2xl flex-shrink-0">
+                  <div className="w-14 h-14 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-2xl flex-shrink-0">
                     🧴
                   </div>
                   <div>

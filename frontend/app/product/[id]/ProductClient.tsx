@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Toaster } from "react-hot-toast";
@@ -27,18 +27,23 @@ interface Review {
 
 const API_URL = "https://api.candostumbox.com";
 
-// --- YARDIMCI BİLEŞEN: TAKSİT TABLOSU (Sadece Bilgi Amaçlı) ---
+// --- YARDIMCI BİLEŞEN: TAKSİT TABLOSU (Premium Tasarım) ---
 const InstallmentInfo = () => {
   return (
-    <div className="bg-orange-50 border border-orange-100 p-6 rounded-2xl text-center animate-fade-in">
-      <div className="text-4xl mb-3">💳</div>
-      <h4 className="font-bold text-gray-900 mb-2 text-lg">Taksit İmkanı</h4>
-      <p className="text-gray-600 text-sm leading-relaxed max-w-md mx-auto">
-        Tüm kredi kartlarına <strong>12 taksite varan</strong> vade seçenekleri
-        sunuyoruz.
+    <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/60 p-8 rounded-[2rem] text-center animate-fade-in-up">
+      <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-3xl mx-auto mb-4 border border-orange-100">
+        💳
+      </div>
+      <h4 className="font-black text-gray-900 mb-3 text-xl">Taksit İmkanı</h4>
+      <p className="text-gray-600 text-sm leading-relaxed max-w-sm mx-auto font-medium">
+        Tüm kredi kartlarına{" "}
+        <strong className="text-orange-600">12 taksite varan</strong> vade
+        seçenekleri sunuyoruz.
         <br />
-        Kesin taksit tutarlarını ve vade farklarını{" "}
-        <strong>ödeme adımında</strong> görüntüleyebilirsiniz.
+        <br />
+        <span className="text-xs bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100 block">
+          Kesin taksit tutarlarını ödeme adımında görebilirsiniz.
+        </span>
       </p>
     </div>
   );
@@ -74,32 +79,34 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
       : "5.0";
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Özet Kartı */}
-      <div className="flex items-center gap-4 bg-gray-50 p-6 rounded-2xl border border-gray-100">
+      <div className="flex items-center justify-center md:justify-start gap-5 bg-white p-6 rounded-[2rem] border border-gray-100 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.04)]">
         <div className="text-center">
-          <div className="text-4xl font-black text-gray-900">
+          <div className="text-5xl font-black text-gray-900 tracking-tighter">
             {averageRating}
           </div>
-          <div className="text-yellow-400 text-sm">★★★★★</div>
+          <div className="text-yellow-400 text-lg tracking-widest mt-1">
+            ★★★★★
+          </div>
         </div>
-        <div className="border-l border-gray-200 pl-4">
-          <p className="text-gray-900 font-bold text-sm">Müşteri Memnuniyeti</p>
-          <p className="text-gray-500 text-xs">
-            {reviews.length} Değerlendirme
+        <div className="border-l-2 border-gray-100 pl-5 py-2">
+          <p className="text-gray-900 font-black text-lg">Harika Deneyim</p>
+          <p className="text-gray-500 text-sm font-medium">
+            {reviews.length} Mutlu Müşteri
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-400 py-4">
+        <div className="text-center text-gray-400 py-8 animate-pulse">
           Yorumlar yükleniyor...
         </div>
       ) : reviews.length === 0 ? (
-        <div className="text-center py-8 border border-dashed border-gray-200 rounded-2xl">
-          <span className="text-2xl block mb-2">💬</span>
-          <p className="text-gray-500 text-sm font-medium">
-            Henüz yorum yapılmamış.
+        <div className="text-center py-12 border-2 border-dashed border-gray-200 bg-gray-50 rounded-[2rem]">
+          <span className="text-4xl block mb-3 opacity-50">💬</span>
+          <p className="text-gray-500 text-sm font-bold">
+            İlk yorumu yapan siz olun!
           </p>
         </div>
       ) : (
@@ -107,29 +114,29 @@ const ReviewsSection = ({ productId }: { productId: string }) => {
           {reviews.map((review) => (
             <div
               key={review.id}
-              className="bg-white border border-gray-100 p-5 rounded-2xl shadow-sm"
+              className="bg-white border border-gray-100 p-6 rounded-[1.5rem] shadow-sm hover:shadow-md transition-shadow"
             >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs uppercase">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 text-green-700 rounded-full flex items-center justify-center font-black text-sm uppercase shadow-inner">
                     {review.user?.firstName?.charAt(0) || "M"}
                   </div>
                   <div>
-                    <span className="font-bold text-gray-900 block text-xs">
+                    <span className="font-bold text-gray-900 block text-sm">
                       {review.user?.firstName}{" "}
                       {review.user?.lastName?.charAt(0)}.
                     </span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-xs text-gray-400 font-medium">
                       {new Date(review.createdAt).toLocaleDateString("tr-TR")}
                     </span>
                   </div>
                 </div>
-                <div className="text-yellow-400 text-xs">
+                <div className="text-yellow-400 text-sm">
                   {"★".repeat(review.rating)}
                 </div>
               </div>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {review.comment}
+              <p className="text-gray-600 text-sm leading-relaxed font-medium">
+                "{review.comment}"
               </p>
             </div>
           ))}
@@ -145,7 +152,6 @@ function ProductDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // URL Parametreleri (Upgrade Modu İçin)
   const isUpgradeMode = searchParams.get("mode") === "upgrade";
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -154,7 +160,6 @@ function ProductDetailContent() {
     "desc" | "installment" | "reviews"
   >("desc");
 
-  // VERİ ÇEKME
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
@@ -173,67 +178,62 @@ function ProductDetailContent() {
     fetchProduct();
   }, [id, router]);
 
-  // CHECKOUT'A YÖNLENDİRME (Modal Yok)
   const handleStart = () => {
     if (!product) return;
-
-    // Mevcut query parametrelerini koru (mode=upgrade vb.) ve productId ekle
     const query = new URLSearchParams(Array.from(searchParams.entries()));
     query.set("productId", product.id);
-
     router.push(`/checkout?${query.toString()}`);
   };
 
   if (loading || !product) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-12 h-12 border-4 border-gray-100 border-t-green-500 rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-gray-100 border-t-green-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#F9FAFB] font-sans pb-20">
+    <main className="min-h-screen bg-[#F9FAFB] font-sans pb-24 selection:bg-green-200">
       <Toaster position="top-right" />
 
       {/* HEADER / NAV AREA */}
-      <div className="bg-white border-b border-gray-200 py-4 mb-8 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 flex items-center gap-3">
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200 py-4 mb-8 sticky top-0 z-20">
+        <div className="container mx-auto px-4 md:px-6 flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="text-gray-500 hover:text-gray-900 font-medium text-sm flex items-center gap-1 transition"
+            className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
           >
-            <span>←</span> Geri Dön
+            ←
           </button>
-          <div className="h-4 w-px bg-gray-300 mx-2"></div>
-          <span className="font-bold text-gray-900 text-sm truncate">
+          <span className="font-black text-gray-900 text-sm md:text-base truncate">
             {product.name}
           </span>
         </div>
       </div>
 
       <div className="container mx-auto px-4 md:px-6 max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-16">
           {/* SOL: GÖRSEL ALANI */}
-          <div className="lg:col-span-5">
-            <div className="bg-white rounded-[2rem] p-6 shadow-lg border border-gray-100 relative group overflow-hidden">
-              <div className="relative aspect-square w-full bg-gray-50 rounded-xl overflow-hidden">
+          <div className="lg:col-span-5 animate-fade-in">
+            <div className="bg-white rounded-[3rem] p-4 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.05)] border border-gray-100 relative group overflow-hidden">
+              <div className="relative aspect-square w-full bg-gradient-to-br from-gray-50 to-gray-100 rounded-[2.5rem] overflow-hidden shadow-inner">
                 {product.image ? (
                   <Image
                     src={product.image}
                     alt={product.name}
                     fill
-                    className="object-contain hover:scale-105 transition duration-500"
+                    className="object-contain p-8 hover:scale-110 transition-transform duration-700 ease-out"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-6xl">
+                  <div className="w-full h-full flex items-center justify-center text-7xl animate-bounce">
                     🎁
                   </div>
                 )}
               </div>
 
               {isUpgradeMode && (
-                <div className="absolute top-4 left-4 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg shadow-blue-200">
+                <div className="absolute top-8 left-8 bg-blue-600 text-white text-xs font-black px-4 py-2 rounded-full shadow-xl shadow-blue-500/30 uppercase tracking-widest">
                   🚀 Yükseltme Fırsatı
                 </div>
               )}
@@ -241,164 +241,125 @@ function ProductDetailContent() {
           </div>
 
           {/* SAĞ: DETAY ALANI */}
-          <div className="lg:col-span-7 flex flex-col">
-            <h1 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 leading-tight">
+          <div className="lg:col-span-7 flex flex-col justify-center animate-fade-in-up delay-100">
+            {/* Lansman Etiketi */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="bg-green-100 text-green-700 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest">
+                📦 Kargo Bedava
+              </span>
+              <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                <span className="animate-pulse">🔥</span> Lansmana Özel
+              </span>
+            </div>
+
+            <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-tight tracking-tight">
               {product.name}
             </h1>
 
-            <div className="flex items-end gap-2 mb-6 border-b border-gray-100 pb-6">
-              <span className="text-5xl font-black text-gray-900 tracking-tighter">
+            <div className="flex items-end gap-3 mb-8 pb-8 border-b border-gray-200">
+              <span className="text-6xl font-black text-gray-900 tracking-tighter">
                 ₺{Number(product.price).toFixed(0)}
               </span>
-              <div className="flex flex-col mb-1.5">
-                <span className="text-gray-500 font-bold text-lg leading-none">
+              <div className="flex flex-col mb-2">
+                <span className="text-gray-500 font-bold text-xl leading-none">
                   / Ay
                 </span>
-                <span className="text-gray-400 text-[10px] font-medium uppercase tracking-wide">
+                <span className="text-gray-400 text-xs font-bold uppercase tracking-wider mt-1 bg-gray-100 px-2 py-0.5 rounded">
                   KDV Dahil
                 </span>
               </div>
             </div>
 
-            {/* SEKME MENÜSÜ */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-              <div className="flex border-b border-gray-100">
+            {/* MODERN HAP (PILL) SEKME MENÜSÜ */}
+            <div className="bg-gray-100/80 p-1.5 rounded-2xl flex mb-8 overflow-x-auto scrollbar-hide">
+              {[
+                { id: "desc", icon: "📦", label: "İçerik" },
+                { id: "installment", icon: "💳", label: "Taksit" },
+                { id: "reviews", icon: "⭐", label: "Yorumlar" },
+              ].map((tab) => (
                 <button
-                  onClick={() => setActiveTab("desc")}
-                  className={`flex-1 py-4 text-sm font-bold transition-all relative ${
-                    activeTab === "desc"
-                      ? "text-green-600 bg-green-50/30"
-                      : "text-gray-500 hover:bg-gray-50"
-                  }`}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex-1 py-3 px-4 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap
+                    ${activeTab === tab.id ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"}`}
                 >
-                  📦 Paket İçeriği
-                  {activeTab === "desc" && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500"></div>
-                  )}
+                  <span className="text-lg opacity-80">{tab.icon}</span>{" "}
+                  {tab.label}
                 </button>
-                <button
-                  onClick={() => setActiveTab("installment")}
-                  className={`flex-1 py-4 text-sm font-bold transition-all relative ${
-                    activeTab === "installment"
-                      ? "text-green-600 bg-green-50/30"
-                      : "text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  💳 Taksitler
-                  {activeTab === "installment" && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500"></div>
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab("reviews")}
-                  className={`flex-1 py-4 text-sm font-bold transition-all relative ${
-                    activeTab === "reviews"
-                      ? "text-green-600 bg-green-50/30"
-                      : "text-gray-500 hover:bg-gray-50"
-                  }`}
-                >
-                  ⭐ Yorumlar
-                  {activeTab === "reviews" && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500"></div>
-                  )}
-                </button>
-              </div>
-
-              <div className="p-6 min-h-[200px]">
-                {activeTab === "desc" && (
-                  <div className="animate-fade-in space-y-4">
-                    <p className="text-gray-600 leading-relaxed text-sm">
-                      {product.description ||
-                        "Can dostunuz için özel olarak hazırlanmış, sürprizlerle dolu bir kutu."}
-                    </p>
-
-                    {product.features && product.features.length > 0 && (
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                        {product.features.map((feature, i) => (
-                          <li
-                            key={i}
-                            className="flex items-start gap-2 text-sm text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-100"
-                          >
-                            <span className="text-green-500 font-bold mt-0.5">
-                              ✓
-                            </span>
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === "installment" && <InstallmentInfo />}
-                {activeTab === "reviews" && (
-                  <ReviewsSection productId={product.id} />
-                )}
-              </div>
+              ))}
             </div>
 
-            {/* AKSİYON ALANI */}
-            <div className="mt-auto">
+            <div className="min-h-[220px] mb-10">
+              {activeTab === "desc" && (
+                <div className="animate-fade-in-up">
+                  <p className="text-gray-600 leading-relaxed text-base font-medium mb-6">
+                    {product.description ||
+                      "Can dostunuz için uzman veterinerler tarafından özel olarak hazırlanmış, sürprizlerle dolu bir kutu."}
+                  </p>
+
+                  {product.features && product.features.length > 0 && (
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {product.features.map((feature, i) => (
+                        <li
+                          key={i}
+                          className="flex items-center gap-3 text-sm text-gray-800 bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm font-bold"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0 text-xs">
+                            ✓
+                          </div>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "installment" && <InstallmentInfo />}
+              {activeTab === "reviews" && (
+                <ReviewsSection productId={product.id} />
+              )}
+            </div>
+
+            {/* AKSİYON ALANI (SABİT BUTONLAR) */}
+            <div className="mt-auto space-y-4">
               <button
                 onClick={handleStart}
                 className={`
-    group relative overflow-hidden w-full py-5 rounded-2xl font-black text-lg transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-3
-    bg-gray-900 text-white hover:bg-black hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)] hover:scale-[1.01]
-  `}
+                  group relative overflow-hidden w-full py-5 rounded-2xl font-black text-lg transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-3
+                  ${
+                    isUpgradeMode
+                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-[0_20px_50px_rgba(37,99,235,0.3)]"
+                      : "bg-[#ff6000] text-white hover:bg-[#e05500] hover:shadow-[0_20px_50px_rgba(255,96,0,0.3)]"
+                  }
+                `}
               >
-                {/* Parlama Efekti */}
-                <div className="absolute inset-0 w-1/2 h-full bg-white/10 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-
+                <div className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                 <span className="relative z-10 uppercase tracking-widest">
-                  {isUpgradeMode ? "PAKETİ YÜKSELT 🚀" : "ŞİMDİ SATIN AL 🐾"}
+                  {isUpgradeMode ? "PAKETİ YÜKSELT 🚀" : "ŞİMDİ SİPARİŞ VER 🐾"}
                 </span>
-
                 <span className="relative z-10 text-xl group-hover:translate-x-2 transition-transform duration-300">
                   ➔
                 </span>
-
-                {/* Shimmer Animasyonu */}
-                <style jsx>{`
-                  @keyframes shimmer {
-                    100% {
-                      transform: translateX(250%);
-                    }
-                  }
-                  .group-hover\:animate-\[shimmer_1\.5s_infinite\]:hover {
-                    animation: shimmer 1.5s infinite;
-                  }
-                `}</style>
               </button>
 
-              <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2 text-lg">
-                    🚚
-                  </div>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase">
-                    Ücretsiz
-                    <br />
-                    Kargo
+              <div className="grid grid-cols-3 gap-2 pt-4">
+                <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                  <div className="text-xl mb-1">🚚</div>
+                  <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider">
+                    Hızlı Kargo
                   </p>
                 </div>
-                <div>
-                  <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2 text-lg">
-                    🛡️
-                  </div>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase">
-                    Güvenli
-                    <br />
-                    Ödeme
+                <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                  <div className="text-xl mb-1">🔒</div>
+                  <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider">
+                    256-Bit SSL
                   </p>
                 </div>
-                <div>
-                  <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-2 text-lg">
-                    ↩️
-                  </div>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase">
-                    İptal
-                    <br />
-                    Garantisi
+                <div className="bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
+                  <div className="text-xl mb-1">↩️</div>
+                  <p className="text-[9px] font-black text-gray-600 uppercase tracking-wider">
+                    Kolay İptal
                   </p>
                 </div>
               </div>
@@ -406,17 +367,51 @@ function ProductDetailContent() {
           </div>
         </div>
       </div>
+
+      {/* Global Animations */}
+      <style jsx global>{`
+        @keyframes shimmer {
+          100% {
+            transform: translateX(250%);
+          }
+        }
+        @keyframes fade-in-up {
+          0% {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in {
+          animation: fade-in-up 0.6s ease-out forwards;
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+        }
+        .delay-100 {
+          animation-delay: 100ms;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </main>
   );
 }
 
-// Ana Bileşeni Dışa Aktar (Suspense ile Sarmalanmış)
 export default function ProductDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-white">
-          <div className="w-10 h-10 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+        <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-[#ff6000] rounded-full animate-spin"></div>
         </div>
       }
     >
