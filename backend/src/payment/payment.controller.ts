@@ -82,3 +82,4 @@ export class PaymentController {
     }
     return this.paymentService.getInstallments(body.bin, body.amount);
   }
+}
