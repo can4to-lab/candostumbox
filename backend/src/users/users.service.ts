@@ -20,12 +20,13 @@ export class UsersService {
   // 1. YENİ PET EKLE
   async addPet(userId: string, data: any) {
     const newPet = this.petRepository.create({
-        user: { id: userId } as User, // İlişkiyi ID üzerinden kuruyoruz
+        user: { id: userId } as User,
         name: data.name,
         type: data.type,
         birthDate: new Date(data.birthDate),
         weight: data.weight ? String(data.weight) : "0",
         breed: data.breed,
+        gender: data.gender, // 👈 BUNU EKLE
         isNeutered: data.isNeutered === 'true' || data.isNeutered === true,
         allergies: typeof data.allergies === 'string' ? data.allergies.split(',') : (data.allergies || []),
     });
@@ -126,6 +127,7 @@ export class UsersService {
         name: data.name,
         type: data.type,
         breed: data.breed,
+        gender: data.gender, // 👈 BUNU EKLE
         weight: data.weight ? String(data.weight) : undefined,
         birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
         isNeutered: data.isNeutered,

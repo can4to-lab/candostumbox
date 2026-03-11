@@ -55,4 +55,10 @@ export class SubscriptionsController {
     }
     return this.subscriptionsService.cancel(id, userId, reason);
   }
+
+  @Get('admin/all') // Sadece adminlerin erişeceği yeni bir yol
+  @UseGuards(JwtAuthGuard) // Admin yetkisi kontrolü eklenebilir
+  async findAllForAdmin() {
+   return this.subscriptionsService.findAll();
+  }
 }
