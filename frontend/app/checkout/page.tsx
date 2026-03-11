@@ -1471,15 +1471,14 @@ function CheckoutContent() {
                     )}
                   </span>
                 </button>
-                <div className="mt-6 flex flex-col items-center justify-center gap-2">
-                  <img
-                    src="/param-guvenli-ode.svg"
-                    alt="Param ile Güvenli Öde"
-                    className="h-7 md:h-8 opacity-90"
-                  />
-                  <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                    🔒 256-bit SSL ve ParamPOS güvencesiyle
-                  </span>
+                <div className="flex items-center justify-center mb-6">
+                  <div className="bg-white px-3 py-2.5 rounded-xl shadow-sm inline-flex">
+                    <img
+                      src="/param-guvenli-ode.svg"
+                      alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
+                      className="h-6 md:h-8 w-auto object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

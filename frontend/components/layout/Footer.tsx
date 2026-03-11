@@ -157,12 +157,14 @@ export default function Footer() {
             </p>
 
             {/* 👇 DÜZELTME: grid yapısını kaldırdık, logo tam genişlikte otursun */}
-            <div className="flex items-center justify-center mb-6 opacity-80 hover:opacity-100 transition-opacity duration-300">
-              <img
-                src="/param-guvenli-ode.svg"
-                alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
-                className="w-full h-auto object-contain max-h-12"
-              />
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-white px-4 py-3 rounded-xl shadow-sm hover:scale-105 transition-transform duration-300 inline-flex">
+                <img
+                  src="/param-guvenli-ode.svg"
+                  alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
+                  className="h-8 md:h-10 w-auto object-contain"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-gray-700/50 pt-4">
