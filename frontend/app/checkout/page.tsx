@@ -1471,10 +1471,14 @@ function CheckoutContent() {
                     )}
                   </span>
                 </button>
-                <div className="text-center mt-4 flex items-center justify-center gap-2 text-gray-400">
-                  <LockIcon />{" "}
-                  <span className="text-xs font-bold uppercase tracking-widest">
-                    256-Bit Uçtan Uca Şifreleme
+                <div className="mt-6 flex flex-col items-center justify-center gap-2">
+                  <img
+                    src="/param-guvenli-ode.svg"
+                    alt="Param ile Güvenli Öde"
+                    className="h-7 md:h-8 opacity-90"
+                  />
+                  <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
+                    🔒 256-bit SSL ve ParamPOS güvencesiyle
                   </span>
                 </div>
               </div>

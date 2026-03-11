@@ -156,35 +156,13 @@ export default function Footer() {
               şifrelenir. Kart bilgileriniz tarafımızca asla saklanmaz.
             </p>
 
-            {/* Logolar - Hep Belirgin ve Net */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-white h-10 rounded-lg flex items-center justify-center px-2 shadow-sm hover:scale-105 transition-transform">
-                <Image
-                  src="/visa-mastercard.png"
-                  alt="Visa Mastercard"
-                  width={60}
-                  height={20}
-                  className="h-6 w-auto object-contain"
-                />
-              </div>
-              <div className="bg-white h-10 rounded-lg flex items-center justify-center px-2 shadow-sm hover:scale-105 transition-transform">
-                <Image
-                  src="/troy.png"
-                  alt="Troy"
-                  width={40}
-                  height={20}
-                  className="h-5 w-auto object-contain"
-                />
-              </div>
-              <div className="bg-white h-10 rounded-lg flex items-center justify-center px-2 shadow-sm hover:scale-105 transition-transform">
-                <Image
-                  src="/ssl.png"
-                  alt="SSL"
-                  width={50}
-                  height={20}
-                  className="h-5 w-auto object-contain"
-                />
-              </div>
+            {/* 👇 DÜZELTME: grid yapısını kaldırdık, logo tam genişlikte otursun */}
+            <div className="flex items-center justify-center mb-6 opacity-80 hover:opacity-100 transition-opacity duration-300">
+              <img
+                src="/param-guvenli-ode.svg"
+                alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
+                className="w-full h-auto object-contain max-h-12"
+              />
             </div>
 
             <div className="flex items-center justify-between border-t border-gray-700/50 pt-4">
