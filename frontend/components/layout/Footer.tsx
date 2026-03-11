@@ -9,13 +9,17 @@ export default function Footer() {
   if (pathname?.startsWith("/admin")) {
     return null;
   }
+
   return (
-    <footer className="bg-[#111827] text-gray-400 py-16 border-t border-gray-800/50 text-sm mt-auto font-sans">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ÜST KISIM: Grid Yapısı */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-16">
-          {/* 1. KURUMSAL (Sol Taraf - Geniş) */}
-          <div className="md:col-span-4 space-y-6">
+    <footer className="bg-[#0B1120] text-gray-400 pt-16 border-t border-gray-800/60 mt-auto font-sans relative overflow-hidden">
+      {/* İsteğe bağlı: Arka planda çok hafif, estetik bir parlama efekti */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-green-500/5 blur-[120px] pointer-events-none"></div>
+
+      <div className="container mx-auto px-6 lg:px-12 relative z-10">
+        {/* ÜST KISIM: 4 Sütunlu Şık Grid Yapısı */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+          {/* 1. Marka */}
+          <div className="space-y-6">
             <div className="relative h-12 w-48 opacity-90 hover:opacity-100 transition duration-300">
               <Image
                 src="/logo-footer.jpg"
@@ -24,160 +28,141 @@ export default function Footer() {
                 className="object-contain object-left"
               />
             </div>
-
             <p className="text-gray-500 leading-relaxed text-sm">
-              Can Dostum Box,{" "}
-              <strong className="text-gray-300">
-                Günen Ticaret İnşaat Yapı Market
-              </strong>{" "}
-              iştirakidir. Minik dostlarınız için en güvenilir ürünleri kapınıza
-              getiriyoruz.
+              Can Dostum Box, minik dostlarımızın sağlığı ve mutluluğu için
+              özenle seçilmiş ürünleri her ay kapınıza getirir.
             </p>
-
-            <div className="space-y-3 pt-2">
-              <div className="flex items-start gap-3 group">
-                <span className="text-gray-600 group-hover:text-green-500 transition">
-                  📍
-                </span>
-                <span className="group-hover:text-gray-300 transition">
-                  16 Eylül Mah. 3042 Sok. No:30/a Çeşme/İzmir
-                </span>
-              </div>
-              <div className="flex items-center gap-3 group">
-                <span className="text-gray-600 group-hover:text-green-500 transition">
-                  📞
-                </span>
-                <span className="group-hover:text-gray-300 transition">
-                  0 533 513 62 60
-                </span>
-              </div>
-              <div className="flex items-center gap-3 group">
-                <span className="text-gray-600 group-hover:text-green-500 transition">
-                  ✉️
-                </span>
-                <a
-                  href="mailto:destek@candostumbox.com"
-                  className="hover:text-white transition decoration-green-500/30 hover:decoration-green-500 underline underline-offset-4"
-                >
-                  destek@candostumbox.com
-                </a>
-              </div>
-            </div>
           </div>
 
-          {/* 2. LİNKLER (Orta Kısım) */}
-          <div className="md:col-span-2">
-            <h4 className="text-white font-semibold mb-6 tracking-wide text-base">
-              Kurumsal
+          {/* 2. Hızlı Menü */}
+          <div>
+            <h4 className="text-white font-semibold mb-6 tracking-wide text-sm">
+              Keşfet
             </h4>
-            <ul className="space-y-3">
+            <ul className="space-y-3 text-sm">
               <li>
                 <Link
-                  href="/product"
-                  className="hover:text-green-400 transition block py-1"
-                >
-                  Paketlerimiz
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/how-it-works"
-                  className="hover:text-green-400 transition block py-1"
+                  href="/#nasil-calisir"
+                  className="hover:text-green-400 transition"
                 >
                   Nasıl Çalışır?
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/faq"
-                  className="hover:text-green-400 transition block py-1"
+                  href="/#paketler"
+                  className="hover:text-green-400 transition"
                 >
-                  S.S.S.
+                  Abonelik Paketleri
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/contact"
-                  className="hover:text-green-400 transition block py-1"
+                  href="/kutu-icerigi"
+                  className="hover:text-green-400 transition"
                 >
-                  İletişim
+                  Kutuda Ne Var?
+                </Link>
+              </li>
+              <li>
+                <Link href="/sss" className="hover:text-green-400 transition">
+                  Sıkça Sorulan Sorular
                 </Link>
               </li>
             </ul>
           </div>
 
-          <div className="md:col-span-3">
-            <h4 className="text-white font-semibold mb-6 tracking-wide text-base">
-              Yasal Bilgiler
+          {/* 3. Kurumsal */}
+          <div>
+            <h4 className="text-white font-semibold mb-6 tracking-wide text-sm">
+              Kurumsal
             </h4>
-            <ul className="space-y-3">
+            <ul className="space-y-3 text-sm">
               <li>
                 <Link
-                  href="/legal/mesafeli-satis-sozlesmesi"
-                  className="hover:text-green-400 transition block py-1"
+                  href="/legal/hakkimizda"
+                  className="hover:text-green-400 transition"
+                >
+                  Hakkımızda
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/legal/mesafeli-satis"
+                  className="hover:text-green-400 transition"
                 >
                   Mesafeli Satış Sözleşmesi
                 </Link>
               </li>
               <li>
                 <Link
-                  href="/legal/iptal-iade-kosullari"
-                  className="hover:text-green-400 transition block py-1"
+                  href="/legal/gizlilik"
+                  className="hover:text-green-400 transition"
+                >
+                  Gizlilik Politikası
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/legal/iptal-iade"
+                  className="hover:text-green-400 transition"
                 >
                   İptal ve İade Koşulları
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/legal/gizlilik-politikasi"
-                  className="hover:text-green-400 transition block py-1"
-                >
-                  Gizlilik ve KVKK
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/legal/kullanim-kosullari"
-                  className="hover:text-green-400 transition block py-1"
-                >
-                  Kullanım Koşulları
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* 3. GÜVENLİ ÖDEME (Sağ Taraf - Vurgulu) */}
-          <div className="md:col-span-3 bg-gray-800/20 rounded-2xl p-6 border border-gray-800/50 backdrop-blur-sm">
-            <h4 className="text-white font-semibold mb-4 text-base flex items-center gap-2">
-              <span className="text-green-500">🔒</span> Güvenli Ödeme
+          {/* 4. İletişim */}
+          <div>
+            <h4 className="text-white font-semibold mb-6 tracking-wide text-sm">
+              İletişim
             </h4>
-            <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-              Ödemeleriniz <strong>256-bit SSL</strong> sertifikası ile
-              şifrelenir. Kart bilgileriniz tarafımızca asla saklanmaz.
-            </p>
-
-            {/* 👇 DÜZELTME: grid yapısını kaldırdık, logo tam genişlikte otursun */}
-            <div className="flex items-center justify-center mb-6">
-              <div className="bg-white px-4 py-3 rounded-xl shadow-sm hover:scale-105 transition-transform duration-300 inline-flex">
-                <img
-                  src="/param-guvenli-ode.svg"
-                  alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
-                  className="h-8 md:h-10 w-auto object-contain"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-gray-700/50 pt-4">
-              <span className="text-xs text-gray-500">Altyapı Güvencesi:</span>
-              <span className="text-lg font-black text-white italic tracking-tighter hover:scale-105 transition transform cursor-default">
-                Param<span className="text-red-500">.</span>
-              </span>
-            </div>
+            <ul className="space-y-3 text-sm text-gray-500">
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 mt-0.5">✉️</span>
+                <a
+                  href="mailto:info@candostumbox.com"
+                  className="hover:text-white transition"
+                >
+                  info@candostumbox.com
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 mt-0.5">📞</span>
+                <a
+                  href="tel:+905555555555"
+                  className="hover:text-white transition"
+                >
+                  +90 (555) 555 55 55
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 mt-0.5">📍</span>
+                <span>İzmir, Türkiye</span>
+              </li>
+            </ul>
           </div>
         </div>
 
-        {/* ALT KISIM: Copyright & Sosyal */}
-        <div className="border-t border-gray-800/50 pt-8 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-600">
+        {/* ORTA KISIM: Estetik Güvenli Ödeme Bandı (Tuğlasız, Beyaz Logolu) */}
+        <div className="border-t border-gray-800/60 py-10 flex flex-col items-center justify-center text-center">
+          <p className="text-[11px] font-bold text-gray-500 tracking-[0.2em] uppercase mb-6">
+            GÜVENLİ ÖDEME ALTYAPISI
+          </p>
+
+          {/* Logo Konteyneri: Saydam durur, üzerine gelince parlar. Orijinal beyaz logoyu mükemmel gösterir */}
+          <div className="w-full max-w-2xl px-4 opacity-40 hover:opacity-100 transition-opacity duration-500 cursor-pointer">
+            <img
+              src="/param-beyaz.svg"
+              alt="Param ile Güvenli Öde"
+              className="w-full h-auto object-contain drop-shadow-lg"
+            />
+          </div>
+        </div>
+
+        {/* ALT KISIM: Copyright & Sosyal Medya */}
+        <div className="border-t border-gray-800/60 py-8 flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-gray-600">
           <p>
             © {new Date().getFullYear()} Can Dostum Box. Tüm hakları saklıdır.
           </p>

@@ -1471,14 +1471,12 @@ function CheckoutContent() {
                     )}
                   </span>
                 </button>
-                <div className="flex items-center justify-center mb-6">
-                  <div className="bg-white px-3 py-2.5 rounded-xl shadow-sm inline-flex">
-                    <img
-                      src="/param-guvenli-ode.svg"
-                      alt="Param ile Güvenli Öde - Mastercard, Visa, Troy"
-                      className="h-6 md:h-8 w-auto object-contain"
-                    />
-                  </div>
+                <div className="bg-white p-2 rounded-xl shadow-sm mb-6 flex items-center justify-center">
+                  <img
+                    src="/param-guvenli-ode.svg"
+                    alt="Param ile Güvenli Öde"
+                    className="h-12 md:h-16 w-auto object-contain"
+                  />
                 </div>
               </div>
             </div>
