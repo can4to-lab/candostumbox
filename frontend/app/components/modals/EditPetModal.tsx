@@ -29,6 +29,7 @@ export default function EditPetModal({
     breed: "",
     weight: "",
     birthDate: "",
+    gender: "male",
     isNeutered: false,
     allergies: "",
   });
@@ -43,6 +44,7 @@ export default function EditPetModal({
         birthDate: petData.birthDate
           ? new Date(petData.birthDate).toISOString().split("T")[0]
           : "",
+        gender: petData.gender || "male",
         isNeutered: petData.isNeutered || false,
         allergies: petData.allergies ? petData.allergies.join(", ") : "",
       });
@@ -227,6 +229,23 @@ export default function EditPetModal({
                 className={inputClass}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-400 mb-1 block">
+              CİNSİYET
+            </label>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={(e) =>
+                setFormData({ ...formData, gender: e.target.value })
+              }
+              className={inputClass}
+            >
+              <option value="male">Erkek ♂</option>
+              <option value="female">Dişi ♀</option>
+            </select>
           </div>
 
           <div

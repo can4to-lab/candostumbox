@@ -23,12 +23,14 @@ export default function AddPetModal({
   const [loading, setLoading] = useState(false);
   const [isOtherOpen, setIsOtherOpen] = useState(false);
 
+  // 👇 DÜZELTME 1: gender varsayılan olarak "male" eklendi
   const [formData, setFormData] = useState({
     name: "",
     type: "kopek",
     breed: "",
     birthDate: "",
     weight: "",
+    gender: "male",
     isNeutered: "false",
     allergies: "",
   });
@@ -62,12 +64,14 @@ export default function AddPetModal({
       toast.success("Aramıza yeni bir dost katıldı! 🐾");
       onSuccess();
       onClose();
+      // 👇 DÜZELTME 2: Sıfırlama işlemine de gender eklendi
       setFormData({
         name: "",
         type: "kopek",
         breed: "",
         birthDate: "",
         weight: "",
+        gender: "male",
         isNeutered: "false",
         allergies: "",
       });
@@ -96,7 +100,6 @@ export default function AddPetModal({
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 👇 KESİN ÇÖZÜM: Grid Yapısı (3 Eşit Sütun) */}
           <div className="grid grid-cols-3 gap-2 mb-4 font-bold">
             {["kopek", "kedi"].map((t) => (
               <button
@@ -209,7 +212,17 @@ export default function AddPetModal({
             </div>
           </div>
 
+          {/* 👇 DÜZELTME 3: Cinsiyet ve Kısırlaştırma yan yana */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              className={`${inputClass} bg-white`}
+            >
+              <option value="male">Erkek ♂</option>
+              <option value="female">Dişi ♀</option>
+            </select>
             <select
               name="isNeutered"
               value={formData.isNeutered}
@@ -219,15 +232,17 @@ export default function AddPetModal({
               <option value="false">Kısır Değil</option>
               <option value="true">Kısırlaştırılmış</option>
             </select>
-            <input
-              type="text"
-              name="allergies"
-              value={formData.allergies}
-              onChange={handleChange}
-              className={inputClass}
-              placeholder="Alerjiler (Örn: Tavuk)"
-            />
           </div>
+
+          {/* 👇 Alerji tam satır kaplıyor */}
+          <input
+            type="text"
+            name="allergies"
+            value={formData.allergies}
+            onChange={handleChange}
+            className={inputClass}
+            placeholder="Alerjiler (Örn: Tavuk)"
+          />
 
           <button
             type="submit"

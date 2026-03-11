@@ -60,6 +60,9 @@ export class Subscription {
   @Column({ type: 'text', nullable: true })
   cancellationReason: string | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  shippingAddressSnapshot: any;
+  
   @CreateDateColumn()
   createdAt: Date;
 

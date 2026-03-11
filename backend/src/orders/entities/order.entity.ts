@@ -38,6 +38,9 @@ export class Order {
   @Column({ nullable: true })
   paymentType: string;
 
+  @Column({ nullable: true })
+  promoCode: string;
+
   @ManyToOne(() => User, (user) => user.orders, { nullable: true })
   user: User;
 

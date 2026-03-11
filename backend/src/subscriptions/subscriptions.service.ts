@@ -26,7 +26,7 @@ export class SubscriptionsService {
 
 async findAll() {
     return await this.subRepository.find({
-      relations: ['user', 'pet', 'product', 'order'], 
+      relations: ['user', 'pet', 'product'], // 👈 'order' kelimesi buradan silindi
       order: { createdAt: 'DESC' }
     });
   }
@@ -138,18 +138,18 @@ async calculateRefund(id: string) {
         const orderPrice = isUpfront ? 0 : Number(sub.product.price);
         const orderStatus = isUpfront ? OrderStatus.PREPARING : OrderStatus.PENDING; 
         const userAddress = sub.user?.addresses?.[0];
-        const realAddressSnapshot = userAddress ? {
-            title: userAddress.title,
-            fullAddress: userAddress.fullAddress,
-            city: userAddress.city,
-            district: userAddress.district,
+        const realAddressSnapshot = sub.shippingAddressSnapshot || (sub.user?.addresses?.[0] ? {
+            title: sub.user.addresses[0].title,
+            fullAddress: sub.user.addresses[0].fullAddress,
+            city: sub.user.addresses[0].city,
+            district: sub.user.addresses[0].district,
             phone: sub.user?.phone || '',
-            email: sub.user?.email || '' // 👈 BU SATIR EKLENDİ (TypeScript Hatasını Çözer)
+            email: sub.user?.email || ''
         } : {
             title: "Kayıtlı Adres",
             fullAddress: "DİKKAT: Sistemde adres bulunamadı, müşteriyle iletişime geçin!",
-            email: sub.user?.email || '' // 👈 BU SATIR EKLENDİ
-        };
+            email: sub.user?.email || ''
+        });
 
         const newOrder = this.orderRepository.create({
             user: sub.user,

@@ -155,7 +155,7 @@ export class OrdersService {
                 const nextDate = new Date();
                 nextDate.setMonth(nextDate.getMonth() + 1);
                 newSubscription.nextDeliveryDate = nextDate;
-
+                newSubscription.shippingAddressSnapshot = addressSnapshot; // Abonelik boyunca adresi hatırla
                 await queryRunner.manager.save(Subscription, newSubscription);
                 isPhysicalShipmentRequired = false;
             }
@@ -176,7 +176,7 @@ export class OrdersService {
                 const nextDate = new Date();
                 nextDate.setMonth(nextDate.getMonth() + 1);
                 subscription.nextDeliveryDate = nextDate;
-
+                subscription.shippingAddressSnapshot = addressSnapshot; // Abonelik boyunca adresi hatırla
                 await queryRunner.manager.save(Subscription, subscription);
             }
         }
@@ -206,19 +206,24 @@ export class OrdersService {
       
       order.shippingAddressSnapshot = addressSnapshot; 
       // --- PROMO KODU VE HİZMET BEDELİNİ SİPARİŞE YANSIT ---
-      // (Eğer createOrderDto'da promoCode geliyorsa)
-      if ((createOrderDto as any).promoCode) {
-         try {
-           const promo = await this.promoCodesService.validateCode((createOrderDto as any).promoCode, totalPrice, userId || undefined);
-           if (promo.discountType === 'percentage') {
-             totalPrice -= (totalPrice * Number(promo.discountValue)) / 100;
-           } else {
-             totalPrice -= Number(promo.discountValue);
-           }
-           // Sipariş başarıyla oluşturulurken kodun kullanım sayısını artır
-           await this.promoCodesService.incrementUsage(promo.id); 
+      if (createOrderDto.promoCode) {
+          try {
+            const promo = await this.promoCodesService.validateCode(createOrderDto.promoCode, totalPrice, userId || undefined);
+            
+            if (promo.discountType === 'percentage') {
+               totalPrice -= (totalPrice * Number(promo.discountValue)) / 100;
+            } else {
+               totalPrice -= Number(promo.discountValue);
+            }
+            
+            // Sipariş başarıyla oluşturulurken kodun kullanım sayısını artır
+            await this.promoCodesService.incrementUsage(promo.id); 
+            
+            // SİPARİŞ VERİTABANINA YAZILIRKEN KUPON KODUNU DA KAYDET
+            order.promoCode = promo.code; 
+
          } catch (e) {
-           this.logger.warn(`Sipariş kaydedilirken geçersiz promo kod atlandı: ${(createOrderDto as any).promoCode}`);
+           this.logger.warn(`Sipariş kaydedilirken geçersiz promo kod atlandı: ${createOrderDto.promoCode}`);
          }
       }
       totalPrice -= upgradeDiscountTotal;

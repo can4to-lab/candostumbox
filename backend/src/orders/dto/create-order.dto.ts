@@ -88,4 +88,8 @@ export class CreateOrderDto {
   @ValidateNested()
   @Type(() => GuestInfoDto)
   guestInfo?: GuestInfoDto;
+
+  @IsString()
+  @IsOptional()
+  promoCode?: string;
 }

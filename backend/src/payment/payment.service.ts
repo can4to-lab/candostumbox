@@ -39,7 +39,8 @@ export class PaymentService {
         items: items, 
         paymentType: 'credit_card',
         isGuest: !userIdToSave,
-        guestInfo: !userIdToSave ? { ...user, ...address } : undefined 
+        guestInfo: !userIdToSave ? { ...user, ...address } : undefined, 
+        promoCode: data.promoCode
     };
 
     const session = this.sessionRepo.create({

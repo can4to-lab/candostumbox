@@ -21,6 +21,9 @@ export class Pet {
   @Column({ type: 'date', nullable: true })
   birthDate: Date;
 
+  @Column({ nullable: true, default: 'male' })
+  gender: string;
+  
   @Column({ default: false })
   isNeutered: boolean;
 

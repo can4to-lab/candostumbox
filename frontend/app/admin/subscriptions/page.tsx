@@ -145,32 +145,22 @@ export default function AdminSubscriptions() {
 
   // --- HELPER: İSİM ÇÖZÜCÜ ---
   const getUserName = (sub: any) => {
-    // 1. Önce doğrudan faturaya (shippingAddressSnapshot) bakalım (EN GÜVENİLİR YOL)
-    if (sub.order && sub.order.shippingAddressSnapshot) {
-      const snap = sub.order.shippingAddressSnapshot;
-      if (snap.firstName || snap.lastName) {
-        return `${snap.firstName || ""} ${snap.lastName || ""}`.trim();
-      }
-      if (snap.name) {
-        return snap.name;
+    // 1. Önce doğrudan aboneliğe kaydedilmiş adrese bakalım (YENİ EKLEDİĞİMİZ)
+    if (sub.shippingAddressSnapshot) {
+      if (
+        sub.shippingAddressSnapshot.firstName ||
+        sub.shippingAddressSnapshot.lastName
+      ) {
+        return `${sub.shippingAddressSnapshot.firstName || ""} ${sub.shippingAddressSnapshot.lastName || ""}`.trim();
       }
     }
-
-    // 2. Faturada yoksa, 'User' tablosuna bakalım
+    // 2. Yoksa User tablosuna bakalım
     if (sub.user) {
       if (sub.user.firstName || sub.user.lastName) {
         return `${sub.user.firstName || ""} ${sub.user.lastName || ""}`.trim();
       }
-      if (sub.user.name) {
-        return sub.user.name;
-      }
-      // Kullanıcının ismi yoksa en azından emailini gösterelim ki "Misafir" yazmasın
-      if (sub.user.email) {
-        return sub.user.email.split("@")[0]; // ornek@mail.com -> ornek
-      }
+      if (sub.user.email) return sub.user.email.split("@")[0];
     }
-
-    // İkisi de yoksa mecburen misafir
     return "Misafir Müşteri";
   };
 
