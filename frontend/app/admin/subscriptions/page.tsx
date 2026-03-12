@@ -444,12 +444,12 @@ export default function AdminSubscriptions() {
                           {getUserName(selectedSub)}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {selectedSub.user?.email ||
-                            selectedSub.shippingAddressSnapshot?.email ||
+                          {selectedSub.shippingAddressSnapshot?.email ||
+                            selectedSub.user?.email ||
                             "Email Yok"}
                         </div>
                         <div className="text-sm text-gray-500 font-medium mt-0.5">
-                          {/* 👇 TELEFON DÜZELTİLDİ: Önce Snapshot'a, yoksa User'a bakar */}
+                          {/* Telefon bilgisini önce snapshot'tan (sipariş anındaki veri) almaya çalışıyoruz */}
                           {selectedSub.shippingAddressSnapshot?.phone ||
                             selectedSub.user?.phone ||
                             "Telefon Yok"}
@@ -457,7 +457,7 @@ export default function AdminSubscriptions() {
                       </div>
                     </div>
 
-                    {/* 👇 ADRES BLOĞU EKLENDİ */}
+                    {/* Adres Bloğu: Sadece snapshot varsa görünür */}
                     {selectedSub.shippingAddressSnapshot && (
                       <div className="mt-5 pt-5 border-t border-gray-100">
                         <div className="text-[10px] font-bold text-gray-400 uppercase mb-1.5 flex items-center gap-1">
@@ -514,23 +514,28 @@ export default function AdminSubscriptions() {
                                 {selectedSub.pet.weight} kg
                               </span>
                             </div>
+
+                            {/* Alerjiler: Güvenli okuma ve string/array ayrımı yapıldı */}
                             <div className="bg-gray-50 p-2 rounded-lg text-xs col-span-2">
                               <span className="block text-gray-400 font-bold text-[10px]">
                                 ALERJİLER
                               </span>
                               {selectedSub.pet.allergies &&
-                              selectedSub.pet.allergies.length > 0 ? (
+                              (Array.isArray(selectedSub.pet.allergies)
+                                ? selectedSub.pet.allergies.length > 0
+                                : selectedSub.pet.allergies.trim() !== "") ? (
                                 <div className="flex flex-wrap gap-1 mt-1">
-                                  {selectedSub.pet.allergies.map(
-                                    (a: string, i: number) => (
-                                      <span
-                                        key={i}
-                                        className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px] font-bold border border-red-100"
-                                      >
-                                        {a}
-                                      </span>
-                                    ),
-                                  )}
+                                  {(Array.isArray(selectedSub.pet.allergies)
+                                    ? selectedSub.pet.allergies
+                                    : selectedSub.pet.allergies.split(",")
+                                  ).map((a: any, i: number) => (
+                                    <span
+                                      key={i}
+                                      className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[10px] font-bold border border-red-100"
+                                    >
+                                      {a.trim()}
+                                    </span>
+                                  ))}
                                 </div>
                               ) : (
                                 <span className="text-gray-500 italic">
