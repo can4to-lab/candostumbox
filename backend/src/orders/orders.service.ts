@@ -62,7 +62,10 @@ export class OrdersService {
                 fullAddress: address.fullAddress,
                 city: address.city,
                 district: address.district,
-                phone: userEntity?.phone || '' // Adres entity'sinde phone yoksa User'dan al
+                phone: userEntity?.phone || '', // Adres entity'sinde phone yoksa User'dan al
+                firstName: userEntity?.firstName || '',
+                lastName: userEntity?.lastName || '',
+                email: userEntity?.email || ''
              };
           }
       } else {
