@@ -575,12 +575,16 @@ export default function AdminSubscriptions() {
                             ).toFixed(2)}
                           </div>
                         </div>
+                        {/* Ödeme Tipi Alanı */}
                         <div className="text-right">
                           <div className="text-xs opacity-70">Ödeme Tipi</div>
                           <div className="font-bold bg-white/20 px-2 py-1 rounded text-sm mt-1">
-                            {selectedSub.paymentType === "upfront"
+                            {/* Veritabanı ne derse desin, iş mantığımız artık peşin olduğu için tüm kart ve havale işlemlerini 'Peşin' olarak etiketliyoruz */}
+                            {selectedSub.paymentType === "credit_card" ||
+                            selectedSub.paymentType === "bank_transfer" ||
+                            selectedSub.paymentType === "upfront"
                               ? "Peşin Ödeme"
-                              : "Aylık Çekim"}
+                              : "Kapıda Ödeme"}
                           </div>
                         </div>
                       </div>
