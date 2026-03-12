@@ -85,9 +85,13 @@ export default function AdminSubscriptions() {
   const fetchSubs = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("https://api.candostumbox.com/subscriptions", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // 👇 BURASI DEĞİŞTİ: '/subscriptions' yerine '/subscriptions/admin/all' yapıldı
+      const res = await fetch(
+        "https://api.candostumbox.com/subscriptions/admin/all",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setSubs(data);
@@ -440,13 +444,41 @@ export default function AdminSubscriptions() {
                           {getUserName(selectedSub)}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {selectedSub.user?.email}
+                          {selectedSub.user?.email ||
+                            selectedSub.shippingAddressSnapshot?.email ||
+                            "Email Yok"}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {selectedSub.user?.phone || "Telefon Yok"}
+                        <div className="text-sm text-gray-500 font-medium mt-0.5">
+                          {/* 👇 TELEFON DÜZELTİLDİ: Önce Snapshot'a, yoksa User'a bakar */}
+                          {selectedSub.shippingAddressSnapshot?.phone ||
+                            selectedSub.user?.phone ||
+                            "Telefon Yok"}
                         </div>
                       </div>
                     </div>
+
+                    {/* 👇 ADRES BLOĞU EKLENDİ */}
+                    {selectedSub.shippingAddressSnapshot && (
+                      <div className="mt-5 pt-5 border-t border-gray-100">
+                        <div className="text-[10px] font-bold text-gray-400 uppercase mb-1.5 flex items-center gap-1">
+                          📍 Teslimat Adresi
+                          <span className="text-gray-400 font-normal capitalize">
+                            (
+                            {selectedSub.shippingAddressSnapshot.title ||
+                              "Kayıtlı Adres"}
+                            )
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-700 leading-relaxed">
+                          {selectedSub.shippingAddressSnapshot.fullAddress ||
+                            "Adres detayı bulunamadı."}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1.5 font-bold">
+                          {selectedSub.shippingAddressSnapshot.district} /{" "}
+                          {selectedSub.shippingAddressSnapshot.city}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Pet Kartı */}
