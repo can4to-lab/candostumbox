@@ -362,7 +362,11 @@ export default function Home() {
         </div>
 
         {/* Yatay Kaydırılabilir Alan */}
-        <div className="flex gap-4 overflow-x-auto pb-8 px-4 md:px-10 no-scrollbar">
+
+        <div
+          ref={instaSliderRef}
+          className="flex gap-4 overflow-x-auto pb-8 px-4 md:px-10 no-scrollbar"
+        >
           {instaLoading
             ? [1, 2, 3, 4, 5].map((i) => (
                 <div
@@ -658,10 +662,30 @@ export default function Home() {
 
       {/* MODALI BURAYA, MAIN ETİKETİNDEN HEMEN ÖNCEYE TAŞIDIK */}
       {selectedPost && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
-            {/* Sol: Görsel/Video */}
-            <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px]">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          {/* DIŞARIYA ALINAN ÇARPI BUTONU */}
+          <button
+            onClick={() => setSelectedPost(null)}
+            className="absolute top-6 right-6 text-white hover:text-gray-300 z-[110] transition-colors"
+          >
+            <svg
+              className="w-10 h-10"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row h-auto max-h-[90vh] shadow-2xl relative">
+            {/* Sol: Görsel Bölümü */}
+            <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[350px] md:min-h-full">
               <Image
                 src={
                   selectedPost.media_type === "VIDEO"
@@ -672,18 +696,12 @@ export default function Home() {
                 fill
                 className="object-contain"
               />
-              <button
-                onClick={() => setSelectedPost(null)}
-                className="absolute top-4 left-4 text-white bg-black/20 rounded-full p-2 hover:bg-black/40 md:hidden"
-              >
-                ✕
-              </button>
             </div>
 
-            {/* Sağ: Detaylar */}
-            <div className="md:w-2/5 p-6 flex flex-col h-full bg-white">
-              <div className="flex items-center gap-3 mb-6 border-b pb-4">
-                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden relative">
+            {/* Sağ: Detaylar (KAYDIRILABİLİR ALAN) */}
+            <div className="md:w-2/5 p-6 flex flex-col h-full max-h-[90vh] bg-white border-l">
+              <div className="flex items-center gap-3 mb-6 border-b pb-4 shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden relative border">
                   <Image
                     src="/logo.png"
                     alt="CanDostum"
@@ -698,22 +716,21 @@ export default function Home() {
                   <p className="text-xs text-gray-400">Instagram</p>
                 </div>
               </div>
-              <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed mb-6 whitespace-pre-wrap">
-                {selectedPost.caption}
+
+              {/* Yazı Alanı - scroll eklendi */}
+              <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed pr-2 mb-6 custom-scrollbar">
+                <p className="whitespace-pre-wrap">{selectedPost.caption}</p>
               </div>
-              <a
-                href={selectedPost.permalink}
-                target="_blank"
-                className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center hover:bg-[#1877f2] transition-colors"
-              >
-                Instagram'da Görüntüle
-              </a>
-              <button
-                onClick={() => setSelectedPost(null)}
-                className="mt-4 text-gray-400 text-xs font-medium uppercase tracking-widest hover:text-gray-900"
-              >
-                KAPAT
-              </button>
+
+              <div className="mt-auto shrink-0">
+                <a
+                  href={selectedPost.permalink}
+                  target="_blank"
+                  className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center block hover:bg-[#1877f2] transition-colors mb-2"
+                >
+                  Instagram'da Görüntüle
+                </a>
+              </div>
             </div>
           </div>
         </div>
