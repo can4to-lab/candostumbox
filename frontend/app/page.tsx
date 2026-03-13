@@ -36,6 +36,9 @@ export default function Home() {
   // Data State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasOrders, setHasOrders] = useState(false);
+  // Instagram State
+  const [instagramFeed, setInstagramFeed] = useState<any[]>([]);
+  const [instaLoading, setInstaLoading] = useState(true);
 
   // --- SLIDER VERİLERİ ---
   const slides = [
@@ -115,6 +118,23 @@ export default function Home() {
       }
     };
     urunleriGetir();
+
+    const instagramGetir = async () => {
+      try {
+        const cevap = await fetch(
+          "https://api.candostumbox.com/instagram/feed",
+        );
+        const veri = await cevap.json();
+        if (veri.status === "success") {
+          setInstagramFeed(veri.data);
+        }
+      } catch (error) {
+        console.error("Instagram Hatası:", error);
+      } finally {
+        setInstaLoading(false);
+      }
+    };
+    instagramGetir(); // Bunu useEffect içinde çağır
   }, []);
 
   const handleRegisterSuccess = () => {
@@ -290,6 +310,71 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* ================================================================== */}
+      {/* 📸 BÖLÜM: SOSYAL KANIT - INSTAGRAM AKIŞI */}
+      {/* ================================================================== */}
+      <section className="py-16 bg-white overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-end justify-between mb-10 gap-4">
+            <div className="max-w-xl">
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
+                Bizi Bir de{" "}
+                <span className="text-pink-600">Onlardan Dinleyin!</span> 🐾
+              </h2>
+              <p className="text-gray-500">
+                Binlerce mutlu pati sahibi her ay kutu açılışlarını bizimle
+                paylaşıyor. Siz de ailemize katılın, bu mutluluğa ortak olun.
+              </p>
+            </div>
+            <a
+              href="https://instagram.com/candostumbox"
+              target="_blank"
+              className="text-pink-600 font-bold border-b-2 border-pink-200 hover:border-pink-600 transition-all pb-1 flex items-center gap-2"
+            >
+              @candostumbox Takip Et
+            </a>
+          </div>
+
+          {instaLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {[1, 2, 3, 4, 5, 6].map((s) => (
+                <div
+                  key={s}
+                  className="aspect-square bg-gray-100 animate-pulse rounded-xl"
+                ></div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {instagramFeed.slice(0, 6).map((post) => (
+                <a
+                  key={post.id}
+                  href={post.permalink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm"
+                >
+                  <Image
+                    src={
+                      post.media_type === "VIDEO"
+                        ? post.thumbnail_url
+                        : post.media_url
+                    }
+                    alt={post.caption || "Instagram Paylaşımı"}
+                    fill
+                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white text-xs font-bold gap-3">
+                    <span>❤️ {post.like_count || 0}</span>
+                    <span>💬 {post.comments_count || 0}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ================================================================== */}
       {/* 🔥 BÖLÜM 3: ÇOK SATANLAR (YENİ EKLENDİ) */}
