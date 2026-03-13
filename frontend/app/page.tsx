@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -40,6 +40,8 @@ export default function Home() {
   const [instagramFeed, setInstagramFeed] = useState<any[]>([]);
   const [instaLoading, setInstaLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<any>(null);
+  const instaSliderRef = useRef<HTMLDivElement>(null);
+
   // --- SLIDER VERİLERİ ---
   const slides = [
     {
@@ -71,12 +73,11 @@ export default function Home() {
     },
   ];
 
-  // --- SLIDER OTOMATİK GEÇİŞ GÜNCELLEME ---
+  // --- SLIDER OTOMATİK GEÇİŞ ---
   useEffect(() => {
     const interval = setInterval(() => {
-      // slides.length yerine direkt 3 yazabilirsin ya da fonksiyonel güncelleme kullan:
-      setCurrentSlide((prev) => (prev === 2 ? 0 : prev + 1));
-    }, 5000); // 7 saniye çok uzun gelebilir, 5 idealdir.
+      setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
+    }, 7000);
     return () => clearInterval(interval);
   }, []);
 
@@ -87,6 +88,21 @@ export default function Home() {
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
   };
+
+  useEffect(() => {
+    const slider = instaSliderRef.current;
+    if (!slider || instaLoading) return;
+
+    const scrollInterval = setInterval(() => {
+      if (slider.scrollLeft + slider.clientWidth >= slider.scrollWidth) {
+        slider.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        slider.scrollBy({ left: 336, behavior: "smooth" }); // Bir kart boyutu kadar kaydır
+      }
+    }, 4000); // 4 saniyede bir kayar
+
+    return () => clearInterval(scrollInterval);
+  }, [instaLoading, instagramFeed]);
 
   // --- VERİ ÇEKME ---
   useEffect(() => {
