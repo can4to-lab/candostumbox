@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module';
 import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
+import { InstagramModule } from './instagram/instagram.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PromoCodesModule } from './promo-codes/promo-codes.module';
     PaymentModule,
     ReviewsModule,
     PromoCodesModule,
+    InstagramModule,
   ],
 })
 export class AppModule {}
