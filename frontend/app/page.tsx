@@ -790,25 +790,44 @@ export default function Home() {
           </button>
 
           <div className="bg-white w-full max-w-5xl rounded-3xl overflow-hidden flex flex-col md:flex-row h-auto max-h-[85vh] shadow-2xl relative animate-in fade-in zoom-in duration-300">
-            {/* Sol: Görsel/Video Bölümü (ARTIK SABİT VE TAM DOLU) */}
-            <div className="md:w-3/5 bg-gray-950 flex items-center justify-center relative min-h-[400px] md:min-h-[600px]">
-              {selectedPost.media_type === "VIDEO" ? (
-                <video
-                  key={selectedPost.media_url} // Video değişince yeniden yüklenmesi için önemli
-                  src={selectedPost.media_url}
-                  controls
-                  autoPlay
-                  muted
-                  className="w-full h-full object-cover" // object-cover ile dikey videolar kutuyu tam doldurur
-                />
-              ) : (
+            {/* Sol: Görsel/Video Bölümü (Akıllı Boyutlandırma) */}
+            <div className="md:w-3/5 bg-gray-950 flex items-center justify-center relative min-h-[400px] md:min-h-[600px] overflow-hidden">
+              {/* 1. KATMAN: Arka plandaki bulanık görsel (Boşlukları estetik doldurur) */}
+              <div className="absolute inset-0 z-0 opacity-40 scale-110 blur-xl">
                 <Image
-                  src={selectedPost.media_url}
-                  alt="Instagram"
+                  src={
+                    selectedPost.media_type === "VIDEO"
+                      ? selectedPost.thumbnail_url || selectedPost.media_url
+                      : selectedPost.media_url
+                  }
+                  alt="blur-bg"
                   fill
-                  className="object-cover" // Kare kutuyu tam doldurur
+                  className="object-cover"
                 />
-              )}
+              </div>
+
+              {/* 2. KATMAN: Gerçek içerik (Asla kesilmez, tam sığar) */}
+              <div className="relative z-10 w-full h-full flex items-center justify-center p-2">
+                {selectedPost.media_type === "VIDEO" ? (
+                  <video
+                    key={selectedPost.media_url}
+                    src={selectedPost.media_url}
+                    controls
+                    autoPlay
+                    muted
+                    className="max-w-full max-h-full shadow-2xl" // object-contain mantığında ama daha şık
+                  />
+                ) : (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={selectedPost.media_url}
+                      alt="Instagram"
+                      fill
+                      className="object-contain drop-shadow-2xl" // Görselin orijinal oranını korur
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Sağ: Detaylar */}
