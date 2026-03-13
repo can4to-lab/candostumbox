@@ -71,11 +71,12 @@ export default function Home() {
     },
   ];
 
-  // --- SLIDER OTOMATİK GEÇİŞ ---
+  // --- SLIDER OTOMATİK GEÇİŞ GÜNCELLEME ---
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
-    }, 7000);
+      // slides.length yerine direkt 3 yazabilirsin ya da fonksiyonel güncelleme kullan:
+      setCurrentSlide((prev) => (prev === 2 ? 0 : prev + 1));
+    }, 5000); // 7 saniye çok uzun gelebilir, 5 idealdir.
     return () => clearInterval(interval);
   }, []);
 
@@ -638,66 +639,69 @@ export default function Home() {
           </p>
         </div>
       </section>
-    </main>
-  );
 
-  {
-    /* INSTAGRAM DETAY MODAL */
-  }
-  {
-    selectedPost && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-        <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
-          {/* Sol: Görsel/Video */}
-          <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px]">
-            <Image
-              src={
-                selectedPost.media_type === "VIDEO"
-                  ? selectedPost.media_url
-                  : selectedPost.media_url
-              }
-              alt="Post"
-              fill
-              className="object-contain"
-            />
-            <button
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-4 left-4 text-white bg-black/20 rounded-full p-2 hover:bg-black/40 md:hidden"
-            >
-              ✕
-            </button>
-          </div>
+      {/* MODALI BURAYA, MAIN ETİKETİNDEN HEMEN ÖNCEYE TAŞIDIK */}
+      {selectedPost && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+            {/* Sol: Görsel/Video */}
+            <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px]">
+              <Image
+                src={
+                  selectedPost.media_type === "VIDEO"
+                    ? selectedPost.thumbnail_url || selectedPost.media_url
+                    : selectedPost.media_url
+                }
+                alt="Post"
+                fill
+                className="object-contain"
+              />
+              <button
+                onClick={() => setSelectedPost(null)}
+                className="absolute top-4 left-4 text-white bg-black/20 rounded-full p-2 hover:bg-black/40 md:hidden"
+              >
+                ✕
+              </button>
+            </div>
 
-          {/* Sağ: Detaylar */}
-          <div className="md:w-2/5 p-6 flex flex-col h-full bg-white">
-            <div className="flex items-center gap-3 mb-6 border-b pb-4">
-              <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                <img src="/logo.png" alt="CanDostum" />
+            {/* Sağ: Detaylar */}
+            <div className="md:w-2/5 p-6 flex flex-col h-full bg-white">
+              <div className="flex items-center gap-3 mb-6 border-b pb-4">
+                <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden relative">
+                  <Image
+                    src="/logo.png"
+                    alt="CanDostum"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-gray-900">
+                    candostumbox
+                  </p>
+                  <p className="text-xs text-gray-400">Instagram</p>
+                </div>
               </div>
-              <div>
-                <p className="font-bold text-sm">candostumbox</p>
-                <p className="text-xs text-gray-400">Instagram</p>
+              <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed mb-6 whitespace-pre-wrap">
+                {selectedPost.caption}
               </div>
+              <a
+                href={selectedPost.permalink}
+                target="_blank"
+                className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center hover:bg-[#1877f2] transition-colors"
+              >
+                Instagram'da Görüntüle
+              </a>
+              <button
+                onClick={() => setSelectedPost(null)}
+                className="mt-4 text-gray-400 text-xs font-medium uppercase tracking-widest hover:text-gray-900"
+              >
+                KAPAT
+              </button>
             </div>
-            <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed mb-6">
-              {selectedPost.caption}
-            </div>
-            <a
-              href={selectedPost.permalink}
-              target="_blank"
-              className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center hover:bg-[#1877f2] transition-colors"
-            >
-              Instagram'da Görüntüle
-            </a>
-            <button
-              onClick={() => setSelectedPost(null)}
-              className="mt-4 text-gray-400 text-xs font-medium uppercase tracking-widest hover:text-gray-900"
-            >
-              KAPAT
-            </button>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
+    </main>
+  );
 }
