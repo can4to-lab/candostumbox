@@ -312,70 +312,96 @@ export default function Home() {
       </div>
 
       {/* ================================================================== */}
-      {/* 📸 BÖLÜM: SOSYAL KANIT - INSTAGRAM AKIŞI */}
+      {/* 📸 BÖLÜM: INSTAGRAM - DERGİ TARZI YERLEŞİM */}
       {/* ================================================================== */}
-      <section className="py-16 bg-white overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-end justify-between mb-10 gap-4">
-            <div className="max-w-xl">
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
-                Bizi Bir de{" "}
-                <span className="text-pink-600">Onlardan Dinleyin!</span> 🐾
+      <section className="py-24 bg-white">
+        <div className="container mx-auto px-4 md:px-6 max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+            {/* SOL TARAF: BAŞLIK VE ETKİLEŞİM (Yazı Konumu Burada Daha Güçlü) */}
+            <div className="lg:col-span-4 sticky top-24">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-50 text-pink-600 text-xs font-bold uppercase tracking-widest mb-6">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
+                </span>
+                Instagram'da Can Dostum
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-[1.1]">
+                Birlikte Büyüyen <br />
+                <span className="text-pink-600">Büyük Bir Aileyiz</span>
               </h2>
-              <p className="text-gray-500">
-                Binlerce mutlu pati sahibi her ay kutu açılışlarını bizimle
-                paylaşıyor. Siz de ailemize katılın, bu mutluluğa ortak olun.
+              <p className="text-gray-500 text-lg mb-8 leading-relaxed">
+                Sadece bir kutu göndermiyoruz; her ay binlerce evde patili
+                dostlarımızın kuyruk sallama sebebine dönüşüyoruz. Gerçek
+                kullanıcı deneyimlerini keşfedin.
               </p>
-            </div>
-            <a
-              href="https://instagram.com/candostumbox"
-              target="_blank"
-              className="text-pink-600 font-bold border-b-2 border-pink-200 hover:border-pink-600 transition-all pb-1 flex items-center gap-2"
-            >
-              @candostumbox Takip Et
-            </a>
-          </div>
-
-          {instaLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {[1, 2, 3, 4, 5, 6].map((s) => (
-                <div
-                  key={s}
-                  className="aspect-square bg-gray-100 animate-pulse rounded-xl"
-                ></div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {instagramFeed.slice(0, 6).map((post) => (
+              <div className="flex items-center gap-6">
                 <a
-                  key={post.id}
-                  href={post.permalink}
+                  href="https://instagram.com/candostumbox"
                   target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm"
+                  className="bg-gray-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-pink-600 transition-all shadow-lg hover:shadow-pink-200"
                 >
-                  <Image
-                    src={
-                      post.media_type === "VIDEO"
-                        ? post.thumbnail_url
-                        : post.media_url
-                    }
-                    alt={post.caption || "Instagram Paylaşımı"}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center text-white text-xs font-bold gap-3">
-                    <span>❤️ {post.like_count || 0}</span>
-                    <span>💬 {post.comments_count || 0}</span>
-                  </div>
+                  Bizi Takip Et 🐾
                 </a>
-              ))}
+                <div className="text-sm">
+                  <div className="font-black text-gray-900">12k+</div>
+                  <div className="text-gray-400">Mutlu Takipçi</div>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* SAĞ TARAF: GÖRSEL GALERİ (Daha Düzenli Kare Görünüm) */}
+            <div className="lg:col-span-8">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {instaLoading
+                  ? [1, 2, 3, 4, 5, 6].map((i) => (
+                      <div
+                        key={i}
+                        className="aspect-square bg-gray-50 rounded-[2rem] animate-pulse"
+                      ></div>
+                    ))
+                  : instagramFeed.slice(0, 6).map((post, idx) => (
+                      <a
+                        key={post.id}
+                        href={post.permalink}
+                        target="_blank"
+                        className={`group relative aspect-square overflow-hidden rounded-[2rem] bg-gray-100 ${
+                          idx === 1 || idx === 4 ? "md:translate-y-8" : "" // Hafif asimetrik, modern duruş
+                        }`}
+                      >
+                        <Image
+                          src={
+                            post.media_type === "VIDEO"
+                              ? post.thumbnail_url
+                              : post.media_url
+                          }
+                          alt="CanDostumBox"
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+
+                        {/* Minimal Overlay: Sadece Hover Olunca */}
+                        <div className="absolute inset-0 bg-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                        {/* Video Göstergesi */}
+                        {post.media_type === "VIDEO" && (
+                          <div className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
+                            <svg
+                              className="w-4 h-4"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </a>
+                    ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-
       {/* ================================================================== */}
       {/* 🔥 BÖLÜM 3: ÇOK SATANLAR (YENİ EKLENDİ) */}
       {/* ================================================================== */}
