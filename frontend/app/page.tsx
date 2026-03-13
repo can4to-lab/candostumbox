@@ -39,7 +39,7 @@ export default function Home() {
   // Instagram State
   const [instagramFeed, setInstagramFeed] = useState<any[]>([]);
   const [instaLoading, setInstaLoading] = useState(true);
-
+  const [selectedPost, setSelectedPost] = useState<any>(null);
   // --- SLIDER VERİLERİ ---
   const slides = [
     {
@@ -312,94 +312,76 @@ export default function Home() {
       </div>
 
       {/* ================================================================== */}
-      {/* 📸 BÖLÜM: INSTAGRAM - DERGİ TARZI YERLEŞİM */}
+      {/* 📸 BÖLÜM: TOPLULUKTAN KARELER (HELLO BELLO TARZI) */}
       {/* ================================================================== */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-4 md:px-6 max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            {/* SOL TARAF: BAŞLIK VE ETKİLEŞİM (Yazı Konumu Burada Daha Güçlü) */}
-            <div className="lg:col-span-4 sticky top-24">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-pink-50 text-pink-600 text-xs font-bold uppercase tracking-widest mb-6">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-pink-500"></span>
-                </span>
-                Instagram'da Can Dostum
+      <section className="py-20 bg-white overflow-hidden">
+        <div className="container mx-auto px-4 text-center mb-10">
+          <h2 className="text-4xl md:text-5xl font-serif text-[#2b1c4a] mb-6">
+            Can Dostum Ailesinden Kareler
+          </h2>
+
+          {/* Instagram Tarzı Takip Et Butonu */}
+          <a
+            href="https://instagram.com/candostumbox"
+            target="_blank"
+            className="inline-flex items-center gap-2 bg-[#fafafa] border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all shadow-sm group"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px]">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-1">
+                <img
+                  src="/insta-icon.png"
+                  alt="Instagram"
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-[1.1]">
-                Birlikte Büyüyen <br />
-                <span className="text-pink-600">Büyük Bir Aileyiz</span>
-              </h2>
-              <p className="text-gray-500 text-lg mb-8 leading-relaxed">
-                Sadece bir kutu göndermiyoruz; her ay binlerce evde patili
-                dostlarımızın kuyruk sallama sebebine dönüşüyoruz. Gerçek
-                kullanıcı deneyimlerini keşfedin.
-              </p>
-              <div className="flex items-center gap-6">
-                <a
-                  href="https://instagram.com/candostumbox"
-                  target="_blank"
-                  className="bg-gray-900 text-white px-8 py-4 rounded-2xl font-bold hover:bg-pink-600 transition-all shadow-lg hover:shadow-pink-200"
+            </div>
+            <span className="font-semibold text-sm text-gray-700">
+              @candostumbox
+            </span>
+            <span className="bg-[#0095f6] text-white text-xs font-bold px-3 py-1 rounded-md group-hover:bg-[#1877f2]">
+              Takip Et
+            </span>
+          </a>
+        </div>
+
+        {/* Yatay Kaydırılabilir Alan */}
+        <div className="flex gap-4 overflow-x-auto pb-8 px-4 md:px-10 no-scrollbar">
+          {instaLoading
+            ? [1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="min-w-[280px] md:min-w-[320px] aspect-square bg-gray-100 animate-pulse rounded-lg"
+                />
+              ))
+            : instagramFeed.map((post) => (
+                <div
+                  key={post.id}
+                  className="min-w-[280px] md:min-w-[320px] relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm border border-gray-100"
+                  onClick={() => setSelectedPost(post)} // Modal açmak için
                 >
-                  Bizi Takip Et 🐾
-                </a>
-                <div className="text-sm">
-                  <div className="font-black text-gray-900">12k+</div>
-                  <div className="text-gray-400">Mutlu Takipçi</div>
-                </div>
-              </div>
-            </div>
-
-            {/* SAĞ TARAF: GÖRSEL GALERİ (Daha Düzenli Kare Görünüm) */}
-            <div className="lg:col-span-8">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {instaLoading
-                  ? [1, 2, 3, 4, 5, 6].map((i) => (
-                      <div
-                        key={i}
-                        className="aspect-square bg-gray-50 rounded-[2rem] animate-pulse"
-                      ></div>
-                    ))
-                  : instagramFeed.slice(0, 6).map((post, idx) => (
-                      <a
-                        key={post.id}
-                        href={post.permalink}
-                        target="_blank"
-                        className={`group relative aspect-square overflow-hidden rounded-[2rem] bg-gray-100 ${
-                          idx === 1 || idx === 4 ? "md:translate-y-8" : "" // Hafif asimetrik, modern duruş
-                        }`}
+                  <Image
+                    src={
+                      post.media_type === "VIDEO"
+                        ? post.thumbnail_url
+                        : post.media_url
+                    }
+                    alt="Pati Dostu"
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  {post.media_type === "VIDEO" && (
+                    <div className="absolute top-3 right-3 text-white drop-shadow-md">
+                      <svg
+                        className="w-6 h-6"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
                       >
-                        <Image
-                          src={
-                            post.media_type === "VIDEO"
-                              ? post.thumbnail_url
-                              : post.media_url
-                          }
-                          alt="CanDostumBox"
-                          fill
-                          className="object-cover transition-transform duration-700 group-hover:scale-110"
-                        />
-
-                        {/* Minimal Overlay: Sadece Hover Olunca */}
-                        <div className="absolute inset-0 bg-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                        {/* Video Göstergesi */}
-                        {post.media_type === "VIDEO" && (
-                          <div className="absolute top-4 right-4 w-8 h-8 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white">
-                            <svg
-                              className="w-4 h-4"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                            </svg>
-                          </div>
-                        )}
-                      </a>
-                    ))}
-              </div>
-            </div>
-          </div>
+                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              ))}
         </div>
       </section>
       {/* ================================================================== */}
@@ -658,4 +640,64 @@ export default function Home() {
       </section>
     </main>
   );
+
+  {
+    /* INSTAGRAM DETAY MODAL */
+  }
+  {
+    selectedPost && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+          {/* Sol: Görsel/Video */}
+          <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[300px]">
+            <Image
+              src={
+                selectedPost.media_type === "VIDEO"
+                  ? selectedPost.media_url
+                  : selectedPost.media_url
+              }
+              alt="Post"
+              fill
+              className="object-contain"
+            />
+            <button
+              onClick={() => setSelectedPost(null)}
+              className="absolute top-4 left-4 text-white bg-black/20 rounded-full p-2 hover:bg-black/40 md:hidden"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Sağ: Detaylar */}
+          <div className="md:w-2/5 p-6 flex flex-col h-full bg-white">
+            <div className="flex items-center gap-3 mb-6 border-b pb-4">
+              <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                <img src="/logo.png" alt="CanDostum" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">candostumbox</p>
+                <p className="text-xs text-gray-400">Instagram</p>
+              </div>
+            </div>
+            <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed mb-6">
+              {selectedPost.caption}
+            </div>
+            <a
+              href={selectedPost.permalink}
+              target="_blank"
+              className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center hover:bg-[#1877f2] transition-colors"
+            >
+              Instagram'da Görüntüle
+            </a>
+            <button
+              onClick={() => setSelectedPost(null)}
+              className="mt-4 text-gray-400 text-xs font-medium uppercase tracking-widest hover:text-gray-900"
+            >
+              KAPAT
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
