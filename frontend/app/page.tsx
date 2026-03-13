@@ -42,6 +42,41 @@ export default function Home() {
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const instaSliderRef = useRef<HTMLDivElement>(null);
 
+  // Manuel kaydırma fonksiyonları
+  const scrollLeft = () => {
+    if (instaSliderRef.current) {
+      instaSliderRef.current.scrollBy({ left: -350, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (instaSliderRef.current) {
+      instaSliderRef.current.scrollBy({ left: 350, behavior: "smooth" });
+    }
+  };
+
+  const openNextPost = () => {
+    const currentIndex = instagramFeed.findIndex(
+      (p) => p.id === selectedPost.id,
+    );
+    if (currentIndex < instagramFeed.length - 1) {
+      setSelectedPost(instagramFeed[currentIndex + 1]);
+    } else {
+      setSelectedPost(instagramFeed[0]); // Listeyi başa sar
+    }
+  };
+
+  const openPrevPost = () => {
+    const currentIndex = instagramFeed.findIndex(
+      (p) => p.id === selectedPost.id,
+    );
+    if (currentIndex > 0) {
+      setSelectedPost(instagramFeed[currentIndex - 1]);
+    } else {
+      setSelectedPost(instagramFeed[instagramFeed.length - 1]); // Listeyi sona sar
+    }
+  };
+
   // --- SLIDER VERİLERİ ---
   const slides = [
     {
@@ -329,80 +364,112 @@ export default function Home() {
       </div>
 
       {/* ================================================================== */}
-      {/* 📸 BÖLÜM: TOPLULUKTAN KARELER (HELLO BELLO TARZI) */}
+      {/* 📸 BÖLÜM: TOPLULUKTAN KARELER (OKLAR EKLENDİ) */}
       {/* ================================================================== */}
-      <section className="py-20 bg-white overflow-hidden">
+      <section className="py-20 bg-white relative group">
         <div className="container mx-auto px-4 text-center mb-10">
           <h2 className="text-4xl md:text-5xl font-serif text-[#2b1c4a] mb-6">
             Can Dostum Ailesinden Kareler
           </h2>
 
-          {/* Instagram Tarzı Takip Et Butonu */}
+          {/* Instagram Takip Et Butonu */}
           <a
             href="https://instagram.com/candostumbox"
             target="_blank"
-            className="inline-flex items-center gap-2 bg-[#fafafa] border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all shadow-sm group"
+            className="inline-flex items-center gap-2 bg-[#fafafa] border border-gray-200 px-4 py-2 rounded-lg hover:bg-gray-50 transition-all shadow-sm mb-4"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px]">
-              <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-1">
-                <img
-                  src="/insta-icon.png"
-                  alt="Instagram"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            </div>
             <span className="font-semibold text-sm text-gray-700">
               @candostumbox
             </span>
-            <span className="bg-[#0095f6] text-white text-xs font-bold px-3 py-1 rounded-md group-hover:bg-[#1877f2]">
+            <span className="bg-[#0095f6] text-white text-xs font-bold px-3 py-1 rounded-md">
               Takip Et
             </span>
           </a>
         </div>
 
-        {/* Yatay Kaydırılabilir Alan */}
+        <div className="relative max-w-[1400px] mx-auto px-4 md:px-10">
+          {/* SOL OK */}
+          <button
+            onClick={scrollLeft}
+            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center border border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-50"
+          >
+            <svg
+              className="w-6 h-6 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
 
-        <div
-          ref={instaSliderRef}
-          className="flex gap-4 overflow-x-auto pb-8 px-4 md:px-10 no-scrollbar"
-        >
-          {instaLoading
-            ? [1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="min-w-[280px] md:min-w-[320px] aspect-square bg-gray-100 animate-pulse rounded-lg"
-                />
-              ))
-            : instagramFeed.map((post) => (
-                <div
-                  key={post.id}
-                  className="min-w-[280px] md:min-w-[320px] relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm border border-gray-100"
-                  onClick={() => setSelectedPost(post)} // Modal açmak için
-                >
-                  <Image
-                    src={
-                      post.media_type === "VIDEO"
-                        ? post.thumbnail_url
-                        : post.media_url
-                    }
-                    alt="Pati Dostu"
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+          {/* SAĞ OK */}
+          <button
+            onClick={scrollRight}
+            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 bg-white shadow-xl rounded-full flex items-center justify-center border border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-50"
+          >
+            <svg
+              className="w-6 h-6 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+
+          {/* YATAY KAYDIRILABİLİR ALAN (no-scrollbar ile çubuk gizlendi) */}
+          <div
+            ref={instaSliderRef}
+            className="flex gap-4 overflow-x-auto pb-8 no-scrollbar snap-x"
+          >
+            {instaLoading
+              ? [1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="min-w-[280px] md:min-w-[320px] aspect-square bg-gray-100 animate-pulse rounded-lg"
                   />
-                  {post.media_type === "VIDEO" && (
-                    <div className="absolute top-3 right-3 text-white drop-shadow-md">
-                      <svg
-                        className="w-6 h-6"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))
+              : instagramFeed.map((post) => (
+                  <div
+                    key={post.id}
+                    className="min-w-[280px] md:min-w-[320px] relative aspect-square group cursor-pointer overflow-hidden rounded-lg shadow-sm border border-gray-100 snap-start"
+                    onClick={() => setSelectedPost(post)}
+                  >
+                    <Image
+                      src={
+                        post.media_type === "VIDEO"
+                          ? post.thumbnail_url || post.media_url
+                          : post.media_url
+                      }
+                      alt="Pati Dostu"
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {post.media_type === "VIDEO" && (
+                      <div className="absolute top-3 right-3 text-white drop-shadow-md">
+                        <svg
+                          className="w-6 h-6"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                ))}
+          </div>
         </div>
       </section>
       {/* ================================================================== */}
@@ -660,13 +727,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* MODALI BURAYA, MAIN ETİKETİNDEN HEMEN ÖNCEYE TAŞIDIK */}
       {selectedPost && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          {/* DIŞARIYA ALINAN ÇARPI BUTONU */}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          {/* KAPAT BUTONU */}
           <button
             onClick={() => setSelectedPost(null)}
-            className="absolute top-6 right-6 text-white hover:text-gray-300 z-[110] transition-colors"
+            className="absolute top-6 right-6 text-white hover:scale-110 transition-transform z-[120]"
           >
             <svg
               className="w-10 h-10"
@@ -683,57 +749,98 @@ export default function Home() {
             </svg>
           </button>
 
-          <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row h-auto max-h-[90vh] shadow-2xl relative">
-            {/* Sol: Görsel/Video Bölümü */}
-            <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[350px] md:min-h-full">
+          {/* SOLA GİT OKU */}
+          <button
+            onClick={openPrevPost}
+            className="absolute left-4 md:left-10 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors z-[120]"
+          >
+            <svg
+              className="w-12 h-12"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+
+          {/* SAĞA GİT OKU */}
+          <button
+            onClick={openNextPost}
+            className="absolute right-4 md:right-10 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors z-[120]"
+          >
+            <svg
+              className="w-12 h-12"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
+
+          <div className="bg-white w-full max-w-5xl rounded-3xl overflow-hidden flex flex-col md:flex-row h-auto max-h-[85vh] shadow-2xl relative animate-in fade-in zoom-in duration-300">
+            {/* Sol: Görsel/Video Bölümü (ARTIK SABİT VE TAM DOLU) */}
+            <div className="md:w-3/5 bg-gray-950 flex items-center justify-center relative min-h-[400px] md:min-h-[600px]">
               {selectedPost.media_type === "VIDEO" ? (
                 <video
+                  key={selectedPost.media_url} // Video değişince yeniden yüklenmesi için önemli
                   src={selectedPost.media_url}
                   controls
                   autoPlay
-                  loop
                   muted
-                  className="w-full h-full object-contain max-h-[90vh]"
+                  className="w-full h-full object-cover" // object-cover ile dikey videolar kutuyu tam doldurur
                 />
               ) : (
                 <Image
                   src={selectedPost.media_url}
-                  alt="Instagram Post"
+                  alt="Instagram"
                   fill
-                  className="object-contain"
+                  className="object-cover" // Kare kutuyu tam doldurur
                 />
               )}
             </div>
 
-            {/* Sağ: Detaylar (KAYDIRILABİLİR ALAN) */}
-            <div className="md:w-2/5 p-6 flex flex-col h-full max-h-[90vh] bg-white border-l">
-              <div className="flex items-center gap-3 mb-6 border-b pb-4 shrink-0">
-                <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden relative border">
+            {/* Sağ: Detaylar */}
+            <div className="md:w-2/5 p-8 flex flex-col bg-white border-l">
+              <div className="flex items-center gap-4 mb-6 border-b pb-6 shrink-0">
+                <div className="w-12 h-12 rounded-full border-2 border-pink-500 p-0.5 relative">
                   <Image
                     src="/logo.png"
-                    alt="CanDostum"
+                    alt="Logo"
                     fill
-                    className="object-cover"
+                    className="rounded-full object-cover"
                   />
                 </div>
                 <div>
-                  <p className="font-bold text-sm text-gray-900">
+                  <p className="font-black text-gray-900 leading-none mb-1 text-base">
                     candostumbox
                   </p>
-                  <p className="text-xs text-gray-400">Instagram</p>
+                  <p className="text-xs text-pink-600 font-bold tracking-tight uppercase">
+                    Instagram Topluluğu
+                  </p>
                 </div>
               </div>
 
-              {/* Yazı Alanı - scroll eklendi */}
-              <div className="flex-grow overflow-y-auto text-sm text-gray-600 leading-relaxed pr-2 mb-6 custom-scrollbar">
+              <div className="flex-grow overflow-y-auto text-sm text-gray-700 leading-relaxed pr-2 custom-scrollbar italic font-medium">
                 <p className="whitespace-pre-wrap">{selectedPost.caption}</p>
               </div>
 
-              <div className="mt-auto shrink-0">
+              <div className="mt-8 pt-6 border-t shrink-0">
                 <a
                   href={selectedPost.permalink}
                   target="_blank"
-                  className="w-full bg-[#0095f6] text-white py-3 rounded-lg font-bold text-center block hover:bg-[#1877f2] transition-colors mb-2"
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-2xl font-black text-center block hover:shadow-lg transition-all active:scale-95 text-sm uppercase tracking-wider"
                 >
                   Instagram'da Görüntüle
                 </a>
