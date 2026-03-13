@@ -684,18 +684,25 @@ export default function Home() {
           </button>
 
           <div className="bg-white w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col md:flex-row h-auto max-h-[90vh] shadow-2xl relative">
-            {/* Sol: Görsel Bölümü */}
+            {/* Sol: Görsel/Video Bölümü */}
             <div className="md:w-3/5 bg-black flex items-center justify-center relative min-h-[350px] md:min-h-full">
-              <Image
-                src={
-                  selectedPost.media_type === "VIDEO"
-                    ? selectedPost.thumbnail_url || selectedPost.media_url
-                    : selectedPost.media_url
-                }
-                alt="Post"
-                fill
-                className="object-contain"
-              />
+              {selectedPost.media_type === "VIDEO" ? (
+                <video
+                  src={selectedPost.media_url}
+                  controls
+                  autoPlay
+                  loop
+                  muted
+                  className="w-full h-full object-contain max-h-[90vh]"
+                />
+              ) : (
+                <Image
+                  src={selectedPost.media_url}
+                  alt="Instagram Post"
+                  fill
+                  className="object-contain"
+                />
+              )}
             </div>
 
             {/* Sağ: Detaylar (KAYDIRILABİLİR ALAN) */}
