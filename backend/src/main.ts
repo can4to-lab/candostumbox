@@ -8,7 +8,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   console.log('🔍 KONTROL EDİLİYOR -> DATABASE_URL:', process.env.DATABASE_URL);
-  console.log("🚀🚀🚀 DİKKAT: YENİ KODLAR NİHAYET RENDER'A ULAŞTI! 🚀🚀🚀");
+  console.log("🚀🚀🚀 DİKKAT: YENİ KODLAR ULAŞTI! 🚀🚀🚀");
 
   // 👇 1. İLETİŞİM İZNİ (CORS) - ÖNCE BUNU YAZIYORUZ
   app.enableCors({
