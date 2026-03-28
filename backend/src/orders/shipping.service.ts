@@ -72,25 +72,41 @@ export class ShippingService {
  // --- 1. MÜŞTERİ / ADMİN İÇİN GERÇEK CANLI KARGO SORGULAMA ---
   async getLiveTrackingStatus(trackingCode: string) {
     try {
-      // 🎯 SİHİRLİ DOKUNUŞ: API Dokümanındaki Doğru Barkod Sorgulama Adresi!
+      // 1. Gerçek API sorgusu
       const res = await axios.get(`${this.apiUrl}/v2/order/barcode/${trackingCode}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` }
       });
       
-      // Basit Kargo API'sinden gelen GERÇEK veriyi alıyoruz
       const cargoData = res.data;
 
-      // Sitenin arayüzünün (Frontend'in) anlayacağı formata çeviriyoruz
+      // 2. Basit Kargo'nun statülerini bizim Frontend'in anladığı statülere çeviriyoruz (Mapping)
+      let mappedStatus = 'UNKNOWN';
+      if (cargoData.status === 'COMPLETED') mappedStatus = 'DELIVERED';
+      else if (cargoData.status === 'OUT_FOR_DELIVERY') mappedStatus = 'OUT_FOR_DELIVERY';
+      else if (cargoData.status === 'SHIPPED') mappedStatus = 'SHIPPED';
+      else if (cargoData.status === 'READY_TO_SHIP' || cargoData.status === 'NEW') mappedStatus = 'PREPARING';
+
       return {
-        trackingCode: trackingCode,
-        status: cargoData.status || 'UNKNOWN', 
-        location: 'Basit Kargo Sisteminden Alındı', // İstersen cargoData içindeki trace/konum verisini buraya bağlayabilirsin
+        trackingCode: trackingCode, // ✅ ASLA KAYBOLMAYACAK!
+        status: mappedStatus, 
+        location: 'Kargo Firmasından Bilgi Alındı', 
         updatedAt: cargoData.updatedTime || new Date().toISOString(),
-        rawStatus: cargoData // Tüm detayları görmek istersen
+        rawStatus: cargoData 
       }; 
+
     } catch (error: any) {
-      this.logger.error(`🚨 Canlı Kargo durumu çekilemedi (Barkod: ${trackingCode}): ${error.response?.data?.message || error.message}`);
-      return { status: 'UNKNOWN', location: 'Bilgi Alınamadı' };
+      this.logger.warn(`🚨 Canlı Kargo durumu çekilemedi (Barkod: ${trackingCode}). Veritabanı yedeği devreye giriyor...`);
+      
+      // 🎯 3. B PLANI (HAYAT KURTARAN KISIM): API hata verse bile ekran BOZULMAYACAK!
+      // Veritabanındaki siparişi buluyoruz ve onun statüsünü ekrana yansıtıyoruz
+      const order = await this.orderRepository.findOne({ where: { cargoTrackingCode: trackingCode } });
+      
+      return { 
+        trackingCode: trackingCode, // ✅ İŞTE EKRANDAKİ YAZIYI GERİ GETİRECEK O SİHİRLİ SATIR
+        status: order ? order.status : 'UNKNOWN', 
+        location: order?.status === 'DELIVERED' ? 'Teslim Edildi (Sistem Kaydı)' : 'Kargo Durumu Bekleniyor',
+        updatedAt: new Date().toISOString()
+      };
     }
   }
 
