@@ -59,7 +59,7 @@ export class ShippingService {
       
       return {
         status: 'success',
-        trackingCode: res.data.id, 
+        trackingCode: res.data.barcode, 
         barcode: res.data.barcode,
         provider: 'Basit Kargo'
       };
@@ -69,16 +69,27 @@ export class ShippingService {
     }
   }
 
-  // --- 1. MÜŞTERİ / ADMİN İÇİN CANLI KARGO SORGULAMA ---
+ // --- 1. MÜŞTERİ / ADMİN İÇİN GERÇEK CANLI KARGO SORGULAMA ---
   async getLiveTrackingStatus(trackingCode: string) {
     try {
-      const res = await axios.get(`${this.apiUrl}/v2/order/status/${trackingCode}`, {
+      // 🎯 SİHİRLİ DOKUNUŞ: API Dokümanındaki Doğru Barkod Sorgulama Adresi!
+      const res = await axios.get(`${this.apiUrl}/v2/order/barcode/${trackingCode}`, {
         headers: { Authorization: `Bearer ${this.apiKey}` }
       });
-      return res.data; 
+      
+      // Basit Kargo API'sinden gelen GERÇEK veriyi alıyoruz
+      const cargoData = res.data;
+
+      // Sitenin arayüzünün (Frontend'in) anlayacağı formata çeviriyoruz
+      return {
+        trackingCode: trackingCode,
+        status: cargoData.status || 'UNKNOWN', 
+        location: 'Basit Kargo Sisteminden Alındı', // İstersen cargoData içindeki trace/konum verisini buraya bağlayabilirsin
+        updatedAt: cargoData.updatedTime || new Date().toISOString(),
+        rawStatus: cargoData // Tüm detayları görmek istersen
+      }; 
     } catch (error: any) {
-      // Sadece hata fırlatmıyoruz, sistemin devam edebilmesi için UNKNOWN dönüyoruz ama hatayı LOGLUYORUZ!
-      this.logger.error(`🚨 Kargo durumu çekilemedi (Kod: ${trackingCode}): ${error.message}`);
+      this.logger.error(`🚨 Canlı Kargo durumu çekilemedi (Barkod: ${trackingCode}): ${error.response?.data?.message || error.message}`);
       return { status: 'UNKNOWN', location: 'Bilgi Alınamadı' };
     }
   }
