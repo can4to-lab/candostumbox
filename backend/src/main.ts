@@ -9,22 +9,25 @@ async function bootstrap() {
 
   console.log('🔍 KONTROL EDİLİYOR -> DATABASE_URL:', process.env.DATABASE_URL);
   console.log("🚀🚀🚀 DİKKAT: YENİ KODLAR NİHAYET RENDER'A ULAŞTI! 🚀🚀🚀");
-  // 1. GÜVENLİK DUVARI (Helmet)
-  app.use(helmet());
 
-  // 2. İLETİŞİM İZNİ (CORS) - GÜNCELLENDİ 🛠️
-  // Sadece senin yeni domainine ve localhost'a izin veriyoruz.
+  // 👇 1. İLETİŞİM İZNİ (CORS) - ÖNCE BUNU YAZIYORUZ
   app.enableCors({
     origin: [
-      'https://www.candostumbox.com',            // Yeni Domainin (Ana)
-      'https://candostumbox.com',                // www olmadan
-      'https://candostumbox-l2dy.onrender.com',  // Eski Render adresi (Yedek)
-      'http://localhost:3000'                    // Geliştirme ortamı
+      'https://www.candostumbox.com',
+      'https://candostumbox.com',
+      'http://localhost:3000'
     ],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // Çerezler vb. için gerekli olabilir
+    // DİKKAT: OPTIONS metodu eklendi! (Preflight hatasını çözer)
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', 
+    credentials: true, 
   });
-// 👇 BU KISMI EKLE: SUNUCU IP ADRESİNİ ÖĞRENME
+
+  // 👇 2. GÜVENLİK DUVARI (Helmet) - CORS'U EZMEMESİ İÇİN YUMUŞATILDI
+  app.use(helmet({
+    crossOriginResourcePolicy: false, // Tarayıcının CORS'u engellemesini önler
+  }));
+
+  // SUNUCU IP ADRESİNİ ÖĞRENME
   try {
     const response = await axios.get('https://api.ipify.org?format=json');
     console.log("========================================");
@@ -33,8 +36,8 @@ async function bootstrap() {
   } catch (error) {
     console.error("IP Adresi alınamadı:", error.message);
   }
-  // 👆 BURAYA KADAR
-  // 3. VERİ KONTROLÜ
+
+  // VERİ KONTROLÜ
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, 
