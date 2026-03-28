@@ -15,7 +15,7 @@ export default function AdminDiscounts() {
 
   // Verileri Çek
   useEffect(() => {
-    fetch("https://api.candostumbox.com/discounts")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/discounts`)
       .then((res) => res.json())
       .then((data) => {
         // Backend sıralı göndermezse diye garantileyelim
@@ -34,7 +34,7 @@ export default function AdminDiscounts() {
     const token = localStorage.getItem("token");
 
     try {
-      const res = await fetch("https://api.candostumbox.com/discounts", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/discounts`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

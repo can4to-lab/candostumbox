@@ -105,7 +105,7 @@ export default function AdminProducts() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch("https://api.candostumbox.com/products");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`);
       if (res.ok) {
         const data = await res.json();
         const sortedData = Array.isArray(data)
@@ -128,10 +128,13 @@ export default function AdminProducts() {
     const loadingToast = toast.loading("Siliniyor...");
 
     try {
-      const res = await fetch(`https://api.candostumbox.com/products/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/${id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (res.ok) {
         toast.success("Ürün silindi", { id: loadingToast });
@@ -171,7 +174,7 @@ export default function AdminProducts() {
       let res;
       if (editingProduct) {
         res = await fetch(
-          `https://api.candostumbox.com/products/${editingProduct.id}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/products/${editingProduct.id}`,
           {
             method: "PATCH",
             headers: {
@@ -182,7 +185,7 @@ export default function AdminProducts() {
           },
         );
       } else {
-        res = await fetch("https://api.candostumbox.com/products", {
+        res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

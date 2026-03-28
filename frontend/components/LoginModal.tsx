@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ export default function LoginModal({
     setError("");
 
     try {
-      const res = await fetch("https://api.candostumbox.com/auth/login", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -92,7 +93,14 @@ export default function LoginModal({
             Giriş Yap
           </button>
         </form>
-
+        <div className="text-right mt-2">
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            Şifremi unuttum
+          </Link>
+        </div>
         <p className="text-center mt-6 text-gray-600 text-sm font-medium">
           Hesabın yok mu?{" "}
           <button

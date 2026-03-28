@@ -91,7 +91,7 @@ export default function AdminUsers() {
     const token = localStorage.getItem("token");
     try {
       // Backend'in user objesi içinde 'pets', 'orders', 'addresses' ilişkilerini döndürdüğünden emin olun.
-      const res = await fetch("https://api.candostumbox.com/users", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

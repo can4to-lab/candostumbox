@@ -49,7 +49,7 @@ export default function EditAddressModal({
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/users/addresses/${addressData.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/users/addresses/${addressData.id}`,
         {
           method: "PATCH",
           headers: {

@@ -167,49 +167,85 @@ const securePrice = await this.ordersService.calculateSecureTotal(items, data.pr
     console.log("--- PARAM POS CALLBACK GELDİ ---", body);
     const status = body.TURKPOS_RETVAL_Sonuc;
     const sessionId = body.TURKPOS_RETVAL_Siparis_ID;
+    const returnedHash = body.TURKPOS_RETVAL_Hash; 
+
+    // 1. GÜVENLİK: HASH (İMZA) KONTROLÜ
+    const CLIENT_CODE = process.env.PARAM_CLIENT_CODE;
+    const GUID = process.env.PARAM_GUID;
+
+    // 👇 TypeScript'i ve sistemimizi güvenceye alıyoruz (Hata veren kısmı bununla değiştir):
+    if (!CLIENT_CODE || !GUID) {
+        console.error("🚨 KRİTİK HATA: ParamPOS API anahtarları (.env) bulunamadı!");
+        return { status: 'fail', message: 'Sistem konfigürasyon hatası. İşlem reddedildi.' };
+    }
     
+    // Artık TypeScript CLIENT_CODE ve GUID'in kesinlikle 'string' olduğunu biliyor.
+    const expectedHashString = CLIENT_CODE + GUID + sessionId + status + (body.TURKPOS_RETVAL_Islem_ID || '');
+    const expectedHash = crypto.createHash('sha1').update(expectedHashString, 'utf-8').digest('base64');
+    
+    // Test ortamında hash bazen boş gelebilir, canlıda (PROD) kesinlikle kontrol ediyoruz.
+    if (process.env.PARAM_MODE === 'PROD' && returnedHash && returnedHash !== expectedHash) {
+        console.error("🚨 KRİTİK UYARI: Geçersiz Hash! Sahte callback isteği tespit edildi.");
+        return { status: 'fail', message: 'Güvenlik doğrulaması başarısız. İşlem reddedildi.' };
+    }
+
+    // 2. IDEMPOTENCY (ÇİFTE ÇEKİM / MÜKERRER SİPARİŞ ÖNLEMİ)
     const session = await this.sessionRepo.findOne({ where: { id: sessionId } });
     
     if (!session) {
-        console.error("❌ Hata: İlgili geçici ödeme oturumu bulunamadı.");
-        return { status: 'fail', message: 'Geçersiz veya süresi dolmuş ödeme işlemi.' };
+        console.warn("⚠️ Oturum bulunamadı. Bu işlem daha önce tamamlanmış veya silinmiş olabilir.");
+        return { status: 'fail', message: 'Geçersiz veya süresi dolmuş işlem.' };
     }
 
-if (Number(status) > 0) {
-        console.log(`✅ ÖDEME BAŞARILI! Gerçek Sipariş Oluşturuluyor...`);
-        let finalOrderId: string = "";
+    // Eğer aynı istek saniyeler içinde 2. kez gelirse, DB'ye yeniden yazmasını engelliyoruz
+    if (session.payload.isProcessing) {
+        console.warn("⏳ Mükerrer İstek Engellendi: Bu sipariş şu anda işleniyor.");
+        // İşlemin frontend'de başarılı görünmesi için success dönüyoruz ama DB'ye tekrar yazmıyoruz!
+        return { status: 'success', orderId: session.payload.finalOrderId || sessionId };
+    }
 
+    // İlk istekte oturumu "İşleniyor" olarak kilitliyoruz
+    session.payload.isProcessing = true;
+    await this.sessionRepo.save(session);
+
+    // 3. İŞLEM SONUCU KONTROLÜ VE DB'YE YAZMA
+    if (Number(status) > 0) {
+        console.log(`✅ ÖDEME BAŞARILI! Gerçek Sipariş Oluşturuluyor...`);
+        
         try {
             const { userIdToSave, createOrderDto } = session.payload;
+            
+            // Siparişi oluştur
             const newOrderResult = await this.ordersService.create(userIdToSave, createOrderDto as any);
-            finalOrderId = newOrderResult.orderId;
+            const finalOrderId = newOrderResult.orderId;
 
             console.log(`✅ Gerçek Sipariş DB'ye yazıldı: ${finalOrderId}`);
             await this.ordersService.updateStatus(finalOrderId, OrderStatus.PAID); 
 
-            // 👇 SADECE SİPARİŞ KUSURSUZ OLUŞURSA SESSION'I SİL (GEÇMİŞİ TEMİZLE)
+            // İşlem kusursuz bitti, session (geçmiş) tablosundan temizle
             await this.sessionRepo.remove(session);
+            
             return { status: 'success', orderId: finalOrderId };
 
         } catch (e) {
-            console.error("🚨 KRİTİK HATA: Para bankadan çekildi ama Sipariş veritabanına YAZILAMADI!", e);
+            console.error("🚨 KRİTİK HATA: Para bankadan çekildi ama Sipariş YAZILAMADI!", e);
             
-            // 👇 KRİTİK DÜZELTME: Oturumu SİLME! Hatayı içine kaydedip beklemeye al ki admin paneline düşsün
-            session.payload = { 
-                ...session.payload, 
-                paymentStatus: 'CHARGED_BUT_FAILED_DB', 
-                errorMsg: e instanceof Error ? e.message : String(e) 
-            };
+            // 4. MÜŞTERİ DENEYİMİ DÜZELTMESİ:
+            // "Tebrikler" sayfasına göndermiyoruz! Durumu loglayıp müşteriye bilgi veriyoruz.
+            session.payload.paymentStatus = 'CHARGED_BUT_FAILED_DB';
+            session.payload.errorMsg = e instanceof Error ? e.message : String(e);
             await this.sessionRepo.save(session);
             
-            // ParamPOS'a success dönüyoruz ki işlemi iade etmesin (Para bizde kalsın, sorunu biz manuel çözeceğiz)
-            return { status: 'success', orderId: sessionId };
+            return { 
+                status: 'fail', 
+                message: 'Ödemeniz alındı ancak sipariş oluşturulurken sistemsel bir hata oluştu. Paranız güvendedir, lütfen destek ekibimizle iletişime geçin.' 
+            };
         }
-
     } else {
         console.error(`❌ ÖDEME BAŞARISIZ! Hata: ${body.TURKPOS_RETVAL_Sonuc_Str}`);
+        // Başarısız işlemlerde de veritabanını şişirmemek için session'ı temizliyoruz
         await this.sessionRepo.remove(session);
-        return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str };
+        return { status: 'fail', message: body.TURKPOS_RETVAL_Sonuc_Str || 'Ödeme reddedildi.' };
     }
   }
 

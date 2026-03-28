@@ -48,7 +48,7 @@ function ProductContent() {
       if (token) setIsLoggedIn(true);
 
       try {
-        const res = await fetch("https://api.candostumbox.com/products");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`);
         const data = await res.json();
         const sortedProducts = Array.isArray(data)
           ? data.sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
@@ -71,7 +71,7 @@ function ProductContent() {
         if (!token) return;
         try {
           const res = await fetch(
-            `https://api.candostumbox.com/subscriptions/${oldSubId}`,
+            `${process.env.NEXT_PUBLIC_API_URL}/subscriptions/${oldSubId}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             },

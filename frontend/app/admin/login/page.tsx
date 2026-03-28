@@ -14,11 +14,14 @@ export default function AdminLogin() {
 
     try {
       // DİKKAT: Burası dün yazdığımız YENİ admin giriş kapısı
-      const res = await fetch("https://api.candostumbox.com/auth/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/admin/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        },
+      );
 
       const data = await res.json();
 

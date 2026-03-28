@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 // Guard yolunuzu kontrol edin, aşağıdakilerden biri olmalı:
 import { JwtAuthGuard } from './jwt-auth.guard'; 
@@ -37,5 +37,26 @@ export class AuthController {
     }
 
     return this.authService.getProfile(userId);
+  }
+
+  // 5. Şifremi Unuttum Talebi
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    if (!body.email) {
+      throw new BadRequestException('E-posta adresi gereklidir.');
+    }
+    return this.authService.forgotPassword(body.email);
+  }
+
+  // 6. Şifreyi Sıfırla
+  @Post('reset-password')
+  resetPassword(@Body() body: { id: string; token: string; newPassword: string }) {
+    if (!body.id || !body.token || !body.newPassword) {
+      throw new BadRequestException('Eksik bilgi gönderildi.');
+    }
+    if (body.newPassword.length < 6) {
+      throw new BadRequestException('Şifreniz en az 6 karakter olmalıdır.');
+    }
+    return this.authService.resetPassword(body.id, body.token, body.newPassword);
   }
 }

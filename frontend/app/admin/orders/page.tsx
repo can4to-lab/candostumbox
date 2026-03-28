@@ -109,6 +109,11 @@ export default function AdminOrders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // 👇 KARGO TAKİP STATE'LERİ
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
+  const [isTrackingVisible, setIsTrackingVisible] = useState(false);
+
   // --- 1. DATA FETCHING ---
   useEffect(() => {
     fetchOrders();
@@ -117,7 +122,7 @@ export default function AdminOrders() {
   const fetchOrders = async () => {
     const token = localStorage.getItem("token");
     try {
-      const res = await fetch("https://api.candostumbox.com/orders", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -140,7 +145,7 @@ export default function AdminOrders() {
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/orders/${orderId}/ship`,
+        `${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}/ship`,
         {
           method: "PATCH",
           headers: {
@@ -202,7 +207,7 @@ export default function AdminOrders() {
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/orders/${orderId}/status`,
+        `${process.env.NEXT_PUBLIC_API_URL}/orders/${orderId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -340,6 +345,72 @@ export default function AdminOrders() {
     if (snap?.name) return snap.name;
     if (snap?.firstName) return `${snap.firstName} ${snap.lastName}`;
     return "Misafir Müşteri";
+  };
+
+  // --- KARGO CANLI TAKİP SORGUSU (ADMİN İÇİN) ---
+  const handleTrackCargo = async (trackingCode: string) => {
+    if (isTrackingVisible) {
+      setIsTrackingVisible(false);
+      return;
+    }
+    setIsTrackingVisible(true);
+    setIsTrackingLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/orders/track-cargo/${trackingCode}`,
+      );
+      if (!res.ok) throw new Error("Kargo bilgisi alınamadı");
+      const data = await res.json();
+      setTrackingData(data);
+    } catch (error) {
+      toast.error("Kargo durumunuz çekilemedi.");
+      setTrackingData({
+        status: "UNKNOWN",
+        location: "Sistemde bir sorun oluştu.",
+      });
+    } finally {
+      setIsTrackingLoading(false);
+    }
+  };
+
+  const getCargoStatusInfo = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case "PREPARING":
+        return {
+          text: "Hazırlanıyor",
+          icon: "📦",
+          color: "text-blue-600",
+          bg: "bg-blue-50",
+        };
+      case "IN_TRANSIT":
+        return {
+          text: "Yolda (Transfer Merkezinde)",
+          icon: "🚚",
+          color: "text-orange-600",
+          bg: "bg-orange-50",
+        };
+      case "OUT_FOR_DELIVERY":
+        return {
+          text: "Dağıtıma Çıktı",
+          icon: "🛵",
+          color: "text-green-600",
+          bg: "bg-green-50",
+        };
+      case "DELIVERED":
+        return {
+          text: "Teslim Edildi",
+          icon: "✅",
+          color: "text-emerald-600",
+          bg: "bg-emerald-50",
+        };
+      default:
+        return {
+          text: "Durum Bekleniyor",
+          icon: "⏳",
+          color: "text-gray-600",
+          bg: "bg-gray-50",
+        };
+    }
   };
 
   // --- FILTER ---
@@ -613,7 +684,10 @@ export default function AdminOrders() {
       {selectedOrder && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm animate-fade-in"
-          onClick={() => setSelectedOrder(null)}
+          onClick={() => {
+            setSelectedOrder(null);
+            setIsTrackingVisible(false);
+          }}
         >
           <div
             className="bg-white w-full max-w-5xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] animate-scale-in"
@@ -635,7 +709,10 @@ export default function AdminOrders() {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedOrder(null)}
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setIsTrackingVisible(false);
+                }}
                 className="w-10 h-10 rounded-full bg-gray-50 hover:bg-red-50 hover:text-red-500 transition flex items-center justify-center text-lg font-bold text-gray-400"
               >
                 ✕
@@ -698,8 +775,8 @@ export default function AdminOrders() {
                         </p>
                       </div>
                     ) : selectedOrder.cargoTrackingCode ? (
-                      <div className="relative z-10">
-                        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center mb-4">
+                      <div className="relative z-10 space-y-3">
+                        <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
                           <div className="text-xs text-green-600 font-bold uppercase mb-1">
                             Kargo Takip Kodu
                           </div>
@@ -716,15 +793,81 @@ export default function AdminOrders() {
                             )}
                           </div>
                         </div>
-                        <button
-                          onClick={() => handlePrintLabel(selectedOrder)}
-                          className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:bg-black transition shadow-lg flex items-center justify-center gap-2"
-                        >
-                          <PrinterIcon /> Kargo Etiketini Yazdır
-                        </button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handlePrintLabel(selectedOrder)}
+                            className="bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition shadow-sm flex items-center justify-center gap-2 text-sm"
+                          >
+                            <PrinterIcon /> Etiket
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleTrackCargo(selectedOrder.cargoTrackingCode)
+                            }
+                            className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm"
+                          >
+                            {isTrackingVisible ? "🔼 Gizle" : "📍 Canlı Takip"}
+                          </button>
+                        </div>
+
+                        {/* 👇 ADMİN İÇİN CANLI TAKİP PANELİ */}
+                        {isTrackingVisible && (
+                          <div className="mt-4 p-4 rounded-xl border-2 border-yellow-200 bg-yellow-50/50 animate-fade-in-down">
+                            {isTrackingLoading ? (
+                              <div className="flex items-center justify-center py-4">
+                                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-yellow-600"></div>
+                                <span className="ml-3 text-sm font-bold text-gray-500">
+                                  Kargo durumu sorgulanıyor...
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div
+                                  className={`p-3 rounded-lg border ${getCargoStatusInfo(trackingData?.status).bg.replace("bg-", "border-")} ${getCargoStatusInfo(trackingData?.status).bg} flex items-center gap-3`}
+                                >
+                                  <div className="text-2xl">
+                                    {
+                                      getCargoStatusInfo(trackingData?.status)
+                                        .icon
+                                    }
+                                  </div>
+                                  <div>
+                                    <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                                      Mevcut Durum
+                                    </span>
+                                    <span
+                                      className={`font-bold text-sm ${getCargoStatusInfo(trackingData?.status).color}`}
+                                    >
+                                      {
+                                        getCargoStatusInfo(trackingData?.status)
+                                          .text
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {trackingData?.location && (
+                                  <div className="p-3 rounded-lg border border-gray-200 bg-white flex items-center gap-3 shadow-sm">
+                                    <div className="text-xl opacity-50">📍</div>
+                                    <div>
+                                      <span className="block text-[10px] font-bold text-gray-400 uppercase">
+                                        Son İşlem Noktası
+                                      </span>
+                                      <span className="font-bold text-gray-800 text-xs">
+                                        {trackingData.location}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-center py-6 relative z-10">
+                        {/* Kargolanmamış Durum Kodları (Aynı kalacak) */}
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl grayscale opacity-50">
                           🚚
                         </div>

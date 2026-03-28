@@ -173,8 +173,8 @@ function CheckoutContent() {
       }
       try {
         const [prodRes, discRes] = await Promise.all([
-          fetch(`https://api.candostumbox.com/products/${productId}`),
-          fetch(`https://api.candostumbox.com/discounts`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${productId}`),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/discounts`),
         ]);
         if (prodRes.ok) setProduct(await prodRes.json());
         if (discRes.ok) setDiscountRules(await discRes.json());
@@ -201,7 +201,7 @@ function CheckoutContent() {
 
   const fetchPets = async (token: string) => {
     try {
-      const res = await fetch("https://api.candostumbox.com/users/pets", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/pets`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -217,9 +217,12 @@ function CheckoutContent() {
 
   const fetchAddresses = async (token: string) => {
     try {
-      const res = await fetch("https://api.candostumbox.com/users/addresses", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/addresses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -235,9 +238,12 @@ function CheckoutContent() {
 
   const fetchProfile = async (token: string) => {
     try {
-      const res = await fetch("https://api.candostumbox.com/auth/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         setUserProfile(await res.json());
       }
@@ -324,7 +330,7 @@ function CheckoutContent() {
         setInstallmentError("");
         try {
           const res = await fetch(
-            "https://api.candostumbox.com/payment/installments",
+            `${process.env.NEXT_PUBLIC_API_URL}/payment/installments`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -385,7 +391,7 @@ function CheckoutContent() {
     setIsCheckingPromo(true);
     try {
       const res = await fetch(
-        "https://api.candostumbox.com/promo-codes/validate",
+        `${process.env.NEXT_PUBLIC_API_URL}/promo-codes/validate`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -546,7 +552,7 @@ function CheckoutContent() {
         promoCode: appliedPromo?.code || undefined,
       };
       try {
-        const res = await fetch("https://api.candostumbox.com/orders", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -590,14 +596,17 @@ function CheckoutContent() {
     };
 
     try {
-      const res = await fetch("https://api.candostumbox.com/payment/start", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/payment/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
       const data = await res.json();
       if (data.status === "success" && data.token) {
         toast.success("3D Secure ekranına yönlendiriliyorsunuz! 🔒");

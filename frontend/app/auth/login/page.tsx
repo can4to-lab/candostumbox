@@ -15,7 +15,7 @@ export default function LoginPage() {
 
     try {
       // Backend'e istek atıyoruz
-      const res = await fetch("https://api.candostumbox.com/auth/login", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

@@ -92,7 +92,7 @@ export default function Home() {
     const token = localStorage.getItem("token");
     if (token) {
       setIsLoggedIn(true);
-      fetch("https://api.candostumbox.com/auth/profile", {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
@@ -104,7 +104,9 @@ export default function Home() {
 
     const urunleriGetir = async () => {
       try {
-        const cevap = await fetch("https://api.candostumbox.com/products");
+        const cevap = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/products`,
+        );
         const veri = await cevap.json();
         setProducts(Array.isArray(veri) ? veri : []);
       } catch (error) {

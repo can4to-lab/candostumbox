@@ -11,9 +11,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
 
   try {
-    const product = await fetch(`https://api.candostumbox.com/products/${id}`, {
-      next: { revalidate: 3600 },
-    }).then((res) => res.json());
+    const product = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/products/${id}`,
+      {
+        next: { revalidate: 3600 },
+      },
+    ).then((res) => res.json());
 
     if (!product || product.error) {
       return {

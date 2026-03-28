@@ -18,13 +18,13 @@ export default function AdminDashboard() {
 
       try {
         const [ordersRes, usersRes, productsRes] = await Promise.all([
-          fetch("https://api.candostumbox.com/orders", {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch("https://api.candostumbox.com/users", {
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          fetch("https://api.candostumbox.com/products"),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`),
         ]);
 
         const orders = await ordersRes.json();

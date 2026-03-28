@@ -36,10 +36,9 @@ export class OrdersService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. KULLANICIYI BUL (Kritik Düzeltme)
+      // 1. KULLANICIYI BUL
       let userEntity: User | null = null;
       if (userId) {
-          // İlişkiyi ID stringiyle değil, Entity nesnesiyle kuracağız
           userEntity = await queryRunner.manager.findOne(User, { where: { id: userId } });
           if (userEntity) {
               this.logger.log(`✅ Sipariş kullanıcısı bulundu: ${userEntity.firstName} ${userEntity.lastName} (${userId})`);
@@ -50,7 +49,6 @@ export class OrdersService {
 
       // 2. ADRES İŞLEMLERİ
       let addressSnapshot: any = {};
-      
       if (userId && addressId) {
           const address = await queryRunner.manager.findOne(Address, { where: { id: addressId } });
           if (!address) {
@@ -62,14 +60,13 @@ export class OrdersService {
                 fullAddress: address.fullAddress,
                 city: address.city,
                 district: address.district,
-                phone: userEntity?.phone || '', // Adres entity'sinde phone yoksa User'dan al
+                phone: userEntity?.phone || '', 
                 firstName: userEntity?.firstName || '',
                 lastName: userEntity?.lastName || '',
                 email: userEntity?.email || ''
              };
           }
       } else {
-          // Misafir
           if (!guestInfo) addressSnapshot = { fullAddress: 'Adres bilgisi eksik' };
           else addressSnapshot = { ...guestInfo, title: 'Guest Address' };
       }
@@ -86,20 +83,16 @@ export class OrdersService {
         const quantity = Number(itemDto.quantity) || 1;
         const itemDuration = Number(itemDto.duration) || 1;
         let itemTotal = 0;
-        const basePrice = Number(product.price);
 
-       const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), itemDuration);
+        const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), itemDuration);
         itemTotal = finalPrice * quantity;
         const unitPricePaid = finalPrice;
 
-       // 👇 GÜNCELLENEN PET BULMA VEYA YARATMA MANTIĞI
         let foundPet: Pet | null = null;
         if (itemDto.petId) {
-            // Kayıtlı kullanıcının kayıtlı pet'i
             foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
         } 
         else if (itemDto.petName) {
-            // MİSAFİR MÜŞTERİ: Veritabanına yeni bir pet olarak kaydet
             const newPet = new Pet();
             newPet.name = itemDto.petName;
             newPet.type = itemDto.petType || 'kopek';
@@ -107,10 +100,8 @@ export class OrdersService {
             newPet.birthDate = itemDto.petBirthDate ? new Date(itemDto.petBirthDate) : new Date();
             newPet.weight = itemDto.petWeight ? String(itemDto.petWeight) : '0';
             newPet.isNeutered = itemDto.petIsNeutered || false;
-            // Alerjileri diziye (array) çevir
             newPet.allergies = itemDto.petAllergies ? itemDto.petAllergies.split(',').map(a => a.trim()) : [];
             
-            // Veritabanına yaz ve oluşan ID ile foundPet'e eşitle
             foundPet = await queryRunner.manager.save(Pet, newPet);
             this.logger.log(`🐾 Misafir için yeni pet oluşturuldu: ${newPet.name} (ID: ${foundPet.id})`);
         }
@@ -122,8 +113,6 @@ export class OrdersService {
                 existingSub.totalMonths += itemDuration;
                 existingSub.remainingMonths += itemDuration;
                 existingSub.status = SubscriptionStatus.ACTIVE;
-                
-                // 👇 EKSİK 1 ÇÖZÜLDÜ: Uzatılan paketin yeni ödemesini içeriye ekliyoruz (İade hesaplaması bozulmasın diye)
                 existingSub.pricePaid = Number(existingSub.pricePaid || 0) + Number(unitPricePaid);
 
                 await queryRunner.manager.save(Subscription, existingSub);
@@ -136,7 +125,6 @@ export class OrdersService {
                 const oldPricePerMonth = Number(oldSub.pricePaid) / (oldSub.totalMonths || 1);
                 const upgradeDiscount = oldPricePerMonth * oldSub.remainingMonths;
                 
-                // 👇 DÜZELTME: Fiyattan hemen düşme, hafızada tut! En son düşeceğiz.
                 upgradeDiscountTotal += upgradeDiscount; 
                 this.logger.log(`🔄 Sipariş Kaydı: Yükseltme indirimi (${upgradeDiscount} TL) hafızaya alındı.`);
                 
@@ -152,13 +140,12 @@ export class OrdersService {
                 newSubscription.startDate = new Date();
                 newSubscription.status = SubscriptionStatus.ACTIVE;
                 newSubscription.pricePaid = unitPricePaid;
-
-                // 👇 EKSİK 2 ÇÖZÜLDÜ: Yükseltilen pakete ödeme tipi ve BİR SONRAKİ SEVKİYAT TARİHİ atandı!
                 newSubscription.paymentType = paymentType || 'upfront';
+                
                 const nextDate = new Date();
                 nextDate.setMonth(nextDate.getMonth() + 1);
                 newSubscription.nextDeliveryDate = nextDate;
-                newSubscription.shippingAddressSnapshot = addressSnapshot; // Abonelik boyunca adresi hatırla
+                newSubscription.shippingAddressSnapshot = addressSnapshot; 
                 await queryRunner.manager.save(Subscription, newSubscription);
                 isPhysicalShipmentRequired = false;
             }
@@ -179,7 +166,7 @@ export class OrdersService {
                 const nextDate = new Date();
                 nextDate.setMonth(nextDate.getMonth() + 1);
                 subscription.nextDeliveryDate = nextDate;
-                subscription.shippingAddressSnapshot = addressSnapshot; // Abonelik boyunca adresi hatırla
+                subscription.shippingAddressSnapshot = addressSnapshot; 
                 await queryRunner.manager.save(Subscription, subscription);
             }
         }
@@ -200,83 +187,77 @@ export class OrdersService {
       }
 
       // --- SİPARİŞİ KAYDET ---
-
       const order = new Order();
-      
-      if (userEntity) {
-          order.user = userEntity; // ✅ User Entity Nesnesini bağlıyoruz (Sadece ID değil)
-      }
-      
+      if (userEntity) order.user = userEntity; 
       order.shippingAddressSnapshot = addressSnapshot; 
-      // --- PROMO KODU VE HİZMET BEDELİNİ SİPARİŞE YANSIT ---
+      
+      // 👇 DÜZELTME 1: PROMO KOD HATASI GİDERİLDİ
+      // Eğer promo kod geçersizse işlemi iptal et (throw error). Böylece bankadan para çekilmişse 
+      // sistem bunu "CHARGED_BUT_FAILED_DB" statüsüne atar ve patron kontrolüne düşer. (Muhasebe hatası olmaz!)
       if (createOrderDto.promoCode) {
-          try {
-            const promo = await this.promoCodesService.validateCode(createOrderDto.promoCode, totalPrice, userId || undefined);
-            
-            if (promo.discountType === 'percentage') {
-               totalPrice -= (totalPrice * Number(promo.discountValue)) / 100;
-            } else {
-               totalPrice -= Number(promo.discountValue);
-            }
-            
-            // Sipariş başarıyla oluşturulurken kodun kullanım sayısını artır
-            await this.promoCodesService.incrementUsage(promo.id); 
-            
-            // SİPARİŞ VERİTABANINA YAZILIRKEN KUPON KODUNU DA KAYDET
-            order.promoCode = promo.code; 
-
-         } catch (e) {
-           this.logger.warn(`Sipariş kaydedilirken geçersiz promo kod atlandı: ${createOrderDto.promoCode}`);
-         }
+          const promo = await this.promoCodesService.validateCode(createOrderDto.promoCode, totalPrice, userId || undefined);
+          
+          if (promo.discountType === 'percentage') {
+             totalPrice -= (totalPrice * Number(promo.discountValue)) / 100;
+          } else {
+             totalPrice -= Number(promo.discountValue);
+          }
+          
+          await this.promoCodesService.incrementUsage(promo.id); 
+          order.promoCode = promo.code; 
       }
+
       totalPrice -= upgradeDiscountTotal;
       if (paymentType === 'cash_on_delivery') {
-         totalPrice += 159.9; // Kapıda ödeme bedelini ekle
+         totalPrice += 159.9; 
       }
 
-      order.totalPrice = Math.max(0, totalPrice); // Eksiye düşmesini engelle
-      order.items = orderItems;
+      order.totalPrice = Math.max(0, totalPrice); 
       
-      // 👇 Ödeme Tipi Kaydı
-      if (paymentType === 'bank_transfer') {
-          order.paymentId = 'HAVALE_EFT';
-      } else if (paymentType === 'cash_on_delivery') {
-          order.paymentId = 'KAPIDA_ODEME';
-      } else {
-          order.paymentId = 'MOCK_' + Date.now(); 
-      }
+      // Ödeme Tipi Kaydı
+      if (paymentType === 'bank_transfer') order.paymentId = 'HAVALE_EFT';
+      else if (paymentType === 'cash_on_delivery') order.paymentId = 'KAPIDA_ODEME';
+      else order.paymentId = 'KREDI_KARTI'; 
       
       order.status = OrderStatus.PENDING; 
 
+      // 👇 DÜZELTME 2: VERİ KAYBI RİSKİ GİDERİLDİ
+      // Önce siparişi kaydediyoruz ki bir "ID" oluşsun.
       const savedOrder = await queryRunner.manager.save(Order, order);
-      await queryRunner.commitTransaction();
 
-      this.logger.log(`Sipariş Oluşturuldu -> ID: ${savedOrder.id}, User: ${userEntity ? userEntity.firstName : 'GUEST'}`);
-      try {
-          // 1. Patrona mail at
-          await this.mailService.sendAdminOrderNotification(savedOrder.id, savedOrder.totalPrice);
-          
-          // 2. Müşteriye mail at (Eğer mail adresi varsa)
-          const customerEmail = userEntity?.email || addressSnapshot?.email;
-          if (customerEmail) {
-              await this.mailService.sendOrderConfirmation(customerEmail, savedOrder.id, savedOrder.totalPrice);
-          }
-      } catch (mailError) {
-          // Mail gitmese bile sipariş işlemi iptal olmasın diye hatayı sadece logluyoruz
-          this.logger.error(`Sipariş oluştu ama mail atılamadı (ID: ${savedOrder.id}):`, mailError);
+      // Sonra oluşan bu ID'yi OrderItem'lara bağlayıp onları KESİN olarak veritabanına yazıyoruz.
+      for (const item of orderItems) {
+          item.order = savedOrder; // İlişkiyi manuel kuruyoruz
+          await queryRunner.manager.save(OrderItem, item);
       }
+
+      // Her şey kusursuz, DB'ye yaz!
+      await queryRunner.commitTransaction();
+      this.logger.log(`✅ Sipariş Başarıyla Oluşturuldu -> ID: ${savedOrder.id}, User: ${userEntity ? userEntity.firstName : 'GUEST'}`);
+
+      // 👇 DÜZELTME 3: E-POSTA DARBOĞAZI GİDERİLDİ (Fire and Forget)
+      // E-postaları await ile BEKLEMİYORUZ. Arka planda yolluyoruz ki ParamPOS'a cevap anında dönsün!
+      const customerEmail = userEntity?.email || addressSnapshot?.email;
       
+      this.mailService.sendAdminOrderNotification(savedOrder.id, savedOrder.totalPrice)
+        .catch(err => this.logger.error(`Admin maili gönderilemedi (ID: ${savedOrder.id})`, err));
+        
+      if (customerEmail) {
+          this.mailService.sendOrderConfirmation(customerEmail, savedOrder.id, savedOrder.totalPrice)
+            .catch(err => this.logger.error(`Müşteri maili gönderilemedi (ID: ${savedOrder.id})`, err));
+      }
+
       return { success: true, orderId: savedOrder.id, message: 'İşlem başarılı!' };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
-      this.logger.error("Sipariş oluşturma hatası:", err);
-      throw err;
+      this.logger.error("🚨 Sipariş oluşturma hatası:", err);
+      throw err; // Hatayı yukarıya (payment.service'e) fırlatıyoruz ki yakalasın!
     } finally {
       await queryRunner.release();
     }
   }
-
+  
   // --- DİĞER METOTLAR ---
   async shipOrder(id: string, provider: string) {
     const order = await this.orderRepository.findOne({ where: { id }, relations: ['user'] });
@@ -345,26 +326,26 @@ export class OrdersService {
       subtotal += (finalPrice * quantity);
     }
 
-    let finalTotal = subtotal;
+    // DÜZELTME: Önce müşterinin içerideki alacağını (yükseltme indirimi) düşüyoruz
+    let finalTotal = Math.max(0, subtotal - upgradeDiscount); 
 
-    // 2. Promosyon kodu varsa backend'de düş
+    // Sonra kalan gerçek tutar üzerinden Promosyon Kodunu uyguluyoruz
     if (promoCodeStr) {
       try {
-        const promo = await this.promoCodesService.validateCode(promoCodeStr, subtotal, userId);
+        const promo = await this.promoCodesService.validateCode(promoCodeStr, finalTotal, userId); // subtotal yerine finalTotal
         if (promo.discountType === 'percentage') {
-          finalTotal -= (subtotal * Number(promo.discountValue)) / 100;
+          finalTotal -= (finalTotal * Number(promo.discountValue)) / 100; // subtotal yerine finalTotal
         } else {
           finalTotal -= Number(promo.discountValue);
         }
-        // Sipariş onaylanınca promo kod kullanım sayısını artırmak istersen buraya ekleyebilirsin
       } catch (error) {
         throw new BadRequestException('Geçersiz veya süresi dolmuş promosyon kodu kullanıldı.');
       }
     }
-    finalTotal -= upgradeDiscount;
+        
     // 3. Kapıda ödeme seçildiyse hizmet bedelini ekle
     if (paymentType === 'cash_on_delivery') {
-      finalTotal += 159.9; // Kapıda ödeme hizmet bedeli
+      finalTotal += 159.9; 
     }
 
     this.logger.log(`🔒 Güvenli Fiyat Hesaplandı: ${finalTotal} TL (Müşterinin gönderdiği fiyata güvenilmedi)`);

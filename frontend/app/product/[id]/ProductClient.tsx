@@ -25,7 +25,7 @@ interface Review {
   };
 }
 
-const API_URL = "https://api.candostumbox.com";
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // --- YARDIMCI BİLEŞEN: TAKSİT TABLOSU (Premium Tasarım) ---
 const InstallmentInfo = () => {

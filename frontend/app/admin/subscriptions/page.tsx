@@ -87,7 +87,7 @@ export default function AdminSubscriptions() {
     try {
       // 👇 BURASI DEĞİŞTİ: '/subscriptions' yerine '/subscriptions/admin/all' yapıldı
       const res = await fetch(
-        "https://api.candostumbox.com/subscriptions/admin/all",
+        `${process.env.NEXT_PUBLIC_API_URL}/subscriptions/admin/all`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -113,7 +113,7 @@ export default function AdminSubscriptions() {
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/subscriptions/${id}/cancel`,
+        `${process.env.NEXT_PUBLIC_API_URL}/subscriptions/${id}/cancel`,
         {
           method: "PATCH",
           headers: {

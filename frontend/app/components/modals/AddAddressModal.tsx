@@ -36,14 +36,17 @@ export default function AddAddressModal({
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("https://api.candostumbox.com/users/addresses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/addresses`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(formData),
         },
-        body: JSON.stringify(formData),
-      });
+      );
       if (!res.ok) throw new Error("Ekleme başarısız");
       toast.success("Yeni adres eklendi! 📍");
       onSuccess();

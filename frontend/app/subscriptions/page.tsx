@@ -18,9 +18,12 @@ export default function MySubscriptionsPage() {
       }
 
       try {
-        const res = await fetch("https://api.candostumbox.com/subscriptions", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/subscriptions`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         if (res.ok) {
           const data = await res.json();
           setSubs(data);
@@ -46,7 +49,7 @@ export default function MySubscriptionsPage() {
     const token = localStorage.getItem("token");
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/subscriptions/${id}/cancel`,
+        `${process.env.NEXT_PUBLIC_API_URL}/subscriptions/${id}/cancel`,
         {
           method: "PATCH",
           headers: { Authorization: `Bearer ${token}` },

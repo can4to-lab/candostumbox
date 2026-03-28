@@ -51,7 +51,7 @@ export default function AddPetModal({
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("https://api.candostumbox.com/users/pets", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/pets`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

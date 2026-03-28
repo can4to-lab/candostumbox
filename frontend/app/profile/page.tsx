@@ -27,6 +27,11 @@ function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // --- KARGO TAKİP STATE'LERİ ---
+  const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [isTrackingLoading, setIsTrackingLoading] = useState(false);
+
   // 👇 YENİ: Sepet Hook'unu Başlatıyoruz
   const { addToCart } = useCart();
 
@@ -180,9 +185,12 @@ function ProfileContent() {
     }
 
     try {
-      const res = await fetch("https://api.candostumbox.com/auth/profile", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
 
       if (res.ok) {
         const data = await res.json();
@@ -245,9 +253,12 @@ function ProfileContent() {
     if (!token) return;
     setSubsLoading(true);
     try {
-      const res = await fetch("https://api.candostumbox.com/subscriptions", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/subscriptions`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
       if (res.ok) {
         const data = await res.json();
         setSubs(data);
@@ -316,7 +327,7 @@ function ProfileContent() {
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/subscriptions/${selectedSubId}/cancel`,
+        `${process.env.NEXT_PUBLIC_API_URL}/subscriptions/${selectedSubId}/cancel`,
         {
           method: "PATCH",
           headers: {
@@ -360,14 +371,17 @@ function ProfileContent() {
         tcKimlikNo: formData.tcIdentity,
       };
 
-      const res = await fetch("https://api.candostumbox.com/users/profile", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/users/profile`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       const data = await res.json();
 
@@ -379,6 +393,71 @@ function ProfileContent() {
       }
     } catch (error) {
       toast.error("Sunucu hatası.", { id: toastId });
+    }
+  };
+  // --- KARGO CANLI TAKİP SORGUSU ---
+  const handleTrackCargo = async (orderId: number, trackingCode: string) => {
+    if (trackingOrderId === orderId) {
+      setTrackingOrderId(null);
+      return;
+    }
+    setTrackingOrderId(orderId);
+    setIsTrackingLoading(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/orders/track-cargo/${trackingCode}`,
+      );
+      if (!res.ok) throw new Error("Kargo bilgisi alınamadı");
+      const data = await res.json();
+      setTrackingData(data);
+    } catch (error) {
+      toast.error("Kargo durumunuz çekilemedi.");
+      setTrackingData({
+        status: "UNKNOWN",
+        location: "Sistemde bir sorun oluştu.",
+      });
+    } finally {
+      setIsTrackingLoading(false);
+    }
+  };
+
+  const getCargoStatusInfo = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case "PREPARING":
+        return {
+          text: "Hazırlanıyor",
+          icon: "📦",
+          color: "text-blue-600",
+          bg: "bg-blue-50",
+        };
+      case "IN_TRANSIT":
+        return {
+          text: "Yolda (Transfer Merkezinde)",
+          icon: "🚚",
+          color: "text-orange-600",
+          bg: "bg-orange-50",
+        };
+      case "OUT_FOR_DELIVERY":
+        return {
+          text: "Dağıtıma Çıktı",
+          icon: "🛵",
+          color: "text-green-600",
+          bg: "bg-green-50",
+        };
+      case "DELIVERED":
+        return {
+          text: "Teslim Edildi",
+          icon: "✅",
+          color: "text-emerald-600",
+          bg: "bg-emerald-50",
+        };
+      default:
+        return {
+          text: "Durum Bekleniyor",
+          icon: "⏳",
+          color: "text-gray-600",
+          bg: "bg-gray-50",
+        };
     }
   };
 
@@ -393,8 +472,8 @@ function ProfileContent() {
     const { type, id } = confirmData;
     const url =
       type === "address"
-        ? `https://api.candostumbox.com/users/addresses/${id}`
-        : `https://api.candostumbox.com/users/pets/${id}`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/users/addresses/${id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/users/pets/${id}`;
 
     try {
       const res = await fetch(url, {
@@ -438,7 +517,7 @@ function ProfileContent() {
     const toastId = toast.loading("Şifre güncelleniyor...");
     try {
       const res = await fetch(
-        "https://api.candostumbox.com/users/change-password",
+        `${process.env.NEXT_PUBLIC_API_URL}/users/change-password`,
         {
           method: "PATCH",
           headers: {
@@ -959,13 +1038,113 @@ function ProfileContent() {
 
                               <div className="lg:w-1/3 lg:border-l border-gray-100 lg:pl-8 pt-6 lg:pt-0">
                                 <div className="mb-4">
-                                  {/* 👇 SADECE İPTAL DEĞİLSE GÖSTER */}
-                                  {!isCancelled && (
-                                    <button className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-sm transition transform hover:-translate-y-0.5">
-                                      Kargom Nerede?
+                                  {/* 👇 DÜZELTME: Kargo Takip Butonu ve Dinamik Açılır Alan */}
+                                  {isShipped || isDelivered ? (
+                                    <button
+                                      onClick={() =>
+                                        handleTrackCargo(
+                                          order.id,
+                                          order.cargoTrackingCode,
+                                        )
+                                      }
+                                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 rounded-lg shadow-sm transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                                    >
+                                      {trackingOrderId === order.id ? (
+                                        <>
+                                          <span>🔼</span> Takibi Gizle
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span>📍</span> Canlı Kargo Takibi
+                                        </>
+                                      )}
                                     </button>
-                                  )}
+                                  ) : !isCancelled ? (
+                                    <div className="w-full bg-gray-100 text-gray-500 font-bold py-2 rounded-lg text-center text-sm border border-gray-200 cursor-not-allowed">
+                                      Henüz Kargoya Verilmedi
+                                    </div>
+                                  ) : null}
                                 </div>
+
+                                {/* 👇 YENİ: Inline (Canlı) Kargo Takip Bölümü */}
+                                {trackingOrderId === order.id && (
+                                  <div className="mb-6 p-4 rounded-xl border-2 border-yellow-200 bg-yellow-50/50 animate-fade-in-down">
+                                    <h4 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+                                      🚚 Basit Kargo Anlık Durum
+                                    </h4>
+
+                                    {isTrackingLoading ? (
+                                      <div className="flex items-center justify-center py-4">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-yellow-600"></div>
+                                        <span className="ml-3 text-sm font-bold text-gray-500">
+                                          Lojistik ağına bağlanılıyor...
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        <div
+                                          className={`p-3 rounded-lg border ${getCargoStatusInfo(trackingData?.status).bg.replace("bg-", "border-")} ${getCargoStatusInfo(trackingData?.status).bg} flex items-center gap-3`}
+                                        >
+                                          <div className="text-2xl">
+                                            {
+                                              getCargoStatusInfo(
+                                                trackingData?.status,
+                                              ).icon
+                                            }
+                                          </div>
+                                          <div>
+                                            <span className="block text-[10px] font-bold text-gray-500 uppercase">
+                                              Mevcut Durum
+                                            </span>
+                                            <span
+                                              className={`font-bold text-sm ${getCargoStatusInfo(trackingData?.status).color}`}
+                                            >
+                                              {
+                                                getCargoStatusInfo(
+                                                  trackingData?.status,
+                                                ).text
+                                              }
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {trackingData?.location && (
+                                          <div className="p-3 rounded-lg border border-gray-200 bg-white flex items-center gap-3 shadow-sm">
+                                            <div className="text-xl opacity-50">
+                                              📍
+                                            </div>
+                                            <div>
+                                              <span className="block text-[10px] font-bold text-gray-400 uppercase">
+                                                Son Konum / İşlem
+                                              </span>
+                                              <span className="font-bold text-gray-800 text-xs">
+                                                {trackingData.location}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <div className="flex justify-between items-center px-1 pt-2">
+                                          <span className="text-[10px] text-gray-400 font-medium">
+                                            Takip Kodu:{" "}
+                                            {order.cargoTrackingCode}
+                                          </span>
+                                          <a
+                                            href={`https://basitkargo.com/takip?kod=${order.cargoTrackingCode}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-[10px] text-blue-600 font-bold hover:underline"
+                                          >
+                                            Detaylı Görüntüle ↗
+                                          </a>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {/* 👆 CANLI TAKİP BÖLÜMÜ BİTİŞİ */}
+
+                                {/* Mevcut Timeline (Sipariş Alındı, Hazırlanıyor vs.) kodların buradan itibaren devam ediyor... */}
                                 <div className="relative pl-4 space-y-6 border-l-2 border-gray-200 ml-2">
                                   <div className="relative">
                                     <div className="absolute -left-[21px] top-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white ring-1 ring-green-500"></div>

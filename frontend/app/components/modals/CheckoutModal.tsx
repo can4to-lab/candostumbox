@@ -51,7 +51,7 @@ export default function CheckoutModal({
     if (isOpen) {
       const token = localStorage.getItem("token");
       if (token) {
-        fetch("https://api.candostumbox.com/auth/profile", {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         })
           .then((res) => res.json())
@@ -108,7 +108,7 @@ export default function CheckoutModal({
     };
 
     try {
-      const res = await fetch("https://api.candostumbox.com/orders", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

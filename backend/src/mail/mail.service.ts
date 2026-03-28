@@ -185,4 +185,94 @@ export class MailService {
       throw error;
     }
   }
+  // 5. Şifre Sıfırlama Maili
+  async sendPasswordResetEmail(userEmail: string, userName: string, resetLink: string): Promise<void> {
+    this.logger.log(`⏳ Sending password reset email to: ${userEmail}`);
+    const currentYear = new Date().getFullYear();
+
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f7f6;">
+        <div style="background-color: #ffffff; padding: 40px; border-radius: 12px; border-top: 6px solid #4f46e5; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #4f46e5; margin: 0; font-size: 28px;">Can Dostum Box 🐾</h1>
+          </div>
+          <h2 style="color: #333333; font-size: 22px;">Merhaba ${userName},</h2>
+          <p style="color: #555555; font-size: 16px; line-height: 1.6;">
+            Hesabının şifresini sıfırlamak için bir talep aldık. Eğer bu talebi sen oluşturduysan, aşağıdaki butona tıklayarak yeni şifrenizi belirleyebilirsiniz.
+          </p>
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${resetLink}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">Şifremi Yenile</a>
+          </div>
+          <p style="color: #777777; font-size: 14px; line-height: 1.6; background-color: #f9fafb; padding: 15px; border-radius: 8px;">
+            <strong>Not:</strong> Bu bağlantı güvenlik amacıyla <strong>15 dakika</strong> içinde geçerliliğini yitirecektir. Bu talebi siz yapmadıysanız, bu e-postayı güvenle görmezden gelebilirsiniz; şifreniz değişmeyecektir.
+          </p>
+        </div>
+        <p style="text-align: center; color: #999999; font-size: 12px; margin-top: 20px;">
+          © ${currentYear} Can Dostum Box. Güvenlik Ekibi
+        </p>
+      </div>
+    `;
+
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: userEmail,
+        subject: '🔐 Şifre Sıfırlama Talebiniz - Can Dostum Box',
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(error.message);
+      this.logger.log(`✅ Password reset email sent -> ${userEmail}`);
+    } catch (error: unknown) {
+      this.logger.error(`🚨 Failed to send password reset email to ${userEmail}: ${error}`);
+    }
+  }
+  // 6. Teslimat Onay Maili (Müşteriye)
+  async sendDeliveryConfirmation(email: string, orderId: string, trackingCode: string): Promise<void> {
+    this.logger.log(`⏳ Sending delivery confirmation to: ${email}`);
+
+    const shortOrderId = String(orderId).slice(0, 8).toUpperCase();
+    const currentYear = new Date().getFullYear();
+    
+    const htmlContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f7f6;">
+        <div style="background-color: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #10b981; margin: 0; font-size: 28px;">Can Dostum Box 🐾</h1>
+          </div>
+          <h2 style="color: #333333; font-size: 22px; text-align: center;">Müjde! Paketin Teslim Edildi 📦</h2>
+          <p style="color: #555555; font-size: 16px; line-height: 1.6;">
+            Merhaba,<br><br>
+            <strong>#${shortOrderId}</strong> numaralı siparişin an itibarıyla adresine teslim edilmiştir! 🎉
+          </p>
+          <p style="color: #555555; font-size: 16px; line-height: 1.6;">
+            Can dostunun sürpriz kutusunu keyifle açmasını dileriz! Kutuyu açarken çektiğiniz fotoğrafları Instagram'da <strong>@candostumbox</strong> etiketiyle paylaşmayı unutmayın. Eğer paketle ilgili bir sorun yaşarsan, bizimle iletişime geçmekten çekinme.
+          </p>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 30px 0; border-left: 4px solid #10b981;">
+            <p style="margin: 0; font-size: 16px;"><strong>Kargo Takip Numaran:</strong> ${trackingCode}</p>
+          </div>
+          <div style="text-align: center; margin-top: 40px;">
+            <a href="https://www.candostumbox.com/profil" style="background-color: #10b981; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">Siparişlerime Git</a>
+          </div>
+        </div>
+        <p style="text-align: center; color: #999999; font-size: 12px; margin-top: 20px;">
+          © ${currentYear} Can Dostum Box. Bizi tercih ettiğin için teşekkürler!
+        </p>
+      </div>
+    `;
+
+    try {
+      const { error } = await this.resend.emails.send({
+        from: this.fromEmail,
+        to: email,
+        subject: `Müjde! Siparişin Teslim Edildi 📦 (No: #${shortOrderId})`,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(error.message);
+      this.logger.log(`✅ Delivery confirmation sent -> ${email}`);
+    } catch (error: unknown) {
+      this.logger.error(`🚨 Failed to send delivery confirmation to ${email}: ${error}`);
+    }
+  }
 }

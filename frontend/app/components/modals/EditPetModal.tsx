@@ -64,7 +64,7 @@ export default function EditPetModal({
 
     try {
       const res = await fetch(
-        `https://api.candostumbox.com/users/pets/${petData.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/users/pets/${petData.id}`,
         {
           method: "PATCH",
           headers: {

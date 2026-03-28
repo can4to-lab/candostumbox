@@ -16,6 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const res = await fetch('https://api.candostumbox.com/products');
     const products = await res.json();
 
+    
     // GÜVENLİK AĞI: Eğer gelen veri bir liste değilse sistemi çökertme!
     if (!Array.isArray(products)) {
       return defaultRoutes;
