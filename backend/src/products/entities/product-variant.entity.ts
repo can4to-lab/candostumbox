@@ -1,26 +1,24 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
-import { Product } from './product.entity';
 
 @Entity()
 export class ProductVariant {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Hangi ürüne ait olduğu (Örn: Süper Kedi Tasması)
-  @ManyToOne(() => Product, (product) => product.variants, { onDelete: 'CASCADE' })
+  // 👇 'Product' tırnak içinde metin olarak verildi
+  @ManyToOne('Product', 'variants', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'productId' })
-  product: Product;
+  product: any;
 
   @Column({ nullable: true })
-  size: string; // Örn: S, M, L, XL, 100ml, 500gr
+  size: string;
 
   @Column({ nullable: true })
-  color: string; // Örn: Kırmızı, Mavi
+  color: string;
 
   @Column({ default: 0 })
-  stock: number; // Sadece bu bedene/renge ait stok
+  stock: number;
 
-  // Varyasyonun kendine ait özel bir fiyat farkı varsa (Örn: XL beden +50 TL ise)
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   additionalPrice: number;
 

@@ -1,12 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { Review } from '../../reviews/entities/review.entity';
-import { Category } from './category.entity';
-import { ProductVariant } from './product-variant.entity';
+// 🚫 Category ve ProductVariant importları DÖNGÜSEL HATA yaratmaması için kasıtlı olarak silinmiştir!
 
-// Ürün Tipleri İçin Enum (Sistem ürünü nasıl satacağını buradan anlayacak)
 export enum ProductType {
-  SUBSCRIPTION = 'SUBSCRIPTION', // Aylık Kutu
-  RETAIL = 'RETAIL',             // Tek Seferlik Perakende
+  SUBSCRIPTION = 'SUBSCRIPTION',
+  RETAIL = 'RETAIL',
 }
 
 @Entity()
@@ -14,9 +12,6 @@ export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // 👇 YENİ: Ürün Tipi. 
-  // DİKKAT: default olarak SUBSCRIPTION verdik. 
-  // Böylece canlıdaki eski kutularının hepsi anında abonelik kutusu sayılacak, sistem çökmeyecek!
   @Column({ type: 'enum', enum: ProductType, default: ProductType.SUBSCRIPTION })
   type: ProductType;
 
@@ -26,11 +21,10 @@ export class Product {
   @Column({ unique: true }) 
   slug: string;
 
-  // 👇 YENİ: Kategori İlişkisi. 
-  // nullable: true verdik, yani eski kutularının kategorisi boş kalsa da sistem hata vermez.
-  @ManyToOne(() => Category, (category) => category.products, { nullable: true, onDelete: 'SET NULL' })
+  // 👇 SİHİRLİ DOKUNUŞ: 'Category' tırnak içinde metin olarak verildi!
+  @ManyToOne('Category', 'products', { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'categoryId' })
-  category: Category;
+  category: any;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
@@ -41,13 +35,12 @@ export class Product {
   @Column({ nullable: true })
   image: string;
 
-  // Genel Stok (Eğer varyasyon kullanmıyorsa buna bakılır)
   @Column({ default: 0 })
   stock: number;
 
-  // 👇 YENİ: Varyasyon İlişkisi (Beden, Renk vb.)
-  @OneToMany(() => ProductVariant, (variant) => variant.product, { cascade: true })
-  variants: ProductVariant[];
+  // 👇 SİHİRLİ DOKUNUŞ: 'ProductVariant' tırnak içinde metin olarak verildi!
+  @OneToMany('ProductVariant', 'product', { cascade: true })
+  variants: any[];
 
   @Column({ default: 0 })
   order: number; 

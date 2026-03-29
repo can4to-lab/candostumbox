@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { Product } from './product.entity';
 
 @Entity()
 export class Category {
@@ -24,7 +23,7 @@ export class Category {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Bir kategorinin birden fazla ürünü olabilir
-  @OneToMany(() => Product, (product) => product.category)
-  products: Product[];
+  // 👇 'Product' tırnak içinde metin olarak verildi
+  @OneToMany('Product', 'category')
+  products: any[];
 }
