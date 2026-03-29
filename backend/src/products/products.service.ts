@@ -22,7 +22,8 @@ export class ProductsService {
 
   async findAll() {
     return this.productRepository.find({
-      order: { createdAt: 'ASC' } as any, 
+      order: { createdAt: 'ASC' } as any,
+      relations: ['category'], 
     });
   }
 
