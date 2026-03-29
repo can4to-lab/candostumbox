@@ -45,15 +45,16 @@ export class ProductsService {
 
     const newProduct = this.productRepository.create({
         type: data.type || 'SUBSCRIPTION',
-        // 👇 İŞTE EKSİK OLAN VE BİZİ UĞRAŞTIRAN SİHİRLİ SATIR BUYDU! 👇
-        category: data.categoryId ? { id: data.categoryId } : null, 
+        category: data.categoryId ? { id: data.categoryId } : null,
         name: data.name,
         slug: slug,
-        description: data.description,
+        description: data.description ,
         image: data.image,
         price: parseFloat(data.price),
+        // 👇 YENİ: İndirimli fiyat varsa kaydet, yoksa null bırak
+        discountedPrice: data.discountedPrice ? parseFloat(data.discountedPrice) : null,
         stock: parseInt(data.stock) || 100,
-        features: data.features || [], 
+        features: data.features || [],
         isVisible: data.isVisible !== undefined ? data.isVisible : true,
     });
 
@@ -62,20 +63,28 @@ export class ProductsService {
 
   // 🚀 GÜNCELLENDİ: Ürün tipini güncelleyebilme eklendi
   async update(id: string, data: any) {
+
+    //Silinecek
+    console.log(`📥 GÜNCELLEME İÇİN GELEN VERİ (ID: ${id}):`, data);
+
     const product = await this.findOne(id); 
 
     const updatedProduct = this.productRepository.merge(product, {
         type: data.type,
-        // 👇 GÜNCELLEMEDE DE KATEGORİYİ KAYDETMESİ İÇİN EKLİYORUZ 👇
         category: data.categoryId ? { id: data.categoryId } : null,
         name: data.name,
         description: data.description,
         image: data.image,
         price: data.price !== undefined ? parseFloat(data.price) : undefined,
+        // 👇 YENİ: İndirimli fiyatı güncelle
+        discountedPrice: data.discountedPrice !== undefined ? (data.discountedPrice ? parseFloat(data.discountedPrice) : null) : undefined,
         stock: data.stock !== undefined ? parseInt(data.stock) : undefined,
         features: data.features,
         isVisible: data.isVisible
     });
+    
+    // Silinecek
+    console.log("💾 SQL'E YAZILACAK SON HALİ:", updatedProduct);
 
     return this.productRepository.save(updatedProduct);
   }
