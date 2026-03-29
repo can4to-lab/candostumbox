@@ -193,6 +193,11 @@ export default function AdminProducts() {
       features: featuresArray,
     };
 
+    // Sonra Silinecek
+    console.log("🚀 FORM'DAN GELEN HAM VERİ (formData):", formData);
+    console.log("📦 BACKEND'E GİDECEK PAKET (payload):", payload);
+    //Buraya Kadar
+
     try {
       let res;
       if (editingProduct) {
