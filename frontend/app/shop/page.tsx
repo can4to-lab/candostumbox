@@ -12,7 +12,7 @@ interface Product {
   image: string;
   stock: number;
   type: "RETAIL" | "SUBSCRIPTION";
-  categoryId: string | null;
+  category?: { id: string; name: string; slug: string };
 }
 
 interface Category {
@@ -63,8 +63,10 @@ function ShopContent() {
 
   // FİLTRELEME MANTIĞI
   const filteredProducts = products.filter((product) => {
+    // 👇 DÜZELTME: Artık product.categoryId değil, product.category.id'ye bakıyoruz
+    const productCatId = product.category ? product.category.id : null;
     const matchesCategory =
-      activeCategory === "ALL" || product.categoryId === activeCategory;
+      activeCategory === "ALL" || productCatId === activeCategory;
     const matchesSearch = product.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
