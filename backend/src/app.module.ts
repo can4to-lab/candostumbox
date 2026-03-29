@@ -15,6 +15,7 @@ import { PaymentModule } from './payment/payment.module';
 import { ReviewsModule } from './reviews/reviews.module'; 
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
 import { InstagramModule } from './instagram/instagram.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { InstagramModule } from './instagram/instagram.module';
       }),
     }),
     
+    CategoriesModule,
     UsersModule,
     ProductsModule,
     PetsModule,

@@ -129,6 +129,12 @@ export default function AdminLayout({
             active={pathname.includes("/products")}
           />
           <MenuItem
+            href="/admin/categories"
+            icon="📁"
+            text="Kategoriler"
+            active={pathname === "/admin/categories"}
+          />
+          <MenuItem
             href="/admin/subscriptions"
             icon="🔄"
             text="Abonelikler"

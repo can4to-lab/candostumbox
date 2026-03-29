@@ -111,6 +111,12 @@ export default function AdminDashboard() {
               <span className="text-xl">🎁</span> Yeni Paket Ekle
             </button>
             <button
+              onClick={() => router.push("/admin/categories")}
+              className="p-4 bg-indigo-100 text-indigo-800 rounded-xl hover:bg-indigo-600 hover:text-white transition font-bold text-left flex items-center gap-2"
+            >
+              <span className="text-xl">📁</span> Kategori Yönetimi
+            </button>
+            <button
               onClick={() => router.push("/admin/discounts")}
               className="p-4 bg-green-100 text-green-800 rounded-xl hover:bg-green-600 hover:text-white transition font-bold text-left flex items-center gap-2"
             >
