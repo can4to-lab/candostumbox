@@ -80,7 +80,7 @@ function ShopContent() {
 
     addToCart({
       productId: product.id,
-      name: product.name,
+      productName: product.name,
       price: Number(product.price),
       image: product.image,
       type: "RETAIL", // Bunun bir market ürünü olduğunu sepete söylüyoruz

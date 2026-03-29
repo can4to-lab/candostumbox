@@ -8,29 +8,36 @@ import {
 } from "react";
 import toast from "react-hot-toast";
 
-// 1. SEPETTEKİ ÜRÜNÜN TİPİ (Perakende mi Abonelik mi?)
 export interface CartItem {
-  uniqueId: string; // Sepetteki benzersiz kimliği (Aynı üründen 2 tane eklenirse karışmasın diye)
-  productId: string;
-  name: string;
+  uniqueId: string;
+  productId: string | number;
+  productName: string; // 👈 ESKİ KODLARLA UYUMLU OLMASI İÇİN GERİ GELDİ (name yerine)
   price: number;
   image?: string;
-  type: "SUBSCRIPTION" | "RETAIL"; // 👈 KRİTİK: Sistem ürünün ne olduğunu bilecek
-  quantity: number; // 👈 KRİTİK: Perakende için adet mantığı
 
-  // Sadece Aboneliğe Özel Alanlar (Perakendede null olacak)
-  petName?: string;
+  // 👇 YENİ HİBRİT SİSTEM ALANLARI (Eski kodlar hata vermesin diye opsiyonel '?')
+  type?: "SUBSCRIPTION" | "RETAIL";
+  quantity?: number;
+
+  // 👇 ESKİ ABONELİK ALANLARI (Checkout ve Profile sayfalarının çökmemesi için)
   duration?: number;
+  petId?: string | null;
+  petName?: string;
+  paymentType?: string;
+  deliveryPeriod?: string;
+  subscriptionId?: string;
+  upgradeFromSubId?: string;
+  deductionAmount?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
   addToCart: (item: Omit<CartItem, "uniqueId">) => void;
   removeFromCart: (uniqueId: string) => void;
-  updateQuantity: (uniqueId: string, quantity: number) => void; // 👈 YENİ: Adet artır/azalt
+  updateQuantity: (uniqueId: string, quantity: number) => void;
   clearCart: () => void;
   cartTotal: number;
-  cartCount: number; // Sepetteki toplam ürün ASIL adedi
+  cartCount: number;
   isCartOpen: boolean;
   toggleCart: () => void;
 }
@@ -42,71 +49,68 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Sayfa açıldığında localStorage'dan eski sepeti yükle
   useEffect(() => {
     const savedCart = localStorage.getItem("candostum_cart");
     if (savedCart) {
       try {
         setItems(JSON.parse(savedCart));
-      } catch (e) {
-        console.error("Sepet yüklenemedi", e);
-      }
+      } catch (e) {}
     }
     setIsLoaded(true);
   }, []);
 
-  // Sepet her değiştiğinde localStorage'a kaydet
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem("candostum_cart", JSON.stringify(items));
-    }
+    if (isLoaded) localStorage.setItem("candostum_cart", JSON.stringify(items));
   }, [items, isLoaded]);
 
-  // 🚀 SEPETE EKLEME MANTIĞI (Beyin Burası)
   const addToCart = (newItem: Omit<CartItem, "uniqueId">) => {
     setItems((prevItems) => {
-      // 1. KURAL: Eğer eklenen ürün ABONELİK ise (Sepette sadece 1 abonelik kutusu olabilir)
-      if (newItem.type === "SUBSCRIPTION") {
+      // Geriye dönük uyumluluk: Eski sayfalar type göndermezse, onu otomatik ABONELİK say!
+      const itemType = newItem.type || "SUBSCRIPTION";
+      const itemQuantity = newItem.quantity || 1;
+
+      if (itemType === "SUBSCRIPTION") {
         const withoutOldSub = prevItems.filter(
-          (item) => item.type !== "SUBSCRIPTION",
+          (item) => (item.type || "SUBSCRIPTION") !== "SUBSCRIPTION",
         );
         toast.success("Abonelik kutusu sepete eklendi!");
         setIsCartOpen(true);
         return [
           ...withoutOldSub,
-          { ...newItem, uniqueId: Date.now().toString(), quantity: 1 },
+          {
+            ...newItem,
+            type: "SUBSCRIPTION",
+            quantity: 1,
+            uniqueId: Date.now().toString(),
+          },
         ];
       }
 
-      // 2. KURAL: Eğer eklenen ürün PERAKENDE ise (Oyunca, Tasma vs.)
-      if (newItem.type === "RETAIL") {
-        // Sepette bu üründen zaten var mı diye bak
+      if (itemType === "RETAIL") {
         const existingItemIndex = prevItems.findIndex(
           (item) => item.productId === newItem.productId,
         );
-
         if (existingItemIndex >= 0) {
-          // Varsa adedini (quantity) 1 artır
           const updatedItems = [...prevItems];
-          updatedItems[existingItemIndex].quantity += newItem.quantity || 1;
-          toast.success(`${newItem.name} adedi artırıldı!`);
+          updatedItems[existingItemIndex].quantity =
+            (updatedItems[existingItemIndex].quantity || 1) + itemQuantity;
+          toast.success(`${newItem.productName} adedi artırıldı!`);
           setIsCartOpen(true);
           return updatedItems;
         } else {
-          // Yoksa yepyeni bir eşya olarak sepete at
-          toast.success(`${newItem.name} sepete eklendi!`);
+          toast.success(`${newItem.productName} sepete eklendi!`);
           setIsCartOpen(true);
           return [
             ...prevItems,
             {
               ...newItem,
+              type: "RETAIL",
+              quantity: itemQuantity,
               uniqueId: Date.now().toString(),
-              quantity: newItem.quantity || 1,
             },
           ];
         }
       }
-
       return prevItems;
     });
   };
@@ -132,17 +136,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
     localStorage.removeItem("candostum_cart");
   };
-
   const toggleCart = () => setIsCartOpen(!isCartOpen);
 
-  // Toplam Tutar (Fiyat * Adet)
   const cartTotal = items.reduce(
-    (total, item) => total + Number(item.price) * item.quantity,
+    (total, item) => total + Number(item.price) * (item.quantity || 1),
     0,
   );
-
-  // Sepetteki ikon üzerinde yazacak sayı (Ürün sayısı değil, adet sayısı)
-  const cartCount = items.reduce((count, item) => count + item.quantity, 0);
+  const cartCount = items.reduce(
+    (count, item) => count + (item.quantity || 1),
+    0,
+  );
 
   return (
     <CartContext.Provider
