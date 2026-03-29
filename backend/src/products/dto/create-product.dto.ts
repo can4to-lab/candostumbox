@@ -4,6 +4,18 @@ export class CreateProductDto {
   @IsString({ message: 'Ürün adı metin olmalıdır.' })
   name: string;
 
+  @IsOptional()
+  @IsString()
+  type?: string; // RETAIL veya SUBSCRIPTION geçebilsin
+
+  @IsOptional()
+  @IsString()
+  categoryId?: string; // Kategori ID'si geçebilsin
+
+  @IsOptional()
+  @IsNumber()
+  discountedPrice?: number; // İndirimli fiyat geçebilsin
+  
   @IsNumber({}, { message: 'Fiyat sayı olmalıdır.' })
   @Min(0, { message: 'Fiyat 0 dan küçük olamaz.' })
   price: number;
