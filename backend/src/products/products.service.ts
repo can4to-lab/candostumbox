@@ -44,7 +44,9 @@ export class ProductsService {
     }
 
     const newProduct = this.productRepository.create({
-        type: data.type || ProductType.SUBSCRIPTION, // 👈 YENİ: Varsayılan olarak abonelik
+        type: data.type || 'SUBSCRIPTION',
+        // 👇 İŞTE EKSİK OLAN VE BİZİ UĞRAŞTIRAN SİHİRLİ SATIR BUYDU! 👇
+        category: data.categoryId ? { id: data.categoryId } : null, 
         name: data.name,
         slug: slug,
         description: data.description,
@@ -63,7 +65,9 @@ export class ProductsService {
     const product = await this.findOne(id); 
 
     const updatedProduct = this.productRepository.merge(product, {
-        type: data.type, // 👈 YENİ
+        type: data.type,
+        // 👇 GÜNCELLEMEDE DE KATEGORİYİ KAYDETMESİ İÇİN EKLİYORUZ 👇
+        category: data.categoryId ? { id: data.categoryId } : null,
         name: data.name,
         description: data.description,
         image: data.image,
