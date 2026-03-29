@@ -1,32 +1,36 @@
 "use client";
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
 
+// 1. SEPETTEKİ ÜRÜNÜN TİPİ (Perakende mi Abonelik mi?)
 export interface CartItem {
-  productId: number;
-  productName: string;
+  uniqueId: string; // Sepetteki benzersiz kimliği (Aynı üründen 2 tane eklenirse karışmasın diye)
+  productId: string;
+  name: string;
   price: number;
-  duration: number;
-  petId: string | null;
-  petName: string;
-  paymentType: 'monthly' | 'upfront';
   image?: string;
-  uniqueId: string;
-  deliveryPeriod?: string; 
-  subscriptionId?: string;
-  // 👇 YENİ EKLENEN ALANLAR: TypeScript hatasını çözen kısım burası
-  upgradeFromSubId?: string; 
-  deductionAmount?: number; 
+  type: "SUBSCRIPTION" | "RETAIL"; // 👈 KRİTİK: Sistem ürünün ne olduğunu bilecek
+  quantity: number; // 👈 KRİTİK: Perakende için adet mantığı
+
+  // Sadece Aboneliğe Özel Alanlar (Perakendede null olacak)
+  petName?: string;
+  duration?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, 'uniqueId'>) => void;
+  addToCart: (item: Omit<CartItem, "uniqueId">) => void;
   removeFromCart: (uniqueId: string) => void;
+  updateQuantity: (uniqueId: string, quantity: number) => void; // 👈 YENİ: Adet artır/azalt
   clearCart: () => void;
   cartTotal: number;
-  cartCount: number;
+  cartCount: number; // Sepetteki toplam ürün ASIL adedi
   isCartOpen: boolean;
   toggleCart: () => void;
 }
@@ -34,12 +38,11 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isReplaceModalOpen, setIsReplaceModalOpen] = useState(false);
-  const [pendingItem, setPendingItem] = useState<Omit<CartItem, 'uniqueId'> | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
+  // Sayfa açıldığında localStorage'dan eski sepeti yükle
   useEffect(() => {
     const savedCart = localStorage.getItem("candostum_cart");
     if (savedCart) {
@@ -49,104 +52,119 @@ export function CartProvider({ children }: { children: ReactNode }) {
         console.error("Sepet yüklenemedi", e);
       }
     }
+    setIsLoaded(true);
   }, []);
 
+  // Sepet her değiştiğinde localStorage'a kaydet
   useEffect(() => {
-    localStorage.setItem("candostum_cart", JSON.stringify(items));
-  }, [items]);
-
-  const addToCart = useCallback((newItem: Omit<CartItem, 'uniqueId'>) => {
-    if (items.length > 0) {
-        setPendingItem(newItem);
-        setIsReplaceModalOpen(true);
-        return;
+    if (isLoaded) {
+      localStorage.setItem("candostum_cart", JSON.stringify(items));
     }
+  }, [items, isLoaded]);
 
-    const uniqueId = `${newItem.productId}-${newItem.petId}-${Date.now()}`;
-    setItems([{ ...newItem, uniqueId }]);
-    setIsCartOpen(true);
-    toast.success("Sepete eklendi! 🎒");
-  }, [items]);
-
-  const confirmReplace = () => {
-    if (pendingItem) {
-        const uniqueId = `${pendingItem.productId}-${pendingItem.petId}-${Date.now()}`;
-        setItems([{ ...pendingItem, uniqueId }]);
-        setPendingItem(null);
-        setIsReplaceModalOpen(false);
+  // 🚀 SEPETE EKLEME MANTIĞI (Beyin Burası)
+  const addToCart = (newItem: Omit<CartItem, "uniqueId">) => {
+    setItems((prevItems) => {
+      // 1. KURAL: Eğer eklenen ürün ABONELİK ise (Sepette sadece 1 abonelik kutusu olabilir)
+      if (newItem.type === "SUBSCRIPTION") {
+        const withoutOldSub = prevItems.filter(
+          (item) => item.type !== "SUBSCRIPTION",
+        );
+        toast.success("Abonelik kutusu sepete eklendi!");
         setIsCartOpen(true);
-        toast.success("Sepet güncellendi! ✨");
-    }
+        return [
+          ...withoutOldSub,
+          { ...newItem, uniqueId: Date.now().toString(), quantity: 1 },
+        ];
+      }
+
+      // 2. KURAL: Eğer eklenen ürün PERAKENDE ise (Oyunca, Tasma vs.)
+      if (newItem.type === "RETAIL") {
+        // Sepette bu üründen zaten var mı diye bak
+        const existingItemIndex = prevItems.findIndex(
+          (item) => item.productId === newItem.productId,
+        );
+
+        if (existingItemIndex >= 0) {
+          // Varsa adedini (quantity) 1 artır
+          const updatedItems = [...prevItems];
+          updatedItems[existingItemIndex].quantity += newItem.quantity || 1;
+          toast.success(`${newItem.name} adedi artırıldı!`);
+          setIsCartOpen(true);
+          return updatedItems;
+        } else {
+          // Yoksa yepyeni bir eşya olarak sepete at
+          toast.success(`${newItem.name} sepete eklendi!`);
+          setIsCartOpen(true);
+          return [
+            ...prevItems,
+            {
+              ...newItem,
+              uniqueId: Date.now().toString(),
+              quantity: newItem.quantity || 1,
+            },
+          ];
+        }
+      }
+
+      return prevItems;
+    });
   };
 
-  const goToCheckout = () => {
-      setIsReplaceModalOpen(false);
-      setPendingItem(null);
-      router.push('/checkout');
-  };
-
-  const cancelReplace = () => {
-      setIsReplaceModalOpen(false);
-      setPendingItem(null);
-  };
-
-  const removeFromCart = useCallback((uniqueId: string) => {
+  const removeFromCart = (uniqueId: string) => {
     setItems((prev) => prev.filter((item) => item.uniqueId !== uniqueId));
-    toast.error("Ürün çıkarıldı.");
-  }, []);
+    toast.success("Ürün sepetten çıkarıldı.");
+  };
 
-  const clearCart = useCallback(() => setItems([]), []);
+  const updateQuantity = (uniqueId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(uniqueId);
+      return;
+    }
+    setItems((prev) =>
+      prev.map((item) =>
+        item.uniqueId === uniqueId ? { ...item, quantity } : item,
+      ),
+    );
+  };
 
-  const toggleCart = useCallback(() => setIsCartOpen((prev) => !prev), []);
+  const clearCart = () => {
+    setItems([]);
+    localStorage.removeItem("candostum_cart");
+  };
 
-  const rawTotal = items.reduce((total, item) => total + Number(item.price), 0);
-  const cartTotal = Number(rawTotal.toFixed(2));
+  const toggleCart = () => setIsCartOpen(!isCartOpen);
+
+  // Toplam Tutar (Fiyat * Adet)
+  const cartTotal = items.reduce(
+    (total, item) => total + Number(item.price) * item.quantity,
+    0,
+  );
+
+  // Sepetteki ikon üzerinde yazacak sayı (Ürün sayısı değil, adet sayısı)
+  const cartCount = items.reduce((count, item) => count + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ 
-        items, 
-        addToCart, 
-        removeFromCart, 
-        clearCart, 
-        cartTotal, 
-        cartCount: items.length,
+    <CartContext.Provider
+      value={{
+        items,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        cartTotal,
+        cartCount,
         isCartOpen,
-        toggleCart 
-    }}>
+        toggleCart,
+      }}
+    >
       {children}
-
-      {isReplaceModalOpen && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl transform scale-100 transition-all border border-gray-100">
-                  <div className="text-center mb-6">
-                      <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">⚠️</div>
-                      <h3 className="text-2xl font-black text-gray-900 mb-2">Sepetinde Ürün Var</h3>
-                      <p className="text-gray-500 text-sm leading-relaxed">
-                          Abonelik kutuları tek tek satılmaktadır. Sepetindeki mevcut ürünü silip yenisini eklemek ister misin?
-                      </p>
-                  </div>
-                  <div className="space-y-3">
-                      <button onClick={confirmReplace} className="w-full py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition shadow-lg shadow-green-200 flex items-center justify-center gap-2">
-                          <span>🔄</span> Evet, Yeni Ürünü Ekle
-                      </button>
-                      <button onClick={goToCheckout} className="w-full py-4 bg-gray-900 hover:bg-black text-white font-bold rounded-xl transition shadow-lg flex items-center justify-center gap-2">
-                          <span>💳</span> Mevcut Ürünle Öde
-                      </button>
-                      <button onClick={cancelReplace} className="w-full py-3 text-gray-400 font-bold hover:text-gray-600 hover:bg-gray-50 rounded-xl transition">
-                          Vazgeç
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
     </CartContext.Provider>
   );
 }
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error("useCart must be used within a CartProvider");
-  }
+  if (!context) throw new Error("useCart must be used within a CartProvider");
   return context;
 }
