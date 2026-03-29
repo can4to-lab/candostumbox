@@ -71,42 +71,58 @@ export class ShippingService {
 
  // --- 1. MÜŞTERİ / ADMİN İÇİN GERÇEK CANLI KARGO SORGULAMA ---
   async getLiveTrackingStatus(trackingCode: string) {
+    this.logger.log(`🔍 [KARGO TAKİP] İstek Geldi! Aranan Takip Kodu: '${trackingCode}'`);
+
+    if (!trackingCode || trackingCode === 'undefined' || trackingCode === 'null') {
+        this.logger.error('❌ [KARGO TAKİP] Frontend barkod numarasını BOŞ veya UNDEFINED gönderdi!');
+        return { trackingCode: '', status: 'UNKNOWN', location: 'Geçersiz Barkod', updatedAt: new Date().toISOString() };
+    }
+
     try {
-      // 1. Gerçek API sorgusu
-      const res = await axios.get(`${this.apiUrl}/v2/order/barcode/${trackingCode}`, {
+      const url = `${this.apiUrl}/v2/order/barcode/${trackingCode}`;
+      this.logger.log(`📡 [KARGO TAKİP] Basit Kargo API'sine soruluyor: ${url}`);
+
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${this.apiKey}` }
       });
       
       const cargoData = res.data;
+      this.logger.log(`✅ [KARGO TAKİP] API'den Başarılı Yanıt Geldi: ${JSON.stringify(cargoData)}`);
 
-      // 2. Basit Kargo'nun statülerini bizim Frontend'in anladığı statülere çeviriyoruz (Mapping)
       let mappedStatus = 'UNKNOWN';
       if (cargoData.status === 'COMPLETED') mappedStatus = 'DELIVERED';
       else if (cargoData.status === 'OUT_FOR_DELIVERY') mappedStatus = 'OUT_FOR_DELIVERY';
       else if (cargoData.status === 'SHIPPED') mappedStatus = 'SHIPPED';
       else if (cargoData.status === 'READY_TO_SHIP' || cargoData.status === 'NEW') mappedStatus = 'PREPARING';
 
-      return {
-        trackingCode: trackingCode, // ✅ ASLA KAYBOLMAYACAK!
+      const finalResponse = {
+        trackingCode: trackingCode,
         status: mappedStatus, 
-        location: 'Kargo Firmasından Bilgi Alındı', 
-        updatedAt: cargoData.updatedTime || new Date().toISOString(),
+        location: 'Basit Kargo (API)', 
+        updatedAt: cargoData.createdTime || new Date().toISOString(),
         rawStatus: cargoData 
-      }; 
+      };
+
+      this.logger.log(`📤 [KARGO TAKİP] Frontend'e Gönderilen Paket: ${JSON.stringify(finalResponse)}`);
+      return finalResponse;
 
     } catch (error: any) {
-      this.logger.warn(`🚨 Canlı Kargo durumu çekilemedi (Barkod: ${trackingCode}). Veritabanı yedeği devreye giriyor...`);
+      this.logger.warn(`🚨 [KARGO TAKİP] API Hatası: ${error.response?.status} - ${JSON.stringify(error.response?.data) || error.message}`);
       
-      // 🎯 3. B PLANI (HAYAT KURTARAN KISIM): API hata verse bile ekran BOZULMAYACAK!
-      // Veritabanındaki siparişi buluyoruz ve onun statüsünü ekrana yansıtıyoruz
+      // SENİN EKLEDİĞİN DEDEKTİF LOGU VE FALLBACK BÖLÜMÜ
       const order = await this.orderRepository.findOne({ where: { cargoTrackingCode: trackingCode } });
       
-      return { 
-        trackingCode: trackingCode, // ✅ İŞTE EKRANDAKİ YAZIYI GERİ GETİRECEK O SİHİRLİ SATIR
+      this.logger.warn(`🛡️ [KARGO TAKİP] Fallback çalıştı → Aranan Tracking: ${trackingCode}, DB'de Order bulundu mu: ${!!order}, Order Statüsü: ${order?.status}`);
+
+      const fallbackResponse = { 
+        trackingCode: trackingCode, 
         status: order ? order.status : 'UNKNOWN', 
-        location: order?.status === 'DELIVERED' ? 'Teslim Edildi (Sistem Kaydı)' : 'Kargo Durumu Bekleniyor',
+        location: order?.status === 'DELIVERED' ? 'Teslim Edildi (Veritabanı)' : 'Kargo Firması Bekleniyor',
         updatedAt: new Date().toISOString()
       };
+
+      this.logger.log(`📤 [KARGO TAKİP] Frontend'e Gönderilen FALLBACK Paketi: ${JSON.stringify(fallbackResponse)}`);
+      return fallbackResponse;
     }
   }
 
