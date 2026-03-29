@@ -62,4 +62,12 @@ export class OrdersController {
   async shipOrder(@Param('id') id: string) {
     return this.ordersService.shipOrder(id, 'Basit Kargo');
   }
+
+  @Get('track-cargo/:trackingCode')
+  async trackCargo(@Param('trackingCode') trackingCode: string) {
+    console.log(`🚚 Frontend'den Canlı Takip isteği geldi: ${trackingCode}`);
+    
+    // ordersService içindeki shippingService'i çağırıyoruz
+    return await this.ordersService['shippingService'].getLiveTrackingStatus(trackingCode);
+  }
 }
