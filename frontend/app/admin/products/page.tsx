@@ -81,26 +81,27 @@ const BoxIcon = () => (
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]); // 👈 YENİ: Kategoriler State'i
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
-  // FORM DATASI (Değişken adları backend'e uyumlu hale getirildi)
   const [formData, setFormData] = useState({
     name: "",
     price: "",
     stock: "",
     description: "",
-    image: "", // imageUrl yerine image
+    image: "",
     features: "",
+    type: "SUBSCRIPTION",
+    categoryId: "", // 👈 YENİ: Kategori ID'si
   });
 
-  // --- 1. VERİ ÇEKME ---
   useEffect(() => {
     fetchProducts();
+    fetchCategories(); // 👈 YENİ: Sayfa açıldığında kategorileri de çek
   }, []);
 
   const fetchProducts = async () => {
@@ -120,10 +121,21 @@ export default function AdminProducts() {
     }
   };
 
-  // --- 2. SİLME İŞLEMİ ---
+  // 👈 YENİ: Kategorileri Backend'den Çeken Fonksiyon
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories`);
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error("Kategoriler yüklenemedi");
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm("Bu ürünü silmek istediğinize emin misiniz?")) return;
-
     const token = localStorage.getItem("token");
     const loadingToast = toast.loading("Siliniyor...");
 
@@ -147,9 +159,15 @@ export default function AdminProducts() {
     }
   };
 
-  // --- 3. EKLEME / GÜNCELLEME İŞLEMİ ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Perakende seçilmişse kategori seçimi zorunlu olsun
+    if (formData.type === "RETAIL" && !formData.categoryId) {
+      toast.error("Lütfen perakende ürünü için bir kategori seçin.");
+      return;
+    }
+
     const token = localStorage.getItem("token");
     const loadingToast = toast.loading("Kaydediliyor...");
 
@@ -160,13 +178,14 @@ export default function AdminProducts() {
           .filter((item) => item !== "")
       : [];
 
-    // 👇 KRİTİK DEĞİŞİKLİK: imageUrl yerine image yazıldı
     const payload = {
+      type: formData.type,
+      categoryId: formData.type === "RETAIL" ? formData.categoryId : null, // Sadece perakende ise kategori yolla
       name: formData.name,
       price: Number(formData.price),
       stock: Number(formData.stock),
       description: formData.description,
-      image: formData.image || "https://placehold.co/400", // Backend 'image' bekliyor
+      image: formData.image || "https://placehold.co/400",
       features: featuresArray,
     };
 
@@ -220,7 +239,6 @@ export default function AdminProducts() {
     }
   };
 
-  // --- MODAL YÖNETİMİ ---
   const openModal = (product: any = null) => {
     setEditingProduct(product);
     if (product) {
@@ -228,14 +246,15 @@ export default function AdminProducts() {
         product.features && Array.isArray(product.features)
           ? product.features.join(", ")
           : "";
-
       setFormData({
         name: product.name,
         price: product.price,
         stock: product.stock,
         description: product.description,
-        image: product.image || product.imageUrl || "", // Veritabanından gelen image
+        image: product.image || product.imageUrl || "",
         features: featuresString,
+        type: product.type || "SUBSCRIPTION",
+        categoryId: product.category?.id || "", // Düzenlerken eski kategoriyi getir
       });
     } else {
       setFormData({
@@ -245,6 +264,8 @@ export default function AdminProducts() {
         description: "",
         image: "",
         features: "",
+        type: "SUBSCRIPTION",
+        categoryId: "",
       });
     }
     setIsModalOpen(true);
@@ -255,11 +276,11 @@ export default function AdminProducts() {
     setEditingProduct(null);
   };
 
-  // --- FİLTRELEME ---
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  // İSTATİSTİKLER (Eksiksiz)
   const stats = {
     totalProducts: products.length,
     lowStock: products.filter((p) => p.stock < 10).length,
@@ -280,7 +301,7 @@ export default function AdminProducts() {
     <div className="min-h-screen bg-[#F3F4F6] p-8 font-sans">
       <Toaster position="top-right" />
 
-      {/* DASHBOARD KARTLARI */}
+      {/* DASHBOARD KARTLARI (3'lü Kart Geri Döndü!) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-fade-in">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 group">
           <div className="text-gray-400 text-xs font-bold uppercase mb-1">
@@ -336,6 +357,7 @@ export default function AdminProducts() {
             <thead className="bg-gray-50/80 border-b border-gray-100 text-xs text-gray-400 uppercase font-bold tracking-wider">
               <tr>
                 <th className="p-6">Ürün Detayı</th>
+                <th className="p-6">Tür</th>
                 <th className="p-6">Fiyat</th>
                 <th className="p-6">Stok Durumu</th>
                 <th className="p-6 text-right">İşlem</th>
@@ -350,7 +372,6 @@ export default function AdminProducts() {
                   <td className="p-6">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 overflow-hidden flex-shrink-0 relative">
-                        {/* 👇 KRİTİK DEĞİŞİKLİK: product.imageUrl yerine product.image kullanıldı */}
                         {product.image ? (
                           <img
                             src={product.image}
@@ -367,11 +388,30 @@ export default function AdminProducts() {
                         <div className="font-bold text-gray-900 text-lg">
                           {product.name}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1 line-clamp-1 max-w-xs">
-                          {product.description}
+                        {/* Tabloda Kategoriyi de Gösterelim */}
+                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                          {product.category && (
+                            <span className="bg-gray-100 px-2 py-0.5 rounded-md text-gray-600 font-bold">
+                              {product.category.name}
+                            </span>
+                          )}
+                          <span className="line-clamp-1 max-w-xs">
+                            {product.description}
+                          </span>
                         </div>
                       </div>
                     </div>
+                  </td>
+                  <td className="p-6">
+                    {product.type === "RETAIL" ? (
+                      <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center w-max gap-1">
+                        <span className="text-sm">🛍️</span> Perakende
+                      </span>
+                    ) : (
+                      <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-lg text-xs font-bold flex items-center w-max gap-1">
+                        <span className="text-sm">📦</span> Abonelik Kutusu
+                      </span>
+                    )}
                   </td>
                   <td className="p-6">
                     <div className="font-black text-gray-900">
@@ -443,6 +483,89 @@ export default function AdminProducts() {
               className="p-8 overflow-y-auto space-y-6"
             >
               <div className="grid grid-cols-2 gap-6">
+                {/* Ürün Tipi Seçici */}
+                <div className="col-span-2 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-3">
+                    Bu Ürün Nasıl Satılacak?
+                  </label>
+                  <div className="flex gap-4">
+                    <label
+                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "SUBSCRIPTION" ? "border-purple-500 bg-purple-50" : "border-transparent bg-white shadow-sm"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="productType"
+                        value="SUBSCRIPTION"
+                        checked={formData.type === "SUBSCRIPTION"}
+                        onChange={() =>
+                          setFormData({
+                            ...formData,
+                            type: "SUBSCRIPTION",
+                            categoryId: "",
+                          })
+                        }
+                        className="w-5 h-5 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <div className="font-bold text-gray-900 flex items-center gap-2">
+                          <span className="text-lg">📦</span> Abonelik Kutusu
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Aylık düzenli gönderilen abonelik kutuları
+                        </div>
+                      </div>
+                    </label>
+                    <label
+                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "RETAIL" ? "border-indigo-500 bg-indigo-50" : "border-transparent bg-white shadow-sm"}`}
+                    >
+                      <input
+                        type="radio"
+                        name="productType"
+                        value="RETAIL"
+                        checked={formData.type === "RETAIL"}
+                        onChange={() =>
+                          setFormData({ ...formData, type: "RETAIL" })
+                        }
+                        className="w-5 h-5 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-bold text-gray-900 flex items-center gap-2">
+                          <span className="text-lg">🛍️</span> Perakende Ürün
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Marketten tek seferlik alınacak ürünler
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 👇 YENİ: Kategori Seçimi (SADECE PERAKENDE İSE GÖRÜNÜR) */}
+                {formData.type === "RETAIL" && (
+                  <div className="col-span-2 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 animate-fade-in">
+                    <label className="block text-xs font-bold text-indigo-800 uppercase mb-2">
+                      Ürün Kategorisi Seçin *
+                    </label>
+                    <select
+                      required
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-indigo-900"
+                      value={formData.categoryId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, categoryId: e.target.value })
+                      }
+                    >
+                      <option value="" disabled>
+                        -- Kategori Seçiniz --
+                      </option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
                     Ürün Adı
@@ -454,7 +577,7 @@ export default function AdminProducts() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    placeholder="Örn: Gurme Paketi"
+                    placeholder="Örn: Gurme Paketi veya Sarı Kedi Tasması"
                   />
                 </div>
 
