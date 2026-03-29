@@ -8,6 +8,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  discountedPrice?: number;
   description: string;
   image: string;
   stock: number;
@@ -83,7 +84,9 @@ function ShopContent() {
     addToCart({
       productId: product.id,
       productName: product.name,
-      price: Number(product.price),
+      price: product.discountedPrice
+        ? Number(product.discountedPrice)
+        : Number(product.price),
       image: product.image,
       type: "RETAIL", // Bunun bir market ürünü olduğunu sepete söylüyoruz
       quantity: 1, // Varsayılan olarak 1 adet eklenir, sepette artırabilirler
@@ -216,8 +219,24 @@ function ShopContent() {
 
                     {/* Fiyat ve Buton */}
                     <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-                      <div className="font-black text-2xl text-indigo-600">
-                        ₺{Number(product.price).toFixed(2)}
+                      <div className="flex flex-col">
+                        {/* 👇 YENİ: İndirim varsa eskisini çiz, yenisini yeşil yap 👇 */}
+                        {product.discountedPrice &&
+                        Number(product.discountedPrice) <
+                          Number(product.price) ? (
+                          <>
+                            <span className="text-sm text-gray-400 line-through font-bold decoration-red-400/50">
+                              ₺{Number(product.price).toFixed(2)}
+                            </span>
+                            <span className="font-black text-2xl text-green-600">
+                              ₺{Number(product.discountedPrice).toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-black text-2xl text-indigo-600">
+                            ₺{Number(product.price).toFixed(2)}
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={() => handleAddToCart(product)}

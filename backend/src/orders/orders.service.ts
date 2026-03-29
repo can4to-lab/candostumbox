@@ -76,114 +76,144 @@ export class OrdersService {
       const orderItems: OrderItem[] = [];
       let isPhysicalShipmentRequired = true; 
 
+      // 🚀 3. SEPETTEKİ ÜRÜNLERİ DÖN (HİBRİT YAPI)
       for (const itemDto of items) {
         const product = await queryRunner.manager.findOne(Product, { where: { id: itemDto.productId } });
         if (!product) throw new NotFoundException('Ürün bulunamadı');
 
         const quantity = Number(itemDto.quantity) || 1;
-        const itemDuration = Number(itemDto.duration) || 1;
-        let itemTotal = 0;
+        const itemType = itemDto.type || 'SUBSCRIPTION';
 
-        const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), itemDuration);
-        itemTotal = finalPrice * quantity;
-        const unitPricePaid = finalPrice;
+        // Stok Kontrolü
+        if (product.stock < quantity) {
+            throw new BadRequestException(`${product.name} için yeterli stok yok! (Kalan: ${product.stock})`);
+        }
 
-        let foundPet: Pet | null = null;
-        if (itemDto.petId) {
-            foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
-        } 
-        else if (itemDto.petName) {
-            const newPet = new Pet();
-            newPet.name = itemDto.petName;
-            newPet.type = itemDto.petType || 'kopek';
-            newPet.breed = itemDto.petBreed || '';
-            newPet.birthDate = itemDto.petBirthDate ? new Date(itemDto.petBirthDate) : new Date();
-            newPet.weight = itemDto.petWeight ? String(itemDto.petWeight) : '0';
-            newPet.isNeutered = itemDto.petIsNeutered || false;
-            newPet.allergies = itemDto.petAllergies ? itemDto.petAllergies.split(',').map(a => a.trim()) : [];
+        // 👇 İŞTE ÇÖZÜM BURASI: activePrice'ı herkesin görebileceği en tepeye aldık!
+        const activePrice = product.discountedPrice ? Number(product.discountedPrice) : Number(product.price);
+
+        if (itemType === 'RETAIL') {
+            // 🛍️ PERAKENDE ÜRÜN İŞLEMLERİ
+            const itemTotal = activePrice * quantity;
+            totalPrice += itemTotal;
+
+            const orderItem = new OrderItem();
+            orderItem.product = product;
+            orderItem.quantity = quantity;
+            orderItem.priceAtPurchase = activePrice; 
+            orderItem.productNameSnapshot = product.name;
+            orderItems.push(orderItem);
+
+            product.stock -= quantity;
+            await queryRunner.manager.save(Product, product);
+
+        } else {
+            // 📦 ABONELİK KUTUSU İŞLEMLERİ
+            const itemDuration = Number(itemDto.duration) || 1;
             
-            foundPet = await queryRunner.manager.save(Pet, newPet);
-            this.logger.log(`🐾 Misafir için yeni pet oluşturuldu: ${newPet.name} (ID: ${foundPet.id})`);
-        }
+            // 👇 YUKARIDAKİ activePrice'ı KULLANARAK HESAPLIYORUZ
+            const { finalPrice } = await this.discountsService.calculatePrice(activePrice, itemDuration);
+            
+            const itemTotal = finalPrice * quantity;
+            const unitPricePaid = finalPrice;
 
-        // --- ABONELİK İŞLEMLERİ ---
-        if (itemDto.subscriptionId) {
-            const existingSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.subscriptionId }, relations: ['product'] });
-            if (existingSub) {
-                existingSub.totalMonths += itemDuration;
-                existingSub.remainingMonths += itemDuration;
-                existingSub.status = SubscriptionStatus.ACTIVE;
-                existingSub.pricePaid = Number(existingSub.pricePaid || 0) + Number(unitPricePaid);
-
-                await queryRunner.manager.save(Subscription, existingSub);
-                isPhysicalShipmentRequired = false;
+            let foundPet: Pet | null = null;
+            if (itemDto.petId) {
+                foundPet = await queryRunner.manager.findOne(Pet, { where: { id: itemDto.petId as any } });
+            } 
+            else if (itemDto.petName) {
+                const newPet = new Pet();
+                newPet.name = itemDto.petName;
+                newPet.type = itemDto.petType || 'kopek';
+                newPet.breed = itemDto.petBreed || '';
+                newPet.birthDate = itemDto.petBirthDate ? new Date(itemDto.petBirthDate) : new Date();
+                newPet.weight = itemDto.petWeight ? String(itemDto.petWeight) : '0';
+                newPet.isNeutered = itemDto.petIsNeutered || false;
+                newPet.allergies = itemDto.petAllergies ? itemDto.petAllergies.split(',').map(a => a.trim()) : [];
+                
+                foundPet = await queryRunner.manager.save(Pet, newPet);
+                this.logger.log(`🐾 Misafir için yeni pet oluşturuldu: ${newPet.name} (ID: ${foundPet.id})`);
             }
-        } 
-        else if (itemDto.upgradeFromSubId) {
-            const oldSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.upgradeFromSubId }, relations: ['product'] });
-            if (oldSub) {
-                const oldPricePerMonth = Number(oldSub.pricePaid) / (oldSub.totalMonths || 1);
-                const upgradeDiscount = oldPricePerMonth * oldSub.remainingMonths;
-                
-                upgradeDiscountTotal += upgradeDiscount; 
-                this.logger.log(`🔄 Sipariş Kaydı: Yükseltme indirimi (${upgradeDiscount} TL) hafızaya alındı.`);
-                
-                oldSub.status = SubscriptionStatus.UPGRADED;
-                await queryRunner.manager.save(Subscription, oldSub);
-                
-                const newSubscription = new Subscription();
-                if (userEntity) newSubscription.user = userEntity;
-                newSubscription.product = product;
-                if (foundPet) newSubscription.pet = foundPet;
-                newSubscription.totalMonths = itemDuration;
-                newSubscription.remainingMonths = itemDuration;
-                newSubscription.startDate = new Date();
-                newSubscription.status = SubscriptionStatus.ACTIVE;
-                newSubscription.pricePaid = unitPricePaid;
-                newSubscription.paymentType = paymentType || 'upfront';
-                
-                const nextDate = new Date();
-                nextDate.setMonth(nextDate.getMonth() + 1);
-                newSubscription.nextDeliveryDate = nextDate;
-                newSubscription.shippingAddressSnapshot = addressSnapshot; 
-                await queryRunner.manager.save(Subscription, newSubscription);
-                isPhysicalShipmentRequired = false;
+
+            // --- ABONELİK İŞLEMLERİ ---
+            if (itemDto.subscriptionId) {
+                const existingSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.subscriptionId }, relations: ['product'] });
+                if (existingSub) {
+                    existingSub.totalMonths += itemDuration;
+                    existingSub.remainingMonths += itemDuration;
+                    existingSub.status = SubscriptionStatus.ACTIVE;
+                    existingSub.pricePaid = Number(existingSub.pricePaid || 0) + Number(unitPricePaid);
+
+                    await queryRunner.manager.save(Subscription, existingSub);
+                    isPhysicalShipmentRequired = false;
+                }
+            } 
+            else if (itemDto.upgradeFromSubId) {
+                const oldSub = await queryRunner.manager.findOne(Subscription, { where: { id: itemDto.upgradeFromSubId }, relations: ['product'] });
+                if (oldSub) {
+                    const oldPricePerMonth = Number(oldSub.pricePaid) / (oldSub.totalMonths || 1);
+                    const upgradeDiscount = oldPricePerMonth * oldSub.remainingMonths;
+                    
+                    upgradeDiscountTotal += upgradeDiscount; 
+                    this.logger.log(`🔄 Sipariş Kaydı: Yükseltme indirimi (${upgradeDiscount} TL) hafızaya alındı.`);
+                    
+                    oldSub.status = SubscriptionStatus.UPGRADED;
+                    await queryRunner.manager.save(Subscription, oldSub);
+                    
+                    const newSubscription = new Subscription();
+                    if (userEntity) newSubscription.user = userEntity;
+                    newSubscription.product = product;
+                    if (foundPet) newSubscription.pet = foundPet;
+                    newSubscription.totalMonths = itemDuration;
+                    newSubscription.remainingMonths = itemDuration;
+                    newSubscription.startDate = new Date();
+                    newSubscription.status = SubscriptionStatus.ACTIVE;
+                    newSubscription.pricePaid = unitPricePaid;
+                    newSubscription.paymentType = paymentType || 'upfront';
+                    
+                    const nextDate = new Date();
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                    newSubscription.nextDeliveryDate = nextDate;
+                    newSubscription.shippingAddressSnapshot = addressSnapshot; 
+                    await queryRunner.manager.save(Subscription, newSubscription);
+                    isPhysicalShipmentRequired = false;
+                }
             }
-        }
-        else {
-            if (itemDuration > 1) {
-                const subscription = new Subscription();
-                if (userEntity) subscription.user = userEntity; 
-                subscription.product = product;
-                if (foundPet) subscription.pet = foundPet;
-                subscription.totalMonths = itemDuration;
-                subscription.remainingMonths = itemDuration;
-                subscription.startDate = new Date();
-                subscription.paymentType = paymentType || 'upfront';
-                subscription.pricePaid = unitPricePaid;
-                subscription.status = SubscriptionStatus.ACTIVE;
-                
-                const nextDate = new Date();
-                nextDate.setMonth(nextDate.getMonth() + 1);
-                subscription.nextDeliveryDate = nextDate;
-                subscription.shippingAddressSnapshot = addressSnapshot; 
-                await queryRunner.manager.save(Subscription, subscription);
+            else {
+                if (itemDuration > 1 || itemDuration === 1) {
+                    const subscription = new Subscription();
+                    if (userEntity) subscription.user = userEntity; 
+                    subscription.product = product;
+                    if (foundPet) subscription.pet = foundPet;
+                    subscription.totalMonths = itemDuration;
+                    subscription.remainingMonths = itemDuration;
+                    subscription.startDate = new Date();
+                    subscription.paymentType = paymentType || 'upfront';
+                    subscription.pricePaid = unitPricePaid;
+                    subscription.status = SubscriptionStatus.ACTIVE;
+                    
+                    const nextDate = new Date();
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                    subscription.nextDeliveryDate = nextDate;
+                    subscription.shippingAddressSnapshot = addressSnapshot; 
+                    await queryRunner.manager.save(Subscription, subscription);
+                }
             }
+
+            totalPrice += itemTotal;
+
+            const orderItem = new OrderItem();
+            orderItem.product = product;
+            orderItem.quantity = quantity;
+            orderItem.priceAtPurchase = activePrice; 
+            orderItem.productNameSnapshot = product.name;
+            orderItem.duration = itemDuration;
+            if (foundPet) orderItem.pet = foundPet;
+            orderItems.push(orderItem);
+
+            product.stock -= quantity;
+            await queryRunner.manager.save(Product, product);
         }
-
-        totalPrice += itemTotal;
-
-        const orderItem = new OrderItem();
-        orderItem.product = product;
-        orderItem.quantity = quantity;
-        orderItem.priceAtPurchase = Number(product.price); 
-        orderItem.productNameSnapshot = product.name;
-        orderItem.duration = itemDuration;
-        if (foundPet) orderItem.pet = foundPet;
-        orderItems.push(orderItem);
-
-        product.stock -= quantity;
-        await queryRunner.manager.save(Product, product);
       }
 
       // --- SİPARİŞİ KAYDET ---
@@ -191,9 +221,7 @@ export class OrdersService {
       if (userEntity) order.user = userEntity; 
       order.shippingAddressSnapshot = addressSnapshot; 
       
-      // 👇 DÜZELTME 1: PROMO KOD HATASI GİDERİLDİ
-      // Eğer promo kod geçersizse işlemi iptal et (throw error). Böylece bankadan para çekilmişse 
-      // sistem bunu "CHARGED_BUT_FAILED_DB" statüsüne atar ve patron kontrolüne düşer. (Muhasebe hatası olmaz!)
+      // PROMO KOD İŞLEMİ
       if (createOrderDto.promoCode) {
           const promo = await this.promoCodesService.validateCode(createOrderDto.promoCode, totalPrice, userId || undefined);
           
@@ -208,6 +236,7 @@ export class OrdersService {
       }
 
       totalPrice -= upgradeDiscountTotal;
+
       if (paymentType === 'cash_on_delivery') {
          totalPrice += 159.9; 
       }
@@ -221,22 +250,18 @@ export class OrdersService {
       
       order.status = OrderStatus.PENDING; 
 
-      // 👇 DÜZELTME 2: VERİ KAYBI RİSKİ GİDERİLDİ
-      // Önce siparişi kaydediyoruz ki bir "ID" oluşsun.
+      // Veri Kaybı Riski Giderildi
       const savedOrder = await queryRunner.manager.save(Order, order);
 
-      // Sonra oluşan bu ID'yi OrderItem'lara bağlayıp onları KESİN olarak veritabanına yazıyoruz.
       for (const item of orderItems) {
-          item.order = savedOrder; // İlişkiyi manuel kuruyoruz
+          item.order = savedOrder;
           await queryRunner.manager.save(OrderItem, item);
       }
 
-      // Her şey kusursuz, DB'ye yaz!
       await queryRunner.commitTransaction();
       this.logger.log(`✅ Sipariş Başarıyla Oluşturuldu -> ID: ${savedOrder.id}, User: ${userEntity ? userEntity.firstName : 'GUEST'}`);
 
-      // 👇 DÜZELTME 3: E-POSTA DARBOĞAZI GİDERİLDİ (Fire and Forget)
-      // E-postaları await ile BEKLEMİYORUZ. Arka planda yolluyoruz ki ParamPOS'a cevap anında dönsün!
+      // Mailler Arka Planda Gider
       const customerEmail = userEntity?.email || addressSnapshot?.email;
       
       this.mailService.sendAdminOrderNotification(savedOrder.id, savedOrder.totalPrice)
@@ -252,17 +277,19 @@ export class OrdersService {
     } catch (err) {
       await queryRunner.rollbackTransaction();
       this.logger.error("🚨 Sipariş oluşturma hatası:", err);
-      throw err; // Hatayı yukarıya (payment.service'e) fırlatıyoruz ki yakalasın!
+      throw err; 
     } finally {
       await queryRunner.release();
     }
   }
-  
+
   // --- DİĞER METOTLAR ---
+
   async shipOrder(id: string, provider: string) {
     const order = await this.orderRepository.findOne({ where: { id }, relations: ['user'] });
     if (!order) throw new NotFoundException('Sipariş bulunamadı');
     const shipmentResult = await this.shippingService.createShipment(order);
+
     order.status = OrderStatus.SHIPPED;
     order.cargoProvider = shipmentResult.provider; 
     order.cargoTrackingCode = shipmentResult.trackingCode; 
@@ -296,10 +323,11 @@ export class OrdersService {
   async findOne(id: string) {
     return await this.orderRepository.findOne({ 
       where: { id }, 
-      relations: ['user'] // Mail atarken user bilgisi lazım olduğu için relations ekliyoruz
+      relations: ['user'] 
     });
   }
-  // --- GÜVENLİ FİYAT HESAPLAMA (FRONTEND MANİPÜLASYONUNU ENGELLER) ---
+
+  // 🚀 GÜVENLİ FİYAT HESAPLAMA (FRONTEND MANİPÜLASYONUNU ENGELLER)
   async calculateSecureTotal(items: any[], promoCodeStr?: string, userId?: string, paymentType?: string): Promise<number> {
     let subtotal = 0;
     let upgradeDiscount = 0
@@ -315,26 +343,33 @@ export class OrdersService {
           }
       }
       
+      const itemType = item.type || 'SUBSCRIPTION';
       const product = await this.dataSource.getRepository(Product).findOne({ where: { id: item.productId } });
       if (!product) throw new BadRequestException('Ürün bulunamadı');
 
       const duration = Number(item.duration) || 1;
       const quantity = Number(item.quantity) || 1;
 
-      // 1. İndirimli ham fiyatı DiscountsService üzerinden hesapla
-      const { finalPrice } = await this.discountsService.calculatePrice(Number(product.price), duration);
-      subtotal += (finalPrice * quantity);
+      // 👇 YENİ: İndirimli fiyat koruması
+      const activePrice = product.discountedPrice ? Number(product.discountedPrice) : Number(product.price);
+
+      if (itemType === 'RETAIL') {
+          subtotal += (activePrice * quantity);
+      } else {
+          // Abonelik için indirimli fiyatı baza al, üstüne ay indirimi uygula
+          const { finalPrice } = await this.discountsService.calculatePrice(activePrice, duration);
+          subtotal += (finalPrice * quantity);
+      }
     }
 
-    // DÜZELTME: Önce müşterinin içerideki alacağını (yükseltme indirimi) düşüyoruz
     let finalTotal = Math.max(0, subtotal - upgradeDiscount); 
 
-    // Sonra kalan gerçek tutar üzerinden Promosyon Kodunu uyguluyoruz
     if (promoCodeStr) {
       try {
-        const promo = await this.promoCodesService.validateCode(promoCodeStr, finalTotal, userId); // subtotal yerine finalTotal
+        const promo = await this.promoCodesService.validateCode(promoCodeStr, finalTotal, userId); 
+
         if (promo.discountType === 'percentage') {
-          finalTotal -= (finalTotal * Number(promo.discountValue)) / 100; // subtotal yerine finalTotal
+          finalTotal -= (finalTotal * Number(promo.discountValue)) / 100; 
         } else {
           finalTotal -= Number(promo.discountValue);
         }
@@ -343,7 +378,6 @@ export class OrdersService {
       }
     }
         
-    // 3. Kapıda ödeme seçildiyse hizmet bedelini ekle
     if (paymentType === 'cash_on_delivery') {
       finalTotal += 159.9; 
     }

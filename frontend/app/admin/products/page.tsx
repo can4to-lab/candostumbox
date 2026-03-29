@@ -91,6 +91,7 @@ export default function AdminProducts() {
   const [formData, setFormData] = useState({
     name: "",
     price: "",
+    discountedPrice: "",
     stock: "",
     description: "",
     image: "",
@@ -180,9 +181,12 @@ export default function AdminProducts() {
 
     const payload = {
       type: formData.type,
-      categoryId: formData.type === "RETAIL" ? formData.categoryId : null, // Sadece perakende ise kategori yolla
+      categoryId: formData.type === "RETAIL" ? formData.categoryId : null,
       name: formData.name,
       price: Number(formData.price),
+      discountedPrice: formData.discountedPrice
+        ? Number(formData.discountedPrice)
+        : null, // 👈 YENİ EKLENDİ
       stock: Number(formData.stock),
       description: formData.description,
       image: formData.image || "https://placehold.co/400",
@@ -249,6 +253,7 @@ export default function AdminProducts() {
       setFormData({
         name: product.name,
         price: product.price,
+        discountedPrice: product.discountedPrice || "",
         stock: product.stock,
         description: product.description,
         image: product.image || product.imageUrl || "",
@@ -260,6 +265,7 @@ export default function AdminProducts() {
       setFormData({
         name: "",
         price: "",
+        discountedPrice: "",
         stock: "",
         description: "",
         image: "",
@@ -581,20 +587,42 @@ export default function AdminProducts() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Fiyat (₺)
-                  </label>
-                  <input
-                    required
-                    type="number"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-700"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: e.target.value })
-                    }
-                    placeholder="0.00"
-                  />
+                <div className="col-span-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                      Normal Fiyat (₺) *
+                    </label>
+                    <input
+                      required
+                      type="number"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-700"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      placeholder="150"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                      İndirimli Fiyat (₺){" "}
+                      <span className="text-purple-400 font-normal">
+                        (Opsiyonel)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-green-600 placeholder:text-gray-400"
+                      value={formData.discountedPrice}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          discountedPrice: e.target.value,
+                        })
+                      }
+                      placeholder="Örn: 99.90 (İndirim yoksa boş bırakın)"
+                    />
+                  </div>
                 </div>
 
                 <div>

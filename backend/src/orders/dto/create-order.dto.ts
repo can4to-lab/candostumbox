@@ -21,7 +21,10 @@ export class OrderItemDto {
   @IsNotEmpty()
   productId: string;
 
-  // 👇 1. EKLEME: Frontend'den gelen fiyatı alabilmek için eklendi
+  @IsOptional()
+  @IsString()
+  type?: 'SUBSCRIPTION' | 'RETAIL';
+
   @IsNumber()
   @IsOptional()
   price?: number; 
