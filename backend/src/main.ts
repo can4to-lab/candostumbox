@@ -3,9 +3,12 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import axios from 'axios';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   console.log('🔍 KONTROL EDİLİYOR -> DATABASE_URL:', process.env.DATABASE_URL);
   console.log("🚀🚀🚀 DİKKAT: YENİ KODLAR ULAŞTI! 🚀🚀🚀");
@@ -20,6 +23,10 @@ async function bootstrap() {
     // DİKKAT: OPTIONS metodu eklendi! (Preflight hatasını çözer)
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS', 
     credentials: true, 
+  });
+
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
   });
 
   // 👇 2. GÜVENLİK DUVARI (Helmet) - CORS'U EZMEMESİ İÇİN YUMUŞATILDI

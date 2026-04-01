@@ -88,6 +88,9 @@ export default function AdminProducts() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
+  const [isUploadingSingle, setIsUploadingSingle] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -95,6 +98,7 @@ export default function AdminProducts() {
     stock: "",
     description: "",
     image: "",
+    gallery: [] as string[],
     features: "",
     type: "SUBSCRIPTION",
     categoryId: "", // 👈 YENİ: Kategori ID'si
@@ -160,6 +164,90 @@ export default function AdminProducts() {
     }
   };
 
+  // 📸 BİLGİSAYARDAN TEKLİ RESİM YÜKLEME (KAPAK)
+  const handleSingleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingSingle(true);
+    const uploadToast = toast.loading("Kapak fotoğrafı yükleniyor...");
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: uploadData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData({ ...formData, image: data.url });
+        toast.success("Fotoğraf yüklendi!", { id: uploadToast });
+      } else {
+        toast.error("Yükleme başarısız.", { id: uploadToast });
+      }
+    } catch (error) {
+      toast.error("Hata oluştu.", { id: uploadToast });
+    } finally {
+      setIsUploadingSingle(false);
+    }
+  };
+
+  // 🖼️ BİLGİSAYARDAN ÇOKLU RESİM YÜKLEME (GALERİ)
+  const handleGalleryUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingGallery(true);
+    const uploadToast = toast.loading(
+      `${files.length} fotoğraf galeriye yükleniyor...`,
+    );
+    const uploadData = new FormData();
+    Array.from(files).forEach((file) => uploadData.append("files", file));
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/upload/bulk`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: uploadData,
+        },
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData((prev) => ({
+          ...prev,
+          gallery: [...(prev.gallery || []), ...data.urls],
+        }));
+        toast.success("Galeri güncellendi!", { id: uploadToast });
+      } else {
+        toast.error("Yükleme başarısız.", { id: uploadToast });
+      }
+    } catch (error) {
+      toast.error("Hata oluştu.", { id: uploadToast });
+    } finally {
+      setIsUploadingGallery(false);
+    }
+  };
+
+  // 🗑️ GALERİDEN RESİM SİLME
+  const removeGalleryImage = (indexToRemove: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      gallery: prev.gallery.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -189,14 +277,9 @@ export default function AdminProducts() {
         : null, // 👈 YENİ EKLENDİ
       stock: Number(formData.stock),
       description: formData.description,
-      image: formData.image || "https://placehold.co/400",
-      features: featuresArray,
+      image: formData.image, // Kapak
+      gallery: formData.gallery, // Galerifeatures: featuresArray,
     };
-
-    // Sonra Silinecek
-    console.log("🚀 FORM'DAN GELEN HAM VERİ (formData):", formData);
-    console.log("📦 BACKEND'E GİDECEK PAKET (payload):", payload);
-    //Buraya Kadar
 
     try {
       let res;
@@ -261,7 +344,8 @@ export default function AdminProducts() {
         discountedPrice: product.discountedPrice || "",
         stock: product.stock,
         description: product.description,
-        image: product.image || product.imageUrl || "",
+        image: product.image || "",
+        gallery: product.gallery || [],
         features: featuresString,
         type: product.type || "SUBSCRIPTION",
         categoryId: product.category?.id || "", // Düzenlerken eski kategoriyi getir
@@ -274,6 +358,7 @@ export default function AdminProducts() {
         stock: "",
         description: "",
         image: "",
+        gallery: [],
         features: "",
         type: "SUBSCRIPTION",
         categoryId: "",
@@ -406,9 +491,6 @@ export default function AdminProducts() {
                               {product.category.name}
                             </span>
                           )}
-                          <span className="line-clamp-1 max-w-xs">
-                            {product.description}
-                          </span>
                         </div>
                       </div>
                     </div>
@@ -474,10 +556,10 @@ export default function AdminProducts() {
           onClick={closeModal}
         >
           <div
-            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in"
+            className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="bg-white px-8 py-6 border-b border-gray-100 flex justify-between items-center">
+            <div className="bg-white px-8 py-6 border-b border-gray-100 flex justify-between items-center sticky top-0 z-20">
               <h2 className="text-xl font-black text-gray-900">
                 {editingProduct ? "Ürün Düzenle" : "Yeni Ürün Ekle"}
               </h2>
@@ -491,17 +573,17 @@ export default function AdminProducts() {
 
             <form
               onSubmit={handleSave}
-              className="p-8 overflow-y-auto space-y-6"
+              className="p-8 overflow-y-auto space-y-8 bg-gray-50/50"
             >
               <div className="grid grid-cols-2 gap-6">
                 {/* Ürün Tipi Seçici */}
-                <div className="col-span-2 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-3">
+                <div className="col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                  <label className="block text-xs font-bold text-gray-400 uppercase mb-4">
                     Bu Ürün Nasıl Satılacak?
                   </label>
                   <div className="flex gap-4">
                     <label
-                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "SUBSCRIPTION" ? "border-purple-500 bg-purple-50" : "border-transparent bg-white shadow-sm"}`}
+                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "SUBSCRIPTION" ? "border-purple-500 bg-purple-50" : "border-gray-100 bg-white hover:border-gray-200"}`}
                     >
                       <input
                         type="radio"
@@ -527,7 +609,7 @@ export default function AdminProducts() {
                       </div>
                     </label>
                     <label
-                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "RETAIL" ? "border-indigo-500 bg-indigo-50" : "border-transparent bg-white shadow-sm"}`}
+                      className={`flex-1 flex items-center gap-3 p-4 rounded-xl cursor-pointer border-2 transition-all ${formData.type === "RETAIL" ? "border-indigo-500 bg-indigo-50" : "border-gray-100 bg-white hover:border-gray-200"}`}
                     >
                       <input
                         type="radio"
@@ -553,13 +635,13 @@ export default function AdminProducts() {
 
                 {/* 👇 YENİ: Kategori Seçimi (SADECE PERAKENDE İSE GÖRÜNÜR) */}
                 {formData.type === "RETAIL" && (
-                  <div className="col-span-2 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 animate-fade-in">
+                  <div className="col-span-2 bg-indigo-50 p-6 rounded-2xl border border-indigo-100 animate-fade-in">
                     <label className="block text-xs font-bold text-indigo-800 uppercase mb-2">
                       Ürün Kategorisi Seçin *
                     </label>
                     <select
                       required
-                      className="w-full bg-white border border-indigo-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-indigo-900"
+                      className="w-full bg-white border border-indigo-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-indigo-900 shadow-sm"
                       value={formData.categoryId}
                       onChange={(e) =>
                         setFormData({ ...formData, categoryId: e.target.value })
@@ -577,141 +659,247 @@ export default function AdminProducts() {
                   </div>
                 )}
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Ürün Adı
-                  </label>
-                  <input
-                    required
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-700"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    placeholder="Örn: Gurme Paketi veya Sarı Kedi Tasması"
-                  />
-                </div>
+                {/* TEMEL BİLGİLER */}
+                <div className="col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                  <h3 className="font-black text-gray-800 mb-2 border-b border-gray-100 pb-2">
+                    Temel Bilgiler
+                  </h3>
 
-                <div className="col-span-2 grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                      Normal Fiyat (₺) *
+                      Ürün Adı
                     </label>
                     <input
                       required
-                      type="number"
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-700"
-                      value={formData.price}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-900"
+                      value={formData.name}
                       onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
+                        setFormData({ ...formData, name: e.target.value })
                       }
-                      placeholder="150"
+                      placeholder="Örn: Gurme Paketi veya Sarı Kedi Tasması"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                      İndirimli Fiyat (₺){" "}
-                      <span className="text-purple-400 font-normal">
-                        (Opsiyonel)
-                      </span>
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-indigo-50/50 border border-indigo-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none font-black text-green-600 placeholder:text-gray-400"
-                      value={formData.discountedPrice}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          discountedPrice: e.target.value,
-                        })
-                      }
-                      placeholder="Örn: 99.90 (İndirim yoksa boş bırakın)"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Stok Adedi
-                  </label>
-                  <input
-                    required
-                    type="number"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-700"
-                    value={formData.stock}
-                    onChange={(e) =>
-                      setFormData({ ...formData, stock: e.target.value })
-                    }
-                    placeholder="100"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Paket Özellikleri (Virgülle Ayırın)
-                  </label>
-                  <textarea
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 font-medium min-h-[80px]"
-                    value={formData.features}
-                    onChange={(e) =>
-                      setFormData({ ...formData, features: e.target.value })
-                    }
-                    placeholder="Örn: 5 Adet Oyuncak, Doğal Mama, Ücretsiz Kargo, Veteriner Onaylı"
-                  />
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Görsel URL
-                  </label>
-                  <div className="flex gap-4">
-                    <input
-                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 text-sm"
-                      value={formData.image}
-                      onChange={(e) =>
-                        setFormData({ ...formData, image: e.target.value })
-                      }
-                      placeholder="https://..."
-                    />
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
-                      {formData.image && (
-                        <img
-                          src={formData.image}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                        Normal Fiyat (₺) *
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-900"
+                        value={formData.price}
+                        onChange={(e) =>
+                          setFormData({ ...formData, price: e.target.value })
+                        }
+                        placeholder="150"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                        İndirimli Fiyat (₺)
+                      </label>
+                      <input
+                        type="number"
+                        className="w-full bg-green-50 border border-green-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 outline-none font-black text-green-700 placeholder:text-green-300"
+                        value={formData.discountedPrice}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discountedPrice: e.target.value,
+                          })
+                        }
+                        placeholder="Opsiyonel"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                        Stok Adedi
+                      </label>
+                      <input
+                        required
+                        type="number"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none font-bold text-gray-900"
+                        value={formData.stock}
+                        onChange={(e) =>
+                          setFormData({ ...formData, stock: e.target.value })
+                        }
+                        placeholder="100"
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
-                    Kısa Açıklama (Alt Başlık)
-                  </label>
-                  <textarea
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-700 min-h-[80px]"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    placeholder="Ürün başlığının altında görünecek kısa açıklama..."
-                  />
+                {/* GÖRSELLER VE GALERİ (YENİ) */}
+                <div className="col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                  <h3 className="font-black text-gray-800 mb-2 border-b border-gray-100 pb-2 flex items-center gap-2">
+                    <span>📸</span> Görsel ve Galeri
+                  </h3>
+
+                  <div className="flex flex-col md:flex-row gap-8">
+                    {/* KAPAK GÖRSELİ */}
+                    <div className="w-full md:w-1/3">
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2 text-center">
+                        Ana Kapak Görseli
+                      </label>
+                      <label
+                        className={`relative block w-full aspect-square rounded-2xl border-2 border-dashed ${formData.image ? "border-purple-300" : "border-gray-300"} flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition overflow-hidden group`}
+                      >
+                        {formData.image ? (
+                          <>
+                            <img
+                              src={formData.image}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">
+                                Değiştir
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-3xl text-gray-300 mb-2">
+                              ⬆️
+                            </span>
+                            <span className="text-sm font-bold text-gray-400">
+                              Resim Seç
+                            </span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleSingleImageUpload}
+                          disabled={isUploadingSingle}
+                        />
+                        {isUploadingSingle && (
+                          <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                            <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        className="mt-3 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none text-gray-500"
+                        value={formData.image}
+                        onChange={(e) =>
+                          setFormData({ ...formData, image: e.target.value })
+                        }
+                        placeholder="veya URL yapıştır..."
+                      />
+                    </div>
+
+                    {/* ÇOKLU GALERİ */}
+                    <div className="w-full md:w-2/3">
+                      <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                        Ürün Galerisi (Birden fazla seçilebilir)
+                      </label>
+                      <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 h-full">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                          {/* Mevcut Resimler */}
+                          {formData.gallery.map((url, idx) => (
+                            <div
+                              key={idx}
+                              className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group bg-white"
+                            >
+                              <img
+                                src={url}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeGalleryImage(idx)}
+                                className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition shadow-lg transform hover:scale-110"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+
+                          {/* Yeni Yükleme Butonu */}
+                          <label className="aspect-square rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-purple-50 transition relative overflow-hidden">
+                            {isUploadingGallery ? (
+                              <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <>
+                                <span className="text-2xl text-gray-400">
+                                  +
+                                </span>
+                                <span className="text-[10px] font-bold text-gray-500 mt-1">
+                                  Ekle
+                                </span>
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleGalleryUpload}
+                              disabled={isUploadingGallery}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DETAYLAR */}
+                <div className="col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                  <h3 className="font-black text-gray-800 mb-2 border-b border-gray-100 pb-2">
+                    Açıklama ve Özellikler
+                  </h3>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                      Kısa Açıklama
+                    </label>
+                    <textarea
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-900 font-medium min-h-[80px]"
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Ürün detay sayfasında görünecek kısa ve etkili açıklama..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                      Maddeli Özellikler (Virgülle Ayırın)
+                    </label>
+                    <textarea
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-purple-500 outline-none text-gray-900 font-medium min-h-[80px]"
+                      value={formData.features}
+                      onChange={(e) =>
+                        setFormData({ ...formData, image: e.target.value })
+                      }
+                      placeholder="Örn: %100 Doğal İçerik, Veteriner Onaylı, Ücretsiz Kargo"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+              {/* FOOTER */}
+              <div className="pt-4 border-t border-gray-200 flex justify-end gap-3 sticky bottom-0 bg-gray-50/90 backdrop-blur-sm p-4 -mx-8 -mb-8 mt-4 rounded-b-3xl">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition"
+                  className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-3 rounded-xl font-bold bg-purple-600 text-white hover:bg-purple-700 transition shadow-lg shadow-purple-200"
+                  className="px-8 py-3 rounded-xl font-bold bg-purple-600 text-white hover:bg-purple-700 transition shadow-lg shadow-purple-200 text-lg"
                 >
-                  {editingProduct ? "Değişiklikleri Kaydet" : "Ürünü Oluştur"}
+                  {editingProduct
+                    ? "Değişiklikleri Kaydet"
+                    : "Ürünü Oluştur 🚀"}
                 </button>
               </div>
             </form>

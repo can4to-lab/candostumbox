@@ -4,6 +4,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 import NextImage from "next/image";
 
+// CONTEXT
+import { useCart } from "@/context/CartContext";
+
 // MODALLAR
 import LoginModal from "@/components/LoginModal";
 import RegisterModal from "@/components/RegisterModal";
@@ -86,10 +89,16 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // SEPET VERİLERİ (HİBRİT SİSTEM İÇİN)
+  const { items: cartItems, cartTotal, clearCart } = useCart();
+
+  // DOĞRUDAN ABONELİK URL PARAMETRELERİ
   const productId = searchParams.get("productId");
   const isUpgradeMode = searchParams.get("mode") === "upgrade";
   const oldSubId = searchParams.get("oldSubId");
   const extendSubId = searchParams.get("extendSubId");
+
+  const isDirectBuy = !!productId; // Eğer URL'de ürün varsa bu bir abonelik akışıdır
 
   // --- STATE ---
   const [product, setProduct] = useState<any>(null);
@@ -166,18 +175,22 @@ function CheckoutContent() {
   // --- VERİ ÇEKME ---
   useEffect(() => {
     const init = async () => {
-      if (!productId) {
-        toast.error("Ürün seçimi yapılmadı.");
-        router.push("/");
+      // Sepet boşsa ve doğrudan satın alma yoksa anasayfaya veya mağazaya at
+      if (!isDirectBuy && cartItems.length === 0) {
+        toast.error("Sepetiniz boş.");
+        router.push("/shop");
         return;
       }
+
       try {
-        const [prodRes, discRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${productId}`),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/discounts`),
-        ]);
-        if (prodRes.ok) setProduct(await prodRes.json());
-        if (discRes.ok) setDiscountRules(await discRes.json());
+        if (isDirectBuy) {
+          const [prodRes, discRes] = await Promise.all([
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${productId}`),
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/discounts`),
+          ]);
+          if (prodRes.ok) setProduct(await prodRes.json());
+          if (discRes.ok) setDiscountRules(await discRes.json());
+        }
 
         const token = localStorage.getItem("token");
         if (token) {
@@ -197,6 +210,7 @@ function CheckoutContent() {
       }
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, router]);
 
   const fetchPets = async (token: string) => {
@@ -219,9 +233,7 @@ function CheckoutContent() {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/users/addresses`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       if (res.ok) {
         const data = await res.json();
@@ -240,22 +252,20 @@ function CheckoutContent() {
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/profile`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (res.ok) {
-        setUserProfile(await res.json());
-      }
+      if (res.ok) setUserProfile(await res.json());
     } catch (e) {
       console.error(e);
     }
   };
 
+  // ParamPOS 3D Secure iframe/redirect dönüşü yakalama
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === "PARAM_PAYMENT_RESULT") {
         if (event.data.status === "success") {
+          clearCart(); // 🛒 Ödeme başarılıysa sepeti boşalt
           router.push(`/payment/success?orderId=${event.data.orderId}`);
         } else {
           toast.error(
@@ -266,53 +276,66 @@ function CheckoutContent() {
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [router]);
+  }, [router, clearCart]);
 
+  // HİBRİT FİYAT HESAPLAMA MANTIĞI
   const calculateTotal = () => {
-    if (!product)
-      return {
-        total: 0,
-        discountRate: 0,
-        monthlyPrice: 0,
-        rawTotal: 0,
-        subtotalAfterPlan: 0,
-        promoDiscountAmount: 0,
-        finalTotal: 0,
-      };
-    const basePrice = Number(product.price);
-    const totalRaw = basePrice * duration;
-    const rule = discountRules.find(
-      (d) => Number(d.durationMonths) === duration,
-    );
-    const discountRate = rule ? Number(rule.discountPercentage) : 0;
-    const subtotalAfterPlan = totalRaw - totalRaw * (discountRate / 100);
+    let subtotalAfterPlan = 0;
+    let totalRaw = 0;
+    let discountRate = 0;
+
+    // 1. Abonelik Hesabı (Varsa)
+    if (isDirectBuy && product) {
+      const basePrice = Number(product.price);
+      totalRaw = basePrice * duration;
+      const rule = discountRules.find(
+        (d) => Number(d.durationMonths) === duration,
+      );
+      discountRate = rule ? Number(rule.discountPercentage) : 0;
+      subtotalAfterPlan = totalRaw - totalRaw * (discountRate / 100);
+    }
+
+    // 2. Perakende Sepet Hesabı
+    const retailTotal = cartTotal || 0;
+
+    // 3. Toplamlar
+    const combinedSubtotal = subtotalAfterPlan + retailTotal;
+
+    // 4. İndirim Kuponu Hesabı
     let promoDiscountAmount = 0;
     if (appliedPromo) {
       if (appliedPromo.discountType === "percentage") {
         promoDiscountAmount =
-          (subtotalAfterPlan * Number(appliedPromo.discountValue)) / 100;
+          (combinedSubtotal * Number(appliedPromo.discountValue)) / 100;
       } else {
         promoDiscountAmount = Number(appliedPromo.discountValue);
       }
     }
+
     const finalTotal =
-      subtotalAfterPlan -
+      combinedSubtotal -
       promoDiscountAmount +
       (paymentMethod === "cash_on_delivery" ? COD_FEE : 0);
+
     return {
       rawTotal: totalRaw,
+      retailTotal,
       discountRate,
       subtotalAfterPlan,
+      combinedSubtotal,
       promoDiscountAmount,
       finalTotal,
-      monthlyPrice: finalTotal / duration,
+      monthlyPrice:
+        isDirectBuy && duration > 0 ? subtotalAfterPlan / duration : 0,
     };
   };
 
   const {
     rawTotal,
+    retailTotal,
     discountRate,
     subtotalAfterPlan,
+    combinedSubtotal,
     promoDiscountAmount,
     finalTotal,
   } = calculateTotal();
@@ -397,7 +420,7 @@ function CheckoutContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             code: promoCode,
-            basketAmount: subtotalAfterPlan,
+            basketAmount: combinedSubtotal,
           }),
         },
       );
@@ -427,6 +450,8 @@ function CheckoutContent() {
       toast.error("Lütfen sözleşmeyi onaylayın.");
       return;
     }
+
+    // GUEST (MİSAFİR) KONTROLLERİ
     if (isGuest) {
       if (
         !guestData.firstName ||
@@ -437,7 +462,7 @@ function CheckoutContent() {
         !guestData.city
       ) {
         toast.error(
-          "Lütfen e-posta dahil tüm iletişim ve adres bilgilerinizi eksiksiz doldurun.",
+          "Lütfen iletişim ve adres bilgilerinizi eksiksiz doldurun.",
         );
         return;
       }
@@ -446,24 +471,27 @@ function CheckoutContent() {
         toast.error("Lütfen geçerli bir e-posta adresi giriniz.");
         return;
       }
-      if (!guestPetData.name || !guestPetData.breed) {
+      // Pet bilgisi sadece doğrudan abonelik satın alınıyorsa zorunludur
+      if (isDirectBuy && (!guestPetData.name || !guestPetData.breed)) {
         toast.error("Lütfen dostunuzun adını ve ırkını giriniz.");
         return;
       }
     } else {
+      // ÜYE KONTROLLERİ
       if (!selectedAddressId) {
         toast.error(
           "Lütfen bir teslimat adresi seçin veya yeni adres ekleyin.",
         );
         return;
       }
-      if (!selectedPetId) {
+      if (isDirectBuy && !selectedPetId) {
         toast.error("Lütfen bir dost seçin veya yeni dost ekleyin.");
         return;
       }
     }
+
     const token = localStorage.getItem("token");
-    if (duration > 1 && !token) {
+    if (isDirectBuy && duration > 1 && !token) {
       toast.error(
         "Avantajlı paketleri satın alabilmek için lütfen ücretsiz kayıt olun veya giriş yapın.",
       );
@@ -487,9 +515,7 @@ function CheckoutContent() {
         );
         const decoded = JSON.parse(jsonPayload);
         finalUserId = decoded.sub || decoded.userId || decoded.id;
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) {}
     }
     if (!finalUserId && userProfile?.id) finalUserId = userProfile.id;
 
@@ -520,12 +546,17 @@ function CheckoutContent() {
             title: "Ev Adresim",
           };
 
-    const baseOrderItems = [
-      {
+    // HİBRİT PAYLOAD (SİPARİŞ İÇERİĞİ) OLUŞTURMA
+    const baseOrderItems: any[] = [];
+
+    // Eğer Abonelik varsa ekle
+    if (isDirectBuy && product) {
+      baseOrderItems.push({
         productId: product.id,
-        price: displayTotal,
+        price: displayTotal, // Backend'de güvenli şekilde yeniden hesaplanır
         quantity: 1,
         duration: duration,
+        type: "SUBSCRIPTION",
         petId: !isGuest ? selectedPetId : undefined,
         petName: isGuest
           ? guestPetData.name
@@ -538,9 +569,20 @@ function CheckoutContent() {
         petAllergies: isGuest ? guestPetData.allergies : undefined,
         upgradeFromSubId: isUpgradeMode ? oldSubId : undefined,
         subscriptionId: extendSubId || undefined,
-      },
-    ];
+      });
+    }
 
+    // Eğer Sepette Perakende ürün varsa ekle
+    cartItems.forEach((item) => {
+      baseOrderItems.push({
+        productId: item.productId,
+        price: item.price,
+        quantity: item.quantity || 1,
+        type: item.type || "RETAIL",
+      });
+    });
+
+    // 1. HAVALE VEYA KAPIDA ÖDEME
     if (paymentMethod !== "credit_card") {
       const directOrderPayload = {
         addressId:
@@ -551,6 +593,7 @@ function CheckoutContent() {
         items: baseOrderItems,
         promoCode: appliedPromo?.code || undefined,
       };
+
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
           method: "POST",
@@ -563,6 +606,7 @@ function CheckoutContent() {
         const data = await res.json();
         if (res.ok) {
           toast.success("Siparişiniz başarıyla alındı! 🎉");
+          clearCart(); // 🛒 Sepeti Boşalt
           router.push(
             `/payment/success?orderId=${data.orderId || data.id || "basarili"}`,
           );
@@ -577,6 +621,7 @@ function CheckoutContent() {
       return;
     }
 
+    // 2. KREDİ KARTI (PARAM POS 3D SECURE)
     const payload = {
       price: displayTotal,
       installment: selectedInstallmentObj
@@ -641,11 +686,10 @@ function CheckoutContent() {
     setIsAddPetModalOpen(false);
   };
 
-  // PREMIUM SKELETON LOADER
   if (loadingProduct)
     return (
       <div className="min-h-screen bg-[#F9FAFB] flex flex-col items-center justify-center space-y-6">
-        <div className="w-16 h-16 border-4 border-gray-200 border-t-green-500 rounded-full animate-spin"></div>
+        <div className="w-16 h-16 border-4 border-gray-200 border-t-[#ff6000] rounded-full animate-spin"></div>
         <p className="text-gray-500 font-medium animate-pulse tracking-widest uppercase text-sm">
           Güvenli Ödeme Hazırlanıyor...
         </p>
@@ -662,6 +706,8 @@ function CheckoutContent() {
       {title}
     </h2>
   );
+
+  let stepCounter = 1;
 
   return (
     <>
@@ -726,295 +772,311 @@ function CheckoutContent() {
           <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 lg:gap-12 relative">
             {/* SOL TARAF: FORMLAR */}
             <div className="lg:col-span-7 xl:col-span-8 space-y-8 order-last lg:order-first">
-              {/* BÖLÜM 1: PLAN */}
-              <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up">
-                <StepBadge num="1" title="Abonelik Planı" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[1, 3, 6, 12].map((m) => {
-                    const rule = discountRules.find(
-                      (d) => Number(d.durationMonths) === m,
-                    );
-                    const discount = rule ? rule.discountPercentage : 0;
-                    const isSelected = duration === m;
-                    const isLocked = m > 1 && !isLoggedIn;
-                    const cost =
-                      (Number(product.price) *
-                        m *
-                        (1 - Number(discount) / 100)) /
-                      m;
+              {/* BÖLÜM 1: PLAN (Sadece Abonelik Varsa Göster) */}
+              {isDirectBuy && (
+                <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up">
+                  <StepBadge
+                    num={String(stepCounter++)}
+                    title="Abonelik Planı"
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[1, 3, 6, 12].map((m) => {
+                      const rule = discountRules.find(
+                        (d) => Number(d.durationMonths) === m,
+                      );
+                      const discount = rule ? rule.discountPercentage : 0;
+                      const isSelected = duration === m;
+                      const isLocked = m > 1 && !isLoggedIn;
+                      const cost =
+                        (Number(product.price) *
+                          m *
+                          (1 - Number(discount) / 100)) /
+                        m;
 
-                    return (
-                      <div
-                        key={m}
-                        onClick={() => {
-                          if (isLocked) {
-                            toast.custom(
-                              (t) => (
-                                <div className="bg-white p-4 rounded-2xl shadow-xl border-l-4 border-blue-500 flex flex-col gap-2">
-                                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                                    🎁 Üyelere Özel Fırsat
-                                  </h3>
-                                  <p className="text-sm text-gray-500 font-medium">
-                                    Bu avantajlı planı seçmek için lütfen
-                                    ücretsiz kayıt olun.
-                                  </p>
-                                </div>
-                              ),
-                              { duration: 4000 },
-                            );
-                            setRegisterOpen(true);
-                          } else {
-                            setDuration(m);
-                          }
-                        }}
-                        className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 flex items-center justify-between overflow-hidden group
-                          ${isSelected ? "border-green-500 bg-green-50/50 shadow-md ring-4 ring-green-500/10" : "border-gray-100 hover:border-green-300 hover:bg-gray-50"}
-                        `}
-                      >
-                        {isLocked && (
-                          <div className="absolute top-3 right-3 text-gray-400 bg-gray-100 p-1.5 rounded-lg text-[10px] font-black flex items-center gap-1 uppercase tracking-widest">
-                            <LockIcon /> Kilitli
-                          </div>
-                        )}
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span
-                              className={`text-xl font-black ${isLocked ? "text-gray-400" : "text-gray-900"}`}
-                            >
-                              {m} Aylık
-                            </span>
-                            {Number(discount) > 0 && (
-                              <span className="bg-gradient-to-r from-orange-400 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wider">
-                                %{discount} Kar
+                      return (
+                        <div
+                          key={m}
+                          onClick={() => {
+                            if (isLocked) {
+                              toast.custom(
+                                (t) => (
+                                  <div className="bg-white p-4 rounded-2xl shadow-xl border-l-4 border-blue-500 flex flex-col gap-2">
+                                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                      🎁 Üyelere Özel Fırsat
+                                    </h3>
+                                    <p className="text-sm text-gray-500 font-medium">
+                                      Bu avantajlı planı seçmek için lütfen
+                                      ücretsiz kayıt olun.
+                                    </p>
+                                  </div>
+                                ),
+                                { duration: 4000 },
+                              );
+                              setRegisterOpen(true);
+                            } else {
+                              setDuration(m);
+                            }
+                          }}
+                          className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 flex items-center justify-between overflow-hidden group
+                            ${isSelected ? "border-green-500 bg-green-50/50 shadow-md ring-4 ring-green-500/10" : "border-gray-100 hover:border-green-300 hover:bg-gray-50"}
+                          `}
+                        >
+                          {isLocked && (
+                            <div className="absolute top-3 right-3 text-gray-400 bg-gray-100 p-1.5 rounded-lg text-[10px] font-black flex items-center gap-1 uppercase tracking-widest">
+                              <LockIcon /> Kilitli
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span
+                                className={`text-xl font-black ${isLocked ? "text-gray-400" : "text-gray-900"}`}
+                              >
+                                {m} Aylık
                               </span>
+                              {Number(discount) > 0 && (
+                                <span className="bg-gradient-to-r from-orange-400 to-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wider">
+                                  %{discount} Kar
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500 font-medium">
+                              Aylık Sadece{" "}
+                              <span
+                                className={`font-black text-lg ${isSelected ? "text-green-600" : "text-gray-900"}`}
+                              >
+                                ₺{cost.toFixed(0)}
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            className={`w-6 h-6 rounded-full border-[3px] flex items-center justify-center transition-colors ${isSelected ? "border-green-500 bg-white" : "border-gray-200 group-hover:border-green-300"}`}
+                          >
+                            {isSelected && (
+                              <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-fade-in"></div>
                             )}
                           </div>
-                          <div className="text-sm text-gray-500 font-medium">
-                            Aylık Sadece{" "}
-                            <span
-                              className={`font-black text-lg ${isSelected ? "text-green-600" : "text-gray-900"}`}
-                            >
-                              ₺{cost.toFixed(0)}
-                            </span>
-                          </div>
                         </div>
-                        <div
-                          className={`w-6 h-6 rounded-full border-[3px] flex items-center justify-center transition-colors ${isSelected ? "border-green-500 bg-white" : "border-gray-200 group-hover:border-green-300"}`}
-                        >
-                          {isSelected && (
-                            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-fade-in"></div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* BÖLÜM 2: DOST BİLGİLERİ (Sadece Abonelik Varsa Göster) */}
+              {isDirectBuy && (
+                <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up delay-75">
+                  <div className="flex justify-between items-center mb-6">
+                    <StepBadge
+                      num={String(stepCounter++)}
+                      title="Paket Kimin İçin?"
+                    />
+                    {!isGuest && (
+                      <button
+                        onClick={() => setIsAddPetModalOpen(true)}
+                        className="text-xs font-black text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 px-4 py-2.5 rounded-xl transition-all border border-blue-100 uppercase tracking-widest"
+                      >
+                        + Yeni Dost
+                      </button>
+                    )}
+                  </div>
+
+                  {!isGuest ? (
+                    myPets.length > 0 ? (
+                      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
+                        {myPets.map((pet) => (
+                          <button
+                            key={pet.id}
+                            onClick={() => setSelectedPetId(pet.id)}
+                            className={`px-8 py-5 rounded-2xl border-2 font-bold text-sm whitespace-nowrap transition-all duration-300 flex flex-col items-center gap-2 min-w-[130px] 
+                              ${selectedPetId === pet.id ? "border-green-500 bg-green-50 text-green-700 shadow-md ring-4 ring-green-500/10 scale-105" : "border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50"}
+                            `}
+                          >
+                            <span className="text-3xl">
+                              {pet.type === "kopek"
+                                ? "🐶"
+                                : pet.type === "kedi"
+                                  ? "🐱"
+                                  : "🐾"}
+                            </span>
+                            <span className="tracking-wide">{pet.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all group"
+                        onClick={() => setIsAddPetModalOpen(true)}
+                      >
+                        <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
+                          🐾
+                        </div>
+                        <p className="font-bold text-gray-600">
+                          Sistemde kayıtlı dostunuz yok.
+                        </p>
+                        <p className="text-sm text-gray-400 font-medium mt-1">
+                          Hemen eklemek için tıklayın.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+                      <div className="grid grid-cols-3 gap-3 mb-5 font-bold">
+                        {["kopek", "kedi"].map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => {
+                              setGuestPetData({ ...guestPetData, type: t });
+                              setIsOtherOpen(false);
+                            }}
+                            className={`w-full py-3 rounded-xl border-2 transition-all flex flex-col md:flex-row items-center justify-center gap-2 text-sm
+                              ${guestPetData.type === t ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"}`}
+                          >
+                            <span className="text-xl">
+                              {t === "kopek" ? "🐶" : "🐱"}
+                            </span>
+                            <span className="capitalize">
+                              {t === "kopek" ? "Köpek" : "Kedi"}
+                            </span>
+                          </button>
+                        ))}
+                        <div className="relative w-full">
+                          <button
+                            type="button"
+                            onClick={() => setIsOtherOpen(!isOtherOpen)}
+                            className={`w-full h-full px-4 rounded-xl border-2 transition-all flex items-center justify-between text-sm
+                              ${!["kopek", "kedi"].includes(guestPetData.type) ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"}`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-xl">
+                                {!["kopek", "kedi"].includes(guestPetData.type)
+                                  ? getGuestOtherIcon()
+                                  : "🦜"}
+                              </span>
+                              <span className="truncate capitalize">
+                                {!["kopek", "kedi"].includes(guestPetData.type)
+                                  ? guestPetData.type
+                                  : "Diğer"}
+                              </span>
+                            </div>
+                            <span className="text-[10px]">▼</span>
+                          </button>
+                          {isOtherOpen && (
+                            <div className="absolute top-full right-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden min-w-[120px] animate-fade-in">
+                              {Object.keys(OTHER_ICONS).map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => {
+                                    setGuestPetData({
+                                      ...guestPetData,
+                                      type: t,
+                                    });
+                                    setIsOtherOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-bold text-gray-600 border-b border-gray-50 last:border-0 flex items-center gap-3 text-sm transition-colors"
+                                >
+                                  <span className="text-lg">
+                                    {OTHER_ICONS[t]}
+                                  </span>{" "}
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* BÖLÜM 2: DOST BİLGİLERİ */}
-              <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up delay-75">
-                <div className="flex justify-between items-center mb-6">
-                  <StepBadge num="2" title="Paket Kimin İçin?" />
-                  {!isGuest && (
-                    <button
-                      onClick={() => setIsAddPetModalOpen(true)}
-                      className="text-xs font-black text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 px-4 py-2.5 rounded-xl transition-all border border-blue-100 uppercase tracking-widest"
-                    >
-                      + Yeni Dost
-                    </button>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <input
+                          type="text"
+                          value={guestPetData.name}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              name: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Dostunun Adı"
+                        />
+                        <input
+                          type="text"
+                          value={guestPetData.breed}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              breed: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Irkı"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <input
+                          type="date"
+                          value={guestPetData.birthDate}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              birthDate: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                        />
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={guestPetData.weight}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              weight: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Kilosu (Kg)"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <select
+                          value={guestPetData.isNeutered}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              isNeutered: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                        >
+                          <option value="false">Kısırlaştırılmadı</option>
+                          <option value="true">Kısırlaştırıldı</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={guestPetData.allergies}
+                          onChange={(e) =>
+                            setGuestPetData({
+                              ...guestPetData,
+                              allergies: e.target.value,
+                            })
+                          }
+                          className={inputClass}
+                          placeholder="Varsa Alerjileri"
+                        />
+                      </div>
+                    </div>
                   )}
-                </div>
+                </section>
+              )}
 
-                {!isGuest ? (
-                  myPets.length > 0 ? (
-                    <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
-                      {myPets.map((pet) => (
-                        <button
-                          key={pet.id}
-                          onClick={() => setSelectedPetId(pet.id)}
-                          className={`px-8 py-5 rounded-2xl border-2 font-bold text-sm whitespace-nowrap transition-all duration-300 flex flex-col items-center gap-2 min-w-[130px] 
-                            ${selectedPetId === pet.id ? "border-green-500 bg-green-50 text-green-700 shadow-md ring-4 ring-green-500/10 scale-105" : "border-gray-100 text-gray-500 hover:border-gray-300 hover:bg-gray-50"}
-                          `}
-                        >
-                          <span className="text-3xl">
-                            {pet.type === "kopek"
-                              ? "🐶"
-                              : pet.type === "kedi"
-                                ? "🐱"
-                                : "🐾"}
-                          </span>
-                          <span className="tracking-wide">{pet.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all group"
-                      onClick={() => setIsAddPetModalOpen(true)}
-                    >
-                      <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
-                        🐾
-                      </div>
-                      <p className="font-bold text-gray-600">
-                        Sistemde kayıtlı dostunuz yok.
-                      </p>
-                      <p className="text-sm text-gray-400 font-medium mt-1">
-                        Hemen eklemek için tıklayın.
-                      </p>
-                    </div>
-                  )
-                ) : (
-                  <div className="bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
-                    <div className="grid grid-cols-3 gap-3 mb-5 font-bold">
-                      {["kopek", "kedi"].map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => {
-                            setGuestPetData({ ...guestPetData, type: t });
-                            setIsOtherOpen(false);
-                          }}
-                          className={`w-full py-3 rounded-xl border-2 transition-all flex flex-col md:flex-row items-center justify-center gap-2 text-sm
-                            ${guestPetData.type === t ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"}`}
-                        >
-                          <span className="text-xl">
-                            {t === "kopek" ? "🐶" : "🐱"}
-                          </span>
-                          <span className="capitalize">
-                            {t === "kopek" ? "Köpek" : "Kedi"}
-                          </span>
-                        </button>
-                      ))}
-                      <div className="relative w-full">
-                        <button
-                          type="button"
-                          onClick={() => setIsOtherOpen(!isOtherOpen)}
-                          className={`w-full h-full px-4 rounded-xl border-2 transition-all flex items-center justify-between text-sm
-                            ${!["kopek", "kedi"].includes(guestPetData.type) ? "border-green-500 bg-white text-green-700 shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:bg-gray-50"}`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="text-xl">
-                              {!["kopek", "kedi"].includes(guestPetData.type)
-                                ? getGuestOtherIcon()
-                                : "🦜"}
-                            </span>
-                            <span className="truncate capitalize">
-                              {!["kopek", "kedi"].includes(guestPetData.type)
-                                ? guestPetData.type
-                                : "Diğer"}
-                            </span>
-                          </div>
-                          <span className="text-[10px]">▼</span>
-                        </button>
-                        {isOtherOpen && (
-                          <div className="absolute top-full right-0 w-full mt-2 bg-white border border-gray-100 shadow-xl rounded-xl z-20 overflow-hidden min-w-[120px] animate-fade-in">
-                            {Object.keys(OTHER_ICONS).map((t) => (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => {
-                                  setGuestPetData({ ...guestPetData, type: t });
-                                  setIsOtherOpen(false);
-                                }}
-                                className="w-full text-left px-4 py-3 hover:bg-green-50 hover:text-green-700 font-bold text-gray-600 border-b border-gray-50 last:border-0 flex items-center gap-3 text-sm transition-colors"
-                              >
-                                <span className="text-lg">
-                                  {OTHER_ICONS[t]}
-                                </span>{" "}
-                                {t}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <input
-                        type="text"
-                        value={guestPetData.name}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            name: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                        placeholder="Dostunun Adı"
-                      />
-                      <input
-                        type="text"
-                        value={guestPetData.breed}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            breed: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                        placeholder="Irkı"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <input
-                        type="date"
-                        value={guestPetData.birthDate}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            birthDate: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                      />
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={guestPetData.weight}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            weight: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                        placeholder="Kilosu (Kg)"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <select
-                        value={guestPetData.isNeutered}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            isNeutered: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                      >
-                        <option value="false">Kısırlaştırılmadı</option>
-                        <option value="true">Kısırlaştırıldı</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={guestPetData.allergies}
-                        onChange={(e) =>
-                          setGuestPetData({
-                            ...guestPetData,
-                            allergies: e.target.value,
-                          })
-                        }
-                        className={inputClass}
-                        placeholder="Varsa Alerjileri"
-                      />
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* BÖLÜM 3: ADRES */}
+              {/* BÖLÜM 3: ADRES (Her Zaman Göster) */}
               <section className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up delay-150">
                 <div className="flex justify-between items-center mb-6">
-                  <StepBadge num="3" title="Teslimat Bilgileri" />
+                  <StepBadge
+                    num={String(stepCounter++)}
+                    title="Teslimat Bilgileri"
+                  />
                   {!isGuest && (
                     <button
                       onClick={() => setIsAddressModalOpen(true)}
@@ -1144,12 +1206,15 @@ function CheckoutContent() {
                 )}
               </section>
 
-              {/* BÖLÜM 4: ÖDEME FORMU */}
+              {/* BÖLÜM 4: ÖDEME FORMU (Her Zaman Göster) */}
               <section
                 className="bg-white rounded-[2rem] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 animate-fade-in-up delay-200"
                 id="payment-area"
               >
-                <StepBadge num="4" title="Ödeme Bilgileri" />
+                <StepBadge
+                  num={String(stepCounter++)}
+                  title="Ödeme Bilgileri"
+                />
 
                 <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-6 space-y-6 relative overflow-hidden">
                   {isPaymentLoading && (
@@ -1467,11 +1532,9 @@ function CheckoutContent() {
                   {!isPaymentLoading && (
                     <div className="absolute inset-0 w-1/2 h-full bg-white/20 skew-x-[-25deg] -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                   )}
-
                   <span className="relative z-10 flex items-center gap-3 uppercase tracking-widest">
                     {isPaymentLoading ? (
                       <>
-                        {" "}
                         <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>{" "}
                         İşleminiz Yapılıyor...{" "}
                       </>
@@ -1497,30 +1560,79 @@ function CheckoutContent() {
                   <h3 className="font-black text-gray-900 text-lg uppercase tracking-widest mb-6">
                     Sipariş Özeti
                   </h3>
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden p-2">
-                      {product?.image ? (
-                        <NextImage
-                          src={product.image}
-                          alt={product.name}
-                          fill
-                          className="object-contain p-2"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-3xl">
-                          🎁
-                        </div>
-                      )}
+
+                  {/* Abonelik Ürünü (Varsa) */}
+                  {isDirectBuy && product && (
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-20 h-20 bg-white rounded-2xl shadow-sm border border-gray-200 relative overflow-hidden p-2 flex-shrink-0">
+                        {product.image ? (
+                          <NextImage
+                            src={product.image}
+                            alt={product.name}
+                            fill
+                            className="object-contain p-2"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-3xl">
+                            🎁
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-black text-gray-900 text-base leading-tight mb-1">
+                          {product.name}
+                        </h4>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-200/50 inline-block px-2 py-1 rounded-md">
+                          {duration} Aylık Plan
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-black text-gray-900 text-base leading-tight mb-1">
-                        {product?.name}
+                  )}
+
+                  {/* Sepetteki Perakende Ürünler (Varsa) */}
+                  {cartItems.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">
+                        Sepetteki Ürünler
                       </h4>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider bg-gray-200/50 inline-block px-2 py-1 rounded-md">
-                        {duration} Aylık Plan
-                      </p>
+                      <div className="space-y-3">
+                        {cartItems.map((item) => (
+                          <div
+                            key={item.uniqueId}
+                            className="flex justify-between items-center text-sm bg-white p-3 rounded-xl border border-gray-100 shadow-sm"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gray-50 rounded-lg relative overflow-hidden border border-gray-100">
+                                {item.image ? (
+                                  <NextImage
+                                    src={item.image}
+                                    fill
+                                    className="object-cover"
+                                    alt=""
+                                  />
+                                ) : (
+                                  <span className="text-xl flex items-center justify-center h-full">
+                                    🛍️
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-bold text-gray-900 line-clamp-1">
+                                  {item.productName}
+                                </span>
+                                <span className="text-xs text-gray-500 font-medium">
+                                  {item.quantity} Adet
+                                </span>
+                              </div>
+                            </div>
+                            <span className="font-black text-gray-900">
+                              ₺{(item.price * (item.quantity || 1)).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="p-6 md:p-8">
@@ -1563,9 +1675,9 @@ function CheckoutContent() {
                   {/* Fiyat Satırları */}
                   <div className="space-y-4 mb-8">
                     <div className="flex justify-between text-sm font-medium text-gray-500">
-                      <span>Ara Toplam ({duration} Ay)</span>
+                      <span>Ara Toplam</span>
                       <span className="font-bold text-gray-900">
-                        ₺{rawTotal.toFixed(2)}
+                        ₺{(rawTotal + retailTotal).toFixed(2)}
                       </span>
                     </div>
                     {Number(discountRate) > 0 && (

@@ -38,6 +38,9 @@ export class Product {
   @Column({ nullable: true })
   image: string;
 
+  @Column("simple-array", { nullable: true })
+  gallery: string[];
+
   @Column({ default: 0 })
   stock: number;
 

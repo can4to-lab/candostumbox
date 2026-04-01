@@ -3,10 +3,16 @@ import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+// 🛒 SEPET İÇİN EKLENDİ
+import { useCart } from "@/context/CartContext";
+
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
+
+  // 🛒 SEPET FONKSİYONUNU ÇAĞIRDIK
+  const { clearCart } = useCart();
 
   useEffect(() => {
     // 🛠️ IFRAME'DEN KURTARMA KODU (Güvenlik Katmanı)
@@ -17,6 +23,10 @@ function SuccessContent() {
     ) {
       window.top.location.href = window.location.href;
     }
+
+    // 🧹 MÜŞTERİ BU SAYFAYA ULAŞTIYSA ÖDEME BAŞARILIDIR, SEPETİ TEMİZLE
+    clearCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

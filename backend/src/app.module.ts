@@ -16,6 +16,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { PromoCodesModule } from './promo-codes/promo-codes.module';
 import { InstagramModule } from './instagram/instagram.module';
 import { CategoriesModule } from './categories/categories.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CategoriesModule } from './categories/categories.module';
     ReviewsModule,
     PromoCodesModule,
     InstagramModule,
+    UploadModule,
   ],
 })
 export class AppModule {}
