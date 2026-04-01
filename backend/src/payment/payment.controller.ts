@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Req, Res, HttpStatus } from '@nestjs/common';
 import { PaymentService } from './payment.service';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 
 @Controller('payment')
 export class PaymentController {

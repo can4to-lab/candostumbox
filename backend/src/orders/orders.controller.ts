@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, UseGuards, Req, Patch, Param, Unauthorized
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 @Controller('orders')
 export class OrdersController {
