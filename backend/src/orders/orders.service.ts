@@ -375,7 +375,25 @@ export class OrdersService {
       }
     }
 
-    let finalTotal = Math.max(0, subtotal - upgradeDiscount); 
+    let finalTotal = subtotal; // 👈 Sadece sepet toplamını al
+
+    // 1. ÖNCE KUPONU UYGULA
+    if (promoCodeStr) {
+      try {
+        const promo = await this.promoCodesService.validateCode(promoCodeStr, finalTotal, userId); 
+
+        if (promo.discountType === 'percentage') {
+          finalTotal -= (finalTotal * Number(promo.discountValue)) / 100; 
+        } else {
+          finalTotal -= Number(promo.discountValue);
+        }
+      } catch (error) {
+        throw new BadRequestException('Geçersiz veya süresi dolmuş promosyon kodu kullanıldı.');
+      }
+    }
+        
+    // 2. SONRA YÜKSELTME (UPGRADE) İADESİNİ DÜŞ
+    finalTotal = Math.max(0, finalTotal - upgradeDiscount);
 
     if (promoCodeStr) {
       try {

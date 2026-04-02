@@ -108,7 +108,7 @@ function ShopContent() {
     <main className="min-h-screen bg-[#FFFDF9] pt-28 pb-32 font-sans">
       <Toaster position="bottom-center" />
 
-      <div className="fixed top-[72px] left-0 w-full z-30 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center py-2.5 px-4 text-xs sm:text-sm font-black tracking-widest shadow-md flex items-center justify-center gap-2 animate-fade-in">
+      <div className="fixed top-24 left-0 w-full z-30 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center py-2.5 px-4 text-xs sm:text-sm font-black tracking-widest shadow-md flex items-center justify-center gap-2 animate-fade-in">
         <span className="text-lg">🚚</span> 500 TL VE ÜZERİ PERAKENDE
         SİPARİŞLERİNİZDE KARGO ÜCRETSİZ!
       </div>
