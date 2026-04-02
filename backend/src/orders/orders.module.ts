@@ -11,6 +11,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DiscountsModule } from '../discounts/discounts.module';
 import { PromoCodesModule } from '../promo-codes/promo-codes.module';
 import { MailModule } from '../mail/mail.module'; // 👈 EKSİK OLAN MAIL MODÜLÜ EKLENDİ
+import { Product } from '../products/entities/product.entity';
+import { Discount } from '../discounts/entities/discount.entity';
+import { PromoCode } from '../promo-codes/entities/promo-code.entity';
 
 @Module({
   imports: [
@@ -26,6 +29,7 @@ import { MailModule } from '../mail/mail.module'; // 👈 EKSİK OLAN MAIL MODÜ
         signOptions: { expiresIn: '1d' },
       }),
     }),
+    TypeOrmModule.forFeature([Product, Discount, PromoCode]),
     DiscountsModule,
     HttpModule, 
   ],

@@ -108,6 +108,11 @@ function ShopContent() {
     <main className="min-h-screen bg-[#FFFDF9] pt-28 pb-32 font-sans">
       <Toaster position="bottom-center" />
 
+      <div className="fixed top-[72px] left-0 w-full z-30 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center py-2.5 px-4 text-xs sm:text-sm font-black tracking-widest shadow-md flex items-center justify-center gap-2 animate-fade-in">
+        <span className="text-lg">🚚</span> 500 TL VE ÜZERİ PERAKENDE
+        SİPARİŞLERİNİZDE KARGO ÜCRETSİZ!
+      </div>
+
       {/* SICAK VE SAMİMİ HERO ALANI */}
       <section className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-16 mb-12">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-orange-50 p-8 md:p-12 rounded-[2rem] border border-orange-100">

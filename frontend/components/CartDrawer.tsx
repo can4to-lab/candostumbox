@@ -21,6 +21,27 @@ export default function CartDrawer() {
     router.push("/checkout");
   };
 
+  // 👇 YENİ KARGO HESAPLAMA MANTIĞI 👇
+  const SHIPPING_THRESHOLD = 500;
+  const SHIPPING_FEE = 125;
+
+  // Sadece perakende ürünlerin toplamını bul (Abonelikler zaten ücretsiz kargoludur)
+  const retailTotal = items
+    .filter((item) => item.type === "RETAIL")
+    .reduce(
+      (total, item) => total + Number(item.price) * (item.quantity || 1),
+      0,
+    );
+
+  const hasSubscription = items.some((item) => item.type === "SUBSCRIPTION");
+  const amountLeft = Math.max(0, SHIPPING_THRESHOLD - retailTotal);
+  const progress = Math.min(100, (retailTotal / SHIPPING_THRESHOLD) * 100);
+
+  // Kargo ücretli mi? (Abonelik yoksa ve perakende toplamı 500'den küçükse, ama sepet de boş değilse)
+  const requiresShippingFee =
+    !hasSubscription && retailTotal > 0 && retailTotal < SHIPPING_THRESHOLD;
+  // 👆 -------------------------------- 👆
+
   return (
     <Transition.Root show={isCartOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={toggleCart}>
@@ -81,6 +102,36 @@ export default function CartDrawer() {
                         </svg>
                       </button>
                     </div>
+
+                    {/* 👇 KARGO İLERLEME ÇUBUĞU 👇 */}
+                    {!hasSubscription && retailTotal > 0 && (
+                      <div className="bg-white px-6 py-4 border-b border-gray-100">
+                        <div className="flex justify-between items-end mb-2">
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                            Kargo Durumu
+                          </p>
+                          <p
+                            className={`text-sm font-black ${amountLeft === 0 ? "text-green-500" : "text-orange-500"}`}
+                          >
+                            {amountLeft === 0
+                              ? "🎉 KARGO BEDAVA"
+                              : `${amountLeft.toFixed(2)} TL Kaldı`}
+                          </p>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 rounded-full transition-all duration-700 ${amountLeft === 0 ? "bg-green-500" : "bg-orange-500"}`}
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                        </div>
+                        {amountLeft > 0 && (
+                          <p className="text-[10px] font-medium text-gray-400 mt-2 text-center">
+                            Sepete biraz daha ürün ekleyin, kargo ücreti
+                            ödemeyin!
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* ÇEKMECE İÇERİĞİ */}
                     <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8 custom-scrollbar">

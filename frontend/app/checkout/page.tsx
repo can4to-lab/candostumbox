@@ -284,7 +284,7 @@ function CheckoutContent() {
     let totalRaw = 0;
     let discountRate = 0;
 
-    // 1. Abonelik Hesabı (Varsa)
+    // 1. Abonelik Hesabı
     if (isDirectBuy && product) {
       const basePrice = Number(product.price);
       totalRaw = basePrice * duration;
@@ -312,9 +312,21 @@ function CheckoutContent() {
       }
     }
 
+    // 👇 KARGO ÜCRETİ HESAPLAMASI 👇
+    const SHIPPING_THRESHOLD = 500;
+    const SHIPPING_FEE = 125; // Kargo ücretini buradan değiştirebilirsin
+
+    const hasSubscription =
+      (isDirectBuy && product) ||
+      cartItems.some((i) => i.type === "SUBSCRIPTION");
+    const requiresShippingFee =
+      !hasSubscription && retailTotal > 0 && retailTotal < SHIPPING_THRESHOLD;
+    const shippingCost = requiresShippingFee ? SHIPPING_FEE : 0;
+
     const finalTotal =
       combinedSubtotal -
       promoDiscountAmount +
+      shippingCost +
       (paymentMethod === "cash_on_delivery" ? COD_FEE : 0);
 
     return {
@@ -324,6 +336,7 @@ function CheckoutContent() {
       subtotalAfterPlan,
       combinedSubtotal,
       promoDiscountAmount,
+      shippingCost, // Geri dönüş değerine eklendi
       finalTotal,
       monthlyPrice:
         isDirectBuy && duration > 0 ? subtotalAfterPlan / duration : 0,
@@ -337,6 +350,7 @@ function CheckoutContent() {
     subtotalAfterPlan,
     combinedSubtotal,
     promoDiscountAmount,
+    shippingCost,
     finalTotal,
   } = calculateTotal();
   const displayTotal =
@@ -1714,9 +1728,15 @@ function CheckoutContent() {
                       )}
                     <div className="flex justify-between text-sm font-medium text-gray-500">
                       <span>Kargo Ücreti</span>
-                      <span className="font-black text-green-600 uppercase tracking-wider">
-                        Bedava
-                      </span>
+                      {shippingCost > 0 ? (
+                        <span className="font-bold text-gray-900">
+                          +₺{shippingCost.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="font-black text-green-600 uppercase tracking-wider">
+                          Bedava
+                        </span>
+                      )}
                     </div>
                   </div>
 
