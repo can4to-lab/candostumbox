@@ -567,7 +567,7 @@ function CheckoutContent() {
     if (isDirectBuy && product) {
       baseOrderItems.push({
         productId: product.id,
-        price: displayTotal, // Backend'de güvenli şekilde yeniden hesaplanır
+        price: Number(displayTotal), // Backend'de güvenli şekilde yeniden hesaplanır
         quantity: 1,
         duration: duration,
         type: "SUBSCRIPTION",
@@ -590,7 +590,7 @@ function CheckoutContent() {
     cartItems.forEach((item) => {
       baseOrderItems.push({
         productId: item.productId,
-        price: item.price,
+        price: Number(item.price),
         quantity: item.quantity || 1,
         type: item.type || "RETAIL",
       });
